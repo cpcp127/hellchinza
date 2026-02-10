@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "653854656096",
+    "project_id": "hellchinza",
+    "storage_bucket": "hellchinza.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:653854656096:android:885fdb7d7ee12bb0756505",
+        "android_client_info": {
+          "package_name": "com.cjy.hellchinza"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "653854656096-6bvfkqmt9sr7t35pmehqva9b0q86sofq.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.cjy.hellchinza",
+            "certificate_hash": "27eb0c5767f215c8e26b38db6c1aededd66ebce7"
+          }
+        },
+        {
+          "client_id": "653854656096-6c0utr2mks1reius9re1k4bd05tl7gnj.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAzhp5FASXpMw3MJ05mPtzEyMiItuAAkBM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "653854656096-6c0utr2mks1reius9re1k4bd05tl7gnj.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "653854656096-gf7esoohrv96hvmb8u9hd9j86pr66sde.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.cjy.hellchinza"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
