@@ -16,123 +16,62 @@ class MeetLightningListView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    final meetRef = FirebaseFirestore.instance.collection('meets').doc(meetId);
+    final query = FirebaseFirestore.instance
+        .collection('meets')
+        .doc(meetId)
+        .collection('lightnings')
+        .where('status', isEqualTo: 'open')
+        .orderBy('dateTime', descending: false);
 
-    if (uid == null) {
-      return Scaffold(
-        appBar: AppBar(
-          title: Text('번개 전체보기', style: AppTextStyle.titleMediumBoldStyle),
-        ),
-        body: Center(
-          child: Text(
-            '로그인이 필요합니다',
-            style: AppTextStyle.bodyMediumStyle.copyWith(
-              color: AppColors.textSecondary,
-            ),
-          ),
-        ),
-      );
-    }
-
-    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-      stream: meetRef.snapshots(),
-      builder: (context, snap) {
-        if (!snap.hasData) {
-          return Scaffold(
-            appBar: AppBar(
-              title: Text('번개 전체보기', style: AppTextStyle.titleMediumBoldStyle),
-            ),
-            body: const Center(child: CircularProgressIndicator()),
-          );
-        }
-
-        final data = snap.data!.data();
-        if (data == null) {
-          return Scaffold(
-            appBar: AppBar(
-              title: Text('번개 전체보기', style: AppTextStyle.titleMediumBoldStyle),
-            ),
-            body: Center(
-              child: Text(
-                '모임이 없어요',
-                style: AppTextStyle.bodyMediumStyle.copyWith(
-                  color: AppColors.textSecondary,
-                ),
-              ),
-            ),
-          );
-        }
-
-        final memberUids = List<String>.from(data['memberUids'] ?? const []);
-        final isMeetMember = memberUids.contains(uid);
-
-        if (!isMeetMember) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            SnackbarService.show(
-              type: AppSnackType.error,
-              message: '모임에 먼저 참가해야 볼 수 있어요',
-            );
-            Navigator.pop(context);
-          });
-          return const SizedBox.shrink();
-        }
-
-        final query = FirebaseFirestore.instance
-            .collection('meets')
-            .doc(meetId)
-            .collection('lightnings')
-            .where('status', isEqualTo: 'open')
-            .orderBy('dateTime', descending: false);
-
-        return Scaffold(
-          appBar: AppBar(
-            title: Text('번개 전체보기', style: AppTextStyle.titleMediumBoldStyle),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.add_rounded, color: AppColors.icDefault),
-                onPressed: () async {
-                  await Navigator.push<bool>(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => LightningCreateView(meetId: meetId),
-                    ),
-                  );
-                  // stream/pagination이라 새 번개가 dateTime 정렬 범위 안이면 자동으로 보이게 됨
-                },
-              ),
-            ],
-          ),
-          body: FirestorePagination(
-            query: query,
-            limit: 10,
-            // ✅ 번개 리스트는 key로 리셋할 일 거의 없음 (당겨서 새로고침은 아래 확장 가능)
-            // key: ValueKey('lightnings_$meetId'),
-            isLive: true,
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-            itemBuilder: (context, doc, index) {
-              final model = LightningModel.fromDoc(
-                doc as DocumentSnapshot<Map<String, dynamic>>,
-              );
-
-              // ✅ 과거 번개 제외하고 싶으면 여기서 필터(빈 위젯 반환)
-              final now = DateTime.now();
-              if (model.dateTime.isBefore(now.subtract(const Duration(minutes: 1)))) {
-                return const SizedBox.shrink();
-              }
-
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: LightningCard(
-                  meetId: meetId,
-                  model: model,
-                  isMeetMember: true, // 이미 멤버 체크 통과
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('번개 전체보기', style: AppTextStyle.titleMediumBoldStyle),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.add_rounded, color: AppColors.icDefault),
+            onPressed: () async {
+              await Navigator.push<bool>(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => LightningCreateView(meetId: meetId),
                 ),
               );
+              // isLive=true면 자동 반영
             },
           ),
-        );
-      },
+        ],
+      ),
+      body: FirestorePagination(
+        query: query,
+        limit: 10,
+        isLive: true,
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+
+        // ✅ 패키지에 따라 docs(List)로 들어오는 케이스가 있어서 안전하게 처리
+        itemBuilder: (context, docs, index) {
+          // docs가 단일 doc이면 아래 두 줄이 필요 없고 doc으로 바로 쓰면 됨
+          final list = docs as List<DocumentSnapshot<Object?>>;
+          final d = list[index] as DocumentSnapshot<Map<String, dynamic>>;
+
+          final model = LightningModel.fromDoc(d);
+
+          final now = DateTime.now();
+          if (model.dateTime.isBefore(now.subtract(const Duration(minutes: 1)))) {
+            return const SizedBox.shrink();
+          }
+
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: LightningCard(
+              meetId: meetId,
+              model: model,
+              isMeetMember: true, // ✅ rules에서 이미 보장됨
+            ),
+          );
+        },
+
+        // ✅ 권한 없으면 여기서 에러 처리 (패키지에 onError가 있으면 쓰고, 없으면 itemBuilder 이전에 잡히는 방식일 수 있음)
+      ),
     );
   }
 }

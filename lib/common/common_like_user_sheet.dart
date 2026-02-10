@@ -3,6 +3,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../auth/domain/user_mini_provider.dart';
 import '../auth/presentation/auth_controller.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_text_style.dart';
@@ -105,28 +106,5 @@ class _LikeUserItem extends ConsumerWidget {
       },
     );
 
-    // return StreamBuilder<DocumentSnapshot>(
-    //   stream: FirebaseFirestore.instance
-    //       .collection('users')
-    //       .doc(uid)
-    //       .snapshots(),
-    //   builder: (context, snapshot) {
-    //     final data = snapshot.data?.data() as Map<String, dynamic>?;
-    //
-    //     final nickname = data?['nickname'] ?? '알 수 없음';
-    //     final photoUrl = data?['photoUrl'];
-    //
-    //     return ListTile(
-    //       leading: CommonProfileAvatar(
-    //         imageUrl: photoUrl,
-    //         size: 40,
-    //       ),
-    //       title: Text(
-    //         nickname,
-    //         style: AppTextStyle.titleSmallMediumStyle,
-    //       ),
-    //     );
-    //   },
-    // );
   }
 }

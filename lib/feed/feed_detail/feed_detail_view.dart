@@ -9,12 +9,17 @@ import '../../constants/app_colors.dart';
 import '../../constants/app_text_style.dart';
 import '../domain/feed_model.dart';
 
-final feedDocProvider =
-FutureProvider.family<DocumentSnapshot<Map<String, dynamic>>, String>(
-      (ref, feedId) async {
-    return FirebaseFirestore.instance.collection('feeds').doc(feedId).get();
-  },
-);
+final feedDocProvider = FutureProvider.family<FeedModel?, String>((
+  ref,
+  feedId,
+) async {
+  final doc = await FirebaseFirestore.instance
+      .collection('feeds')
+      .doc(feedId)
+      .get();
+  if (!doc.exists) return null;
+  return FeedModel.fromJson(doc.data()!);
+});
 
 class FeedDetailView extends ConsumerWidget {
   final String feedId;
@@ -22,33 +27,16 @@ class FeedDetailView extends ConsumerWidget {
   const FeedDetailView({super.key, required this.feedId});
 
   @override
-  Widget build(BuildContext context,WidgetRef ref) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(feedDocProvider(feedId));
 
-    final asyncDoc = ref.watch(feedDocProvider(feedId));
-
-    return Scaffold(
-      appBar: CommonBackAppbar(title: '피드'),
-      body: SingleChildScrollView(
-        child: asyncDoc.when(
-          loading: () => const Center(child: CupertinoActivityIndicator()),
-          error: (e, _) => Center(child: Text('피드 로드 실패: $e')),
-          data: (doc) {
-            if (!doc.exists || doc.data() == null) {
-              return Center(
-                child: Text(
-                  '피드가 없어요',
-                  style: AppTextStyle.bodyMediumStyle.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-              );
-            }
-
-            final feed = FeedModel.fromJson(doc.data()!);
-            return FeedCard(feed: feed);
-          },
-        ),
-      ),
+    return async.when(
+      loading: () => const Center(child: CupertinoActivityIndicator()),
+      error: (e, _) => Center(child: Text('error: $e')),
+      data: (feed) {
+        if (feed == null) return const Center(child: Text('피드가 없어요'));
+        return FeedCard(feed: feed);
+      },
     );
   }
 }

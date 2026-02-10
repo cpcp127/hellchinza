@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hellchinza/common/common_back_appbar.dart';
 import 'package:hellchinza/services/feed_service.dart';
 
+import '../auth/domain/user_mini_provider.dart';
 import '../auth/presentation/auth_controller.dart';
 import '../claim/claim_view.dart';
 import '../claim/domain/claim_model.dart';

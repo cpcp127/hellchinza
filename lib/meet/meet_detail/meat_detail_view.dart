@@ -179,6 +179,7 @@ class _MeetDetailViewState extends ConsumerState<MeetDetailView> {
           meetId: meetId,
           onChanged: () async {
             // ✅ 승인/거절 처리 후 호출됨
+            ref.invalidate(meetRequestUidsProvider(meetId));
             await controller.init();
           },
         );
@@ -390,7 +391,6 @@ class _MeetDetailBody extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: SingleChildScrollView(
-
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           //padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
@@ -411,7 +411,6 @@ class _MeetDetailBody extends StatelessWidget {
             Text(meet.title, style: AppTextStyle.headlineSmallBoldStyle),
             const SizedBox(height: 6),
             CommonChip(label: meet.category, selected: true),
-
 
             const SizedBox(height: 10),
 
@@ -500,6 +499,20 @@ class _MeetDetailBody extends StatelessWidget {
   }
 }
 
+final meetLightningSectionProvider =
+FutureProvider.family<List<LightningModel>, String>((ref, meetId) async {
+  final snap = await FirebaseFirestore.instance
+      .collection('meets')
+      .doc(meetId)
+      .collection('lightnings')
+      .where('status', isEqualTo: 'open')
+      .orderBy('dateTime', descending: false)
+      .limit(5)
+      .get();
+
+  return snap.docs.map((d) => LightningModel.fromDoc(d)).toList();
+});
+
 class _MeetLightningSection extends ConsumerWidget {
   const _MeetLightningSection({
     required this.meetId,
@@ -512,26 +525,20 @@ class _MeetLightningSection extends ConsumerWidget {
   final bool isMeetMember; // ✅ 추가
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final q = FirebaseFirestore.instance
-        .collection('meets')
-        .doc(meetId)
-        .collection('lightnings')
-        .where('status', isEqualTo: 'open')
-        .orderBy('dateTime', descending: false)
-        .limit(20);
+    final async = ref.watch(meetLightningSectionProvider(meetId));
 
-    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-      stream: q.snapshots(),
-      builder: (context, snap) {
-        if (!snap.hasData) return Container();
 
+    return async.when(
+      loading: () => Container(), // 기존처럼 조용히
+      error: (e, _) => Container(),
+      data: (all) {
         final now = DateTime.now();
         final items = <LightningModel>[];
 
-        for (final d in snap.data!.docs) {
-          final m = LightningModel.fromDoc(d);
-          if (m.dateTime.isBefore(now.subtract(const Duration(minutes: 1))))
+        for (final m in all) {
+          if (m.dateTime.isBefore(now.subtract(const Duration(minutes: 1)))) {
             continue;
+          }
           items.add(m);
           if (items.length >= 3) break;
         }
@@ -549,14 +556,15 @@ class _MeetLightningSection extends ConsumerWidget {
                   _MiniWriteButton(
                     title: '번개 생성',
                     onTap: () async {
-                      // meetId를 넘겨서 "모임 전용 피드 작성"으로 이동
                       await Navigator.push(
                         context,
                         MaterialPageRoute(
                           builder: (_) => LightningCreateView(meetId: meetId),
                         ),
                       );
-                      // 작성 후 돌아오면 그리드 새로고침 필요하면 init 또는 해당 섹션 stream이면 자동
+
+                      // ✅ 작성 후 돌아오면: 이 섹션만 새로고침
+                      ref.invalidate(meetLightningSectionProvider(meetId));
                     },
                   ),
                   const SizedBox(width: 6),
@@ -574,7 +582,7 @@ class _MeetLightningSection extends ConsumerWidget {
             ),
             const SizedBox(height: 10),
             ...items.map(
-              (m) => Padding(
+                  (m) => Padding(
                 padding: const EdgeInsets.only(bottom: 10),
                 child: LightningCard(
                   meetId: meetId,
@@ -589,8 +597,6 @@ class _MeetLightningSection extends ConsumerWidget {
     );
   }
 }
-
-
 
 class _MemberPreviewRow extends StatefulWidget {
   const _MemberPreviewRow({required this.memberUids, this.pageSize = 10});
@@ -881,6 +887,23 @@ class _EmptyMemberBox extends StatelessWidget {
   }
 }
 
+final meetPhotoFeedSectionProvider =
+FutureProvider.family<List<Map<String, dynamic>>, String>((ref, meetId) async {
+  final snap = await FirebaseFirestore.instance
+      .collection('feeds')
+      .where('meetId', isEqualTo: meetId)
+      .orderBy('createdAt', descending: true)
+      .limit(9)
+      .get();
+
+  // doc.id가 필요해서 _docId로 같이 넣음
+  return snap.docs.map((d) => {
+    '_docId': d.id,
+    ...d.data(),
+  }).toList();
+});
+
+
 class _MeetPhotoFeedSection extends StatelessWidget {
   const _MeetPhotoFeedSection({
     required this.state,
@@ -896,37 +919,41 @@ class _MeetPhotoFeedSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final q = FirebaseFirestore.instance
-        .collection('feeds')
-        .where('meetId', isEqualTo: meetId)
-        .orderBy('createdAt', descending: true)
-        .limit(40); // ✅ 최근 것 중에서 사진 있는 것만 최대 9개 뽑기
+
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 섹션 헤더
         Row(
           children: [
             Text('모임 피드', style: AppTextStyle.titleMediumBoldStyle),
             const Spacer(),
 
             if (state.isMember) ...[
-              _MiniWriteButton(
-                title: '피드 작성',
-                onTap: () async {
-                  // meetId를 넘겨서 "모임 전용 피드 작성"으로 이동
-                  await Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => CreateFeedView(meetId: meetId),
-                    ),
+              Consumer(
+                builder: (context, ref, _) {
+                  return _MiniWriteButton(
+                    title: '피드 작성',
+                    onTap: () async {
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => CreateFeedView(meetId: meetId),
+                        ),
+                      );
+
+                      // ✅ 작성 후 돌아오면: 이 섹션만 즉시 새로고침
+                      ref.invalidate(meetPhotoFeedSectionProvider(meetId));
+
+                      // (선택) meetDetail 전체를 다시 읽어야 하는 게 있으면
+                      // controller.init();
+                    },
                   );
-                  // 작성 후 돌아오면 그리드 새로고침 필요하면 init 또는 해당 섹션 stream이면 자동
                 },
               ),
               const SizedBox(width: 6),
             ],
+
             TextButton(
               onPressed: onTapAll,
               child: Text(
@@ -940,82 +967,91 @@ class _MeetPhotoFeedSection extends StatelessWidget {
         ),
         const SizedBox(height: 10),
 
-        StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-          stream: q.snapshots(),
-          builder: (context, snap) {
-            if (!snap.hasData) {
-              return _PhotoGridSkeleton();
-            }
+        Consumer(
+          builder: (context, ref, _) {
+            final async = ref.watch(meetPhotoFeedSectionProvider(meetId));
 
-            final docs = snap.data!.docs;
-
-            final items = <_PhotoItem>[];
-
-            for (final d in docs) {
-              final data = d.data();
-
-              final urls = (data['imageUrls'] as List?)
-                  ?.whereType<String>()
-                  .toList();
-
-              final feedId = (data['id'] ?? d.id).toString();
-              final contents = (data['contents'] as String?)?.trim();
-
-              if (urls != null && urls.isNotEmpty) {
-                items.add(
-                  _PhotoItem(
-                    feedId: feedId,
-                    imageUrl: urls.first,
-                    previewText: null,
-                  ),
-                );
-              } else {
-                // ✅ 사진이 없으면 contents 일부를 미리보기로
-                final preview = (contents == null || contents.isEmpty)
-                    ? '내용이 없어요'
-                    : _ellipsis(contents, 42); // 글자수는 취향대로
-
-                items.add(
-                  _PhotoItem(
-                    feedId: feedId,
-                    imageUrl: null,
-                    previewText: preview,
-                  ),
-                );
-              }
-
-              if (items.length >= 9) break;
-            }
-
-            if (items.isEmpty) {
-              return Padding(
+            return async.when(
+              loading: () => _PhotoGridSkeleton(),
+              error: (e, _) => Padding(
                 padding: const EdgeInsets.only(top: 20),
                 child: Center(
                   child: Text(
-                    '아직 모임 피드가 없어요. 첫 피드를 작성해보세요 ✍️',
+                    '모임 피드를 불러오지 못했어요',
                     style: AppTextStyle.bodySmallStyle.copyWith(
                       color: AppColors.textSecondary,
                     ),
                   ),
                 ),
-              );
-            }
+              ),
+              data: (docs) {
+                final items = <_PhotoItem>[];
 
-            return _PhotoGrid(
-              items: items,
-              onTapItem: (feedId) {
-                if (!state.isMember) {
-                  SnackbarService.show(
-                    type: AppSnackType.error,
-                    message: '모임에 먼저 참가해야 해요',
-                  );
-                  return;
+                for (final data in docs) {
+                  final feedId = ((data['id'] ?? data['_docId']) ?? '').toString();
+
+                  final urls = (data['imageUrls'] as List?)
+                      ?.whereType<String>()
+                      .toList();
+
+                  final contents = (data['contents'] as String?)?.trim();
+
+                  if (urls != null && urls.isNotEmpty) {
+                    items.add(
+                      _PhotoItem(
+                        feedId: feedId,
+                        imageUrl: urls.first,
+                        previewText: null,
+                      ),
+                    );
+                  } else {
+                    final preview = (contents == null || contents.isEmpty)
+                        ? '내용이 없어요'
+                        : _ellipsis(contents, 42);
+
+                    items.add(
+                      _PhotoItem(
+                        feedId: feedId,
+                        imageUrl: null,
+                        previewText: preview,
+                      ),
+                    );
+                  }
+
+                  if (items.length >= 9) break;
                 }
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => FeedDetailView(feedId: feedId),
-                  ),
+
+                if (items.isEmpty) {
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 20),
+                    child: Center(
+                      child: Text(
+                        '아직 모임 피드가 없어요. 첫 피드를 작성해보세요 ✍️',
+                        style: AppTextStyle.bodySmallStyle.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ),
+                  );
+                }
+
+                return _PhotoGrid(
+                  items: items,
+                  onTapItem: (feedId) {
+                    if (!state.isMember) {
+                      SnackbarService.show(
+                        type: AppSnackType.error,
+                        message: '모임에 먼저 참가해야 해요',
+                      );
+                      return;
+                    }
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => FeedDetailView(feedId: feedId),
+                      ),
+                    );
+                  },
                 );
               },
             );
@@ -1023,6 +1059,7 @@ class _MeetPhotoFeedSection extends StatelessWidget {
         ),
       ],
     );
+
   }
 
   String _ellipsis(String s, int max) {
@@ -1144,10 +1181,11 @@ class _PhotoGridSkeleton extends StatelessWidget {
 }
 
 class _MiniWriteButton extends StatelessWidget {
-  const _MiniWriteButton({required this.onTap,required this.title});
+  const _MiniWriteButton({required this.onTap, required this.title});
 
   final VoidCallback onTap;
   final String title;
+
   @override
   Widget build(BuildContext context) {
     return InkWell(

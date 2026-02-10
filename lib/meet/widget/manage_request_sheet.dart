@@ -1,12 +1,32 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hellchinza/auth/domain/user_mini_provider.dart';
 
 import '../../common/common_network_image.dart';
+import '../../common/common_profile_avatar.dart';
 import '../../constants/app_colors.dart';
 import '../../constants/app_text_style.dart';
 import '../../services/snackbar_service.dart';
 
-class ManageRequestsSheet extends StatelessWidget {
+final meetRequestUidsProvider = FutureProvider.family<List<String>, String>((
+  ref,
+  meetId,
+) async {
+  final snap = await FirebaseFirestore.instance
+      .collection('meets')
+      .doc(meetId)
+      .collection('requests')
+      // 네가 pending만 보고 있으면 유지
+      .where('status', isEqualTo: 'pending')
+      .get();
+
+  // 보통 요청 문서 id == uid
+  return snap.docs.map((d) => d.id).toList();
+});
+
+class ManageRequestsSheet extends ConsumerWidget {
   const ManageRequestsSheet({
     super.key,
     required this.meetId,
@@ -17,7 +37,8 @@ class ManageRequestsSheet extends StatelessWidget {
   final Future<void> Function() onChanged;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final reqAsync = ref.watch(meetRequestUidsProvider(meetId));
     return DraggableScrollableSheet(
       initialChildSize: 0.92,
       minChildSize: 0.55,
@@ -67,34 +88,33 @@ class ManageRequestsSheet extends StatelessWidget {
               ),
 
               const SizedBox(height: 4),
+              reqAsync.when(
+                loading: () {
+                  // ✅ 너 원래 로딩 UI 그대로 넣어
+                  return const Center(child: CupertinoActivityIndicator());
+                },
+                error: (e, _) {
+                  // ✅ 너 원래 에러 UI 그대로 넣어
+                  return Center(child: Text('요청 불러오기 실패: $e'));
+                },
+                data: (uids) {
+                  // ✅ 여기부터는 "기존 builder에서 snap.data!.docs" 대신 uids를 쓰면 됨
+                  if (uids.isEmpty) {
+                    // ✅ 기존 empty UI 그대로
+                    return Text(
+                      '대기 중인 요청이 없어요',
+                      style: AppTextStyle.bodyMediumStyle.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                    );
+                  }
 
-              Expanded(
-                child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-                  stream: reqQuery.snapshots(),
-                  builder: (context, snap) {
-                    if (!snap.hasData) {
-                      return const Center(child: CircularProgressIndicator());
-                    }
-                    final docs = snap.data!.docs;
-                    if (docs.isEmpty) {
-                      return Center(
-                        child: Text(
-                          '대기 중인 요청이 없어요',
-                          style: AppTextStyle.bodyMediumStyle.copyWith(
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                      );
-                    }
-
-                    return ListView.separated(
-                      controller: scrollController,
-                      padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
-                      itemCount: docs.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 10),
-                      itemBuilder: (_, i) {
-                        final uid = (docs[i].data()['uid'] ?? docs[i].id)
-                            .toString();
+                  // ✅ 기존 ListView/Column 등 구조 그대로 유지
+                  return Expanded(
+                    child: ListView.builder(
+                      itemCount: uids.length,
+                      itemBuilder: (context, index) {
+                        final uid = uids[index];
 
                         return _RequestRow(
                           meetId: meetId,
@@ -102,10 +122,11 @@ class ManageRequestsSheet extends StatelessWidget {
                           onChanged: onChanged,
                         );
                       },
-                    );
-                  },
-                ),
+                    ),
+                  );
+                },
               ),
+
             ],
           ),
         );
@@ -196,56 +217,126 @@ class _RequestRowState extends State<_RequestRow> {
         .collection('users')
         .doc(widget.uid);
 
-    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-      stream: userDoc.snapshots(),
-      builder: (context, snap) {
-        final data = snap.data?.data();
-        final nickname = (data?['nickname'] ?? '사용자') as String;
-        final photoUrl = data?['photoUrl'] as String?;
+    return Consumer(
+      builder: (context, ref, _) {
+        final userAsync = ref.watch(userMiniProvider(widget.uid));
 
-        return Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: AppColors.bgWhite,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.borderSecondary),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: AppColors.bgSecondary,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: AppColors.borderSecondary),
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: (photoUrl == null || photoUrl.isEmpty)
-                    ? const Icon(Icons.person, color: AppColors.icDisabled)
-                    : CommonNetworkImage(imageUrl: photoUrl, fit: BoxFit.cover),
+        return userAsync.when(
+          loading: () {
+            // ✅ 기존 UI 구조 유지: 로딩 시에도 동일한 row 스켈레톤 느낌으로
+            return Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppColors.bgWhite,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.borderSecondary),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  nickname,
-                  style: AppTextStyle.titleSmallBoldStyle.copyWith(
-                    color: AppColors.textDefault,
+              child: Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: AppColors.bgSecondary,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: AppColors.borderSecondary),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: const Icon(Icons.person, color: AppColors.icDisabled),
                   ),
-                ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      '불러오는 중…',
+                      style: AppTextStyle.titleSmallBoldStyle.copyWith(
+                        color: AppColors.textTeritary,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  _SmallOutlineButton(text: '거절', onTap: null),
+                  const SizedBox(width: 8),
+                  _SmallPrimaryButton(text: '승인', onTap: null),
+                ],
               ),
-              const SizedBox(width: 10),
-              _SmallOutlineButton(text: '거절', onTap: _busy ? null : _reject),
-              const SizedBox(width: 8),
-              _SmallPrimaryButton(
-                text: _busy ? '처리중' : '승인',
-                onTap: _busy ? null : _approve,
+            );
+          },
+          error: (e, _) {
+            // ✅ 에러 시에도 기존 구조 유지
+            return Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppColors.bgWhite,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.borderSecondary),
               ),
-            ],
-          ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: AppColors.bgSecondary,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: AppColors.borderSecondary),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: const Icon(Icons.person, color: AppColors.icDisabled),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      '사용자 정보를 불러오지 못했어요',
+                      style: AppTextStyle.titleSmallBoldStyle.copyWith(
+                        color: AppColors.textDefault,
+                      ),
+                    ),
+                  ),
+
+                ],
+              ),
+            );
+          },
+          data: (mini) {
+            final nickname = mini?.nickname.isNotEmpty == true
+                ? mini!.nickname
+                : '';
+            final photoUrl = mini?.photoUrl;
+
+            return Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppColors.bgWhite,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.borderSecondary),
+              ),
+              child: Row(
+                children: [
+                  CommonProfileAvatar(imageUrl: photoUrl, size: 40),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      nickname,
+                      style: AppTextStyle.titleSmallBoldStyle.copyWith(
+                        color: AppColors.textDefault,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  _SmallOutlineButton(text: '거절', onTap: _busy ? null : _reject),
+                  const SizedBox(width: 8),
+                  _SmallPrimaryButton(
+                    text: _busy ? '처리중' : '승인',
+                    onTap: _busy ? null : _approve,
+                  ),
+                ],
+              ),
+            );
+          },
         );
       },
     );
+
   }
 }
 

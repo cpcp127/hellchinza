@@ -11,19 +11,6 @@ import 'package:kakao_flutter_sdk/kakao_flutter_sdk.dart';
 import '../data/user_mini_repo.dart';
 import '../domain/user_mini.dart';
 
-final firestoreProvider = Provider<FirebaseFirestore>((ref) {
-  return FirebaseFirestore.instance;
-});
-
-final userMiniRepoProvider = Provider<UserMiniRepo>((ref) {
-  return UserMiniRepo(ref.watch(firestoreProvider));
-});
-
-// ✅ 핵심: uid별로 "한 번만 로드"하는 FutureProvider
-final userMiniProvider = FutureProvider.family<UserMini?, String>((ref, uid) async {
-  final repo = ref.watch(userMiniRepoProvider);
-  return repo.getUserMiniOnce(uid);
-});
 
 final authControllerProvider =
     StateNotifierProvider.autoDispose<AuthController, AuthState>((ref) {
