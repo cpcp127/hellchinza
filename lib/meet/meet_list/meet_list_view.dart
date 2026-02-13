@@ -56,67 +56,76 @@ class _MeetListViewState extends ConsumerState<MeetListView> {
           ),
         ),
         Expanded(
-          child: FirestorePagination(
-            key: ValueKey(state.selectSubType),
-            // ✅ 핵심: 페이징은 패키지가 처리
-            query: controller.buildQuery(),
-            limit: 12,
-            isLive: false,
-            // 새 모임 생기면 자동 반영(원하면 false)
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
-            separatorBuilder: (_, __) => const SizedBox(height: 12),
+          child: RefreshIndicator(
+            color: AppColors.sky400,
+            backgroundColor: AppColors.bgWhite,
+            onRefresh: () async {
+              controller.refresh();
+              await Future.delayed(const Duration(milliseconds: 250));
+            },
+            child: FirestorePagination(
+              key: ValueKey('${state.selectSubType}_${state.refreshTick}'),
+              // ✅ 핵심: 페이징은 패키지가 처리
+              query: controller.buildQuery(),
+              physics: const AlwaysScrollableScrollPhysics(),
+              limit: 12,
+              isLive: false,
+              // 새 모임 생기면 자동 반영(원하면 false)
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+              separatorBuilder: (_, __) => const SizedBox(height: 12),
 
-            // 처음 로딩
-            initialLoader: const Center(
-              child: Padding(
-                padding: EdgeInsets.only(top: 24),
-                child: CircularProgressIndicator(),
+              // 처음 로딩
+              initialLoader: const Center(
+                child: Padding(
+                  padding: EdgeInsets.only(top: 24),
+                  child: CircularProgressIndicator(),
+                ),
               ),
-            ),
 
-            // 더 불러오는 로딩
-            bottomLoader: const Padding(
-              padding: EdgeInsets.symmetric(vertical: 14),
-              child: Center(child: CircularProgressIndicator()),
-            ),
+              // 더 불러오는 로딩
+              bottomLoader: const Padding(
+                padding: EdgeInsets.symmetric(vertical: 14),
+                child: Center(child: CircularProgressIndicator()),
+              ),
 
-            // 데이터가 없을 때
-            onEmpty: EmptyMeetList(
-              onTapCreate: () {
+              // 데이터가 없을 때
+              onEmpty: EmptyMeetList(
+                onTapCreate: () {
 
-                Navigator.push(
-                  context,
-                  CupertinoPageRoute(
-                    fullscreenDialog: true,
-                    builder: (context) {
-                      return MeetCreateStepperView();
-                    },
-                  ),
-                );
-              },
-            ),
-
-            itemBuilder: (context, docSnapshots, index) {
-              final doc =
-                  docSnapshots[index] as DocumentSnapshot<Map<String, dynamic>>;
-              final item = MeetModel.fromDoc(doc);
-
-              return MeetCard(
-                item: item,
-                onTap: () {
-                  // TODO: MeetDetailView로 이동(item.id)
                   Navigator.push(
                     context,
                     CupertinoPageRoute(
                       fullscreenDialog: true,
                       builder: (context) {
-                        return MeetDetailView(meetId: item.id);
+                        return MeetCreateStepperView();
                       },
                     ),
                   );
                 },
-              );
-            },
+              ),
+
+              itemBuilder: (context, docSnapshots, index) {
+                final doc =
+                    docSnapshots[index] as DocumentSnapshot<Map<String, dynamic>>;
+                final item = MeetModel.fromDoc(doc);
+
+                return MeetCard(
+                  item: item,
+                  onTap: () {
+
+                    Navigator.push(
+                      context,
+                      CupertinoPageRoute(
+                        fullscreenDialog: true,
+                        builder: (context) {
+                          return MeetDetailView(meetId: item.id);
+                        },
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
           ),
         ),
       ],

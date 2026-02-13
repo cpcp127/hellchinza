@@ -11,6 +11,7 @@ import 'package:hellchinza/feed/feed_list/feed_list_controller.dart';
 import 'package:hellchinza/meet/meet_detail/meat_detail_controller.dart';
 import 'package:hellchinza/services/image_service.dart';
 
+import '../../meet/meet_detail/meat_detail_view.dart';
 import '../../services/naver_location_service.dart';
 import '../../services/snackbar_service.dart';
 import '../../services/storage_upload_service.dart';
@@ -161,7 +162,8 @@ class CreateFeedController extends StateNotifier<CreateFeedState> {
       if(meetId==null){
         ref.read(feedListControllerProvider.notifier).refresh();
       }else{
-        ref.read(meetDetailControllerProvider(meetId).notifier).init();
+
+        ref.invalidate(meetPhotoFeedSectionProvider(meetId));
       }
     } catch (e, st) {
       SnackbarService.dismiss();

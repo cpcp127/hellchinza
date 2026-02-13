@@ -97,6 +97,7 @@ class _LikeUserItem extends ConsumerWidget {
           leading: CommonProfileAvatar(
             imageUrl: photoUrl,
             size: 40,
+            uid: uid,
           ),
           title: Text(
             nickname,

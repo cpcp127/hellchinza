@@ -1,14 +1,17 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hellchinza/common/common_place_widget.dart';
 
 import '../../constants/app_colors.dart';
 import '../../constants/app_text_style.dart';
 import '../../services/snackbar_service.dart';
 import '../domain/lightning_model.dart';
+import '../meet_detail/meat_detail_view.dart';
 import 'lightning_member_mini_row.dart';
 
-class LightningCard extends StatelessWidget {
+class LightningCard extends ConsumerWidget {
   const LightningCard({
     required this.meetId,
     required this.isMeetMember,
@@ -19,14 +22,15 @@ class LightningCard extends StatelessWidget {
   final LightningModel model;
   final bool isMeetMember; // ✅ 추가
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final myUid = FirebaseAuth.instance.currentUser?.uid;
     final isOwner = myUid != null && model.authorUid == myUid;
     final isMember = myUid != null && model.memberUids.contains(myUid);
     final isFull = model.isFull;
     final isJoined = myUid != null && model.memberUids.contains(myUid);
     final canJoin = myUid != null && !isOwner && !isMember && !isFull;
-
+    final bool enabled =
+        !isOwner && isMeetMember && (isJoined || canJoin); // ✅ 핵심
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -71,13 +75,13 @@ class LightningCard extends StatelessWidget {
                 ),
               ),
 
-              Text(
-                '${model.currentMemberCount}/${model.maxMembers}',
-                style: AppTextStyle.labelMediumStyle.copyWith(
-                  color: AppColors.textDefault,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
+              // Text(
+              //   '${model.currentMemberCount}/${model.maxMembers}',
+              //   style: AppTextStyle.labelMediumStyle.copyWith(
+              //     color: AppColors.textDefault,
+              //     fontWeight: FontWeight.w700,
+              //   ),
+              // ),
             ],
           ),
 
@@ -85,30 +89,43 @@ class LightningCard extends StatelessWidget {
 
           // 장소 요약(있으면)
           if (model.place != null) ...[
-            Row(
-              children: [
-                const Icon(
-                  Icons.place_outlined,
-                  size: 16,
-                  color: AppColors.icSecondary,
-                ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    (model.place!['title'] ?? model.place!['address'] ?? '')
-                        .toString(),
-                    style: AppTextStyle.bodySmallStyle.copyWith(
-                      color: AppColors.textSecondary,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
+            CommonPlaceWidget(
+              title: model.place!['title'],
+              address: model.place!['address'],
+              lat: model.place!['lat'],
+              lng: model.place!['lng'],
             ),
+            // Row(
+            //   children: [
+            //     const Icon(
+            //       Icons.place_outlined,
+            //       size: 16,
+            //       color: AppColors.icSecondary,
+            //     ),
+            //     const SizedBox(width: 6),
+            //     Expanded(
+            //       child: Text(
+            //         (model.place!['title'] ?? model.place!['address'] ?? '')
+            //             .toString(),
+            //         style: AppTextStyle.bodySmallStyle.copyWith(
+            //           color: AppColors.textSecondary,
+            //         ),
+            //         maxLines: 1,
+            //         overflow: TextOverflow.ellipsis,
+            //       ),
+            //     ),
+            //   ],
+            // ),
             const SizedBox(height: 10),
           ],
-
+          Text(
+            '참가자 : ${model.currentMemberCount}/${model.maxMembers}',
+            style: AppTextStyle.labelMediumStyle.copyWith(
+              color: AppColors.textDefault,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 6),
           // 참가자 간단 표시
           LightningMemberMiniRow(memberUids: model.memberUids),
 
@@ -119,36 +136,47 @@ class LightningCard extends StatelessWidget {
             width: double.infinity,
             height: 44,
             child: ElevatedButton(
-              onPressed: canJoin
+              onPressed: enabled
                   ? () async {
-                if (!isMeetMember) {
-                  SnackbarService.show(
-                    type: AppSnackType.error,
-                    message: '모임에 먼저 참가해야 해요',
-                  );
-                  return;
-                }
-                try {
-                  if (isJoined) {
-                    await _leaveLightning(model: model);
-                    SnackbarService.show(
-                      type: AppSnackType.success,
-                      message: '번개 참가를 취소했어요',
-                    );
-                  } else {
-                    await _joinLightning(model: model);
-                    SnackbarService.show(
-                      type: AppSnackType.success,
-                      message: '번개에 참가했어요',
-                    );
-                  }
-                } catch (e) {
-                  SnackbarService.show(
-                    type: AppSnackType.error,
-                    message: e.toString().replaceAll('Exception: ', ''),
-                  );
-                }
-              }
+                      if (!isMeetMember) {
+                        SnackbarService.show(
+                          type: AppSnackType.error,
+                          message: '모임에 먼저 참가해야 해요',
+                        );
+                        return;
+                      }
+
+                      try {
+                        if (isJoined) {
+                          await _leaveLightning(model: model);
+                          SnackbarService.show(
+                            type: AppSnackType.success,
+                            message: '번개 참가를 취소했어요',
+                          );
+                        } else {
+                          if (isFull) {
+                            SnackbarService.show(
+                              type: AppSnackType.error,
+                              message: '정원이 마감되었습니다',
+                            );
+                            return;
+                          }
+                          await _joinLightning(model: model);
+                          SnackbarService.show(
+                            type: AppSnackType.success,
+                            message: '번개에 참가했어요',
+                          );
+                        }
+
+                        // ✅ 새로고침
+                        ref.invalidate(meetLightningSectionProvider(meetId));
+                      } catch (e) {
+                        SnackbarService.show(
+                          type: AppSnackType.error,
+                          message: e.toString().replaceAll('Exception: ', ''),
+                        );
+                      }
+                    }
                   : null,
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.btnPrimary,
@@ -160,8 +188,8 @@ class LightningCard extends StatelessWidget {
               child: Text(
                 isOwner
                     ? '내가 만든 번개'
-                    : isMember
-                    ? '참가중'
+                    : isJoined
+                    ? '참가 취소'
                     : isFull
                     ? '마감'
                     : '참가하기',
@@ -183,12 +211,11 @@ class LightningCard extends StatelessWidget {
     return '${dt.month}월 ${dt.day}일 $hh:$mm';
   }
 
-  DocumentReference<Map<String, dynamic>> get _ref =>
-      FirebaseFirestore.instance
-          .collection('meets')
-          .doc(meetId)
-          .collection('lightnings')
-          .doc(model.id);
+  DocumentReference<Map<String, dynamic>> get _ref => FirebaseFirestore.instance
+      .collection('meets')
+      .doc(meetId)
+      .collection('lightnings')
+      .doc(model.id);
 
   Future<void> _joinLightning({required LightningModel model}) async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
@@ -214,7 +241,6 @@ class LightningCard extends StatelessWidget {
       });
     });
   }
-
 
   Future<void> _leaveLightning({required LightningModel model}) async {
     final uid = FirebaseAuth.instance.currentUser?.uid;

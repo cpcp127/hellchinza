@@ -312,7 +312,7 @@ class _RequestRowState extends State<_RequestRow> {
               ),
               child: Row(
                 children: [
-                  CommonProfileAvatar(imageUrl: photoUrl, size: 40),
+                  CommonProfileAvatar(imageUrl: photoUrl, size: 40,uid: mini!.uid,),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(

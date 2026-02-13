@@ -12,12 +12,13 @@ class MeetListState {
 
   final List<MeetSummary> items;
   final String selectSubType;
-
+  final int refreshTick; // ✅ 추가
   const MeetListState({
     required this.isLoading,
     required this.isRefreshing,
     required this.hasMore,
     required this.items,
+    required this.refreshTick,
     required this.errorMessage,
     this.selectSubType = '전체',
   });
@@ -27,7 +28,7 @@ class MeetListState {
       isRefreshing = false,
       hasMore = true,
       items = const [],
-      selectSubType = '전체',
+      selectSubType = '전체', refreshTick = 0,
       errorMessage = null;
 
   MeetListState copyWith({
@@ -37,7 +38,7 @@ class MeetListState {
     List<MeetSummary>? items,
     String? errorMessage,
     bool clearError = false,
-    String? selectSubType,
+    String? selectSubType,int? refreshTick,
   }) {
     return MeetListState(
       isLoading: isLoading ?? this.isLoading,
@@ -45,7 +46,7 @@ class MeetListState {
       hasMore: hasMore ?? this.hasMore,
       items: items ?? this.items,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
-      selectSubType: selectSubType ?? this.selectSubType,
+      selectSubType: selectSubType ?? this.selectSubType,refreshTick: refreshTick ?? this.refreshTick,
     );
   }
 }

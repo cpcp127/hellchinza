@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
+import 'package:hellchinza/meet/meet_list/meet_list_controller.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../domain/meet_model.dart';
@@ -14,9 +15,11 @@ import '../../services/image_service.dart';
 import '../../services/snackbar_service.dart';
 
 final meetCreateControllerProvider =
-StateNotifierProvider.autoDispose<MeetCreateController, MeetCreateState>((ref) {
-  return MeetCreateController(ref);
-});
+    StateNotifierProvider.autoDispose<MeetCreateController, MeetCreateState>((
+      ref,
+    ) {
+      return MeetCreateController(ref);
+    });
 
 class MeetCreateController extends StateNotifier<MeetCreateState> {
   MeetCreateController(this.ref) : super(MeetCreateState.initial());
@@ -27,7 +30,10 @@ class MeetCreateController extends StateNotifier<MeetCreateState> {
     state = state.copyWith(isLoading: true, errorMessage: null);
 
     try {
-      final snap = await FirebaseFirestore.instance.collection('meets').doc(meetId).get();
+      final snap = await FirebaseFirestore.instance
+          .collection('meets')
+          .doc(meetId)
+          .get();
       if (!snap.exists) {
         state = state.copyWith(isLoading: false, errorMessage: '모임을 찾을 수 없어요');
         return;
@@ -45,7 +51,9 @@ class MeetCreateController extends StateNotifier<MeetCreateState> {
         regions: meet.regions,
         maxMembersText: meet.maxMembers.toString(),
         needApproval: meet.needApproval,
-        existingThumbnailUrl: meet.imageUrls.isNotEmpty ? meet.imageUrls.first : null,
+        existingThumbnailUrl: meet.imageUrls.isNotEmpty
+            ? meet.imageUrls.first
+            : null,
         removeExistingThumbnail: false,
         clearThumbnail: true,
         errorMessage: null,
@@ -56,9 +64,14 @@ class MeetCreateController extends StateNotifier<MeetCreateState> {
   }
 
   // ---- setters ----
-  void setTitle(String v) => state = state.copyWith(title: v, errorMessage: null);
-  void setIntro(String v) => state = state.copyWith(intro: v, errorMessage: null);
-  void selectCategory(String v) => state = state.copyWith(category: v, errorMessage: null);
+  void setTitle(String v) =>
+      state = state.copyWith(title: v, errorMessage: null);
+
+  void setIntro(String v) =>
+      state = state.copyWith(intro: v, errorMessage: null);
+
+  void selectCategory(String v) =>
+      state = state.copyWith(category: v, errorMessage: null);
 
   void addRegion(MeetRegion r) {
     if (state.regions.any((e) => e.code == r.code)) return;
@@ -66,7 +79,9 @@ class MeetCreateController extends StateNotifier<MeetCreateState> {
   }
 
   void removeRegion(String code) {
-    state = state.copyWith(regions: state.regions.where((e) => e.code != code).toList());
+    state = state.copyWith(
+      regions: state.regions.where((e) => e.code != code).toList(),
+    );
   }
 
   void setMaxMembersText(String v) {
@@ -96,10 +111,7 @@ class MeetCreateController extends StateNotifier<MeetCreateState> {
     }
     // 기존 썸네일 삭제
     if (state.existingThumbnailUrl != null) {
-      state = state.copyWith(
-        removeExistingThumbnail: true,
-        errorMessage: null,
-      );
+      state = state.copyWith(removeExistingThumbnail: true, errorMessage: null);
     }
   }
 
@@ -150,7 +162,9 @@ class MeetCreateController extends StateNotifier<MeetCreateState> {
       if (uid == null) throw Exception('로그인이 필요해요');
 
       final isEdit = state.editingMeetId != null;
-      final meetId = isEdit ? state.editingMeetId! : db.collection('meets').doc().id;
+      final meetId = isEdit
+          ? state.editingMeetId!
+          : db.collection('meets').doc().id;
       final meetRef = db.collection('meets').doc(meetId);
 
       final maxMembers = int.parse(state.maxMembersText.trim());
@@ -188,7 +202,7 @@ class MeetCreateController extends StateNotifier<MeetCreateState> {
       } else {
         await meetRef.update(update);
       }
-
+      ref.read(meetListControllerProvider.notifier).refresh();
       state = state.copyWith(isLoading: false);
 
       SnackbarService.show(
@@ -213,10 +227,7 @@ class MeetCreateController extends StateNotifier<MeetCreateState> {
 
     final meta = SettableMetadata(
       contentType: 'image/webp',
-      customMetadata: {
-        'uploaderUid': uid,
-        'meetId': meetId,
-      },
+      customMetadata: {'uploaderUid': uid, 'meetId': meetId},
     );
 
     await ref.putFile(File(file.path), meta);

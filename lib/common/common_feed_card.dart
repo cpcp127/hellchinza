@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hellchinza/common/common_back_appbar.dart';
+import 'package:hellchinza/common/common_place_widget.dart';
 import 'package:hellchinza/services/feed_service.dart';
 
 import '../auth/domain/user_mini_provider.dart';
@@ -83,17 +84,26 @@ class FeedCard extends StatelessWidget {
             ),
           ],
           if (feed.place != null)
-            GestureDetector(
-              onTap: () {
-                final place = feed.place!;
-                FeedService().openNaverMapPlace(
-                  title: place.title,
-                  lat: place.lat,
-                  lng: place.lng,
-                );
-              },
-              child: _buildPlaceSection(feed.place!),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: CommonPlaceWidget(
+                title: feed.place!.title,
+                address: feed.place!.address,
+                lat: feed.place!.lat,
+                lng: feed.place!.lng,
+              ),
             ),
+          // GestureDetector(
+          //   onTap: () {
+          //     final place = feed.place!;
+          //     FeedService().openNaverMapPlace(
+          //       title: place.title,
+          //       lat: place.lat,
+          //       lng: place.lng,
+          //     );
+          //   },
+          //   child: _buildPlaceSection(feed.place!),
+          // ),
           const SizedBox(height: 12),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -196,7 +206,7 @@ class FeedAuthorRow extends ConsumerWidget {
 
         return Row(
           children: [
-            CommonProfileAvatar(imageUrl: photoUrl, size: 40),
+            CommonProfileAvatar(imageUrl: photoUrl, size: 40, uid: mini!.uid),
             const SizedBox(width: 8),
             Text(
               nickname,
@@ -395,19 +405,6 @@ class PollSection extends ConsumerWidget {
               ),
               child: Stack(
                 children: [
-                  // ✅ 퍼센트 바 (결과 표시)
-                  if (hasVoted)
-                    FractionallySizedBox(
-                      widthFactor: percent,
-                      child: Container(
-                        height: 36,
-                        decoration: BoxDecoration(
-                          color: AppColors.sky50,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                    ),
-
                   SizedBox(
                     height: 36,
                     child: Row(
@@ -636,16 +633,18 @@ class _ActionItem extends StatelessWidget {
   }
 }
 
-class FeedCommentBottomSheet extends StatefulWidget {
+class FeedCommentBottomSheet extends ConsumerStatefulWidget {
   final String feedId;
 
   const FeedCommentBottomSheet({super.key, required this.feedId});
 
   @override
-  State<FeedCommentBottomSheet> createState() => _FeedCommentBottomSheetState();
+  ConsumerState<FeedCommentBottomSheet> createState() =>
+      _FeedCommentBottomSheetState();
 }
 
-class _FeedCommentBottomSheetState extends State<FeedCommentBottomSheet> {
+class _FeedCommentBottomSheetState
+    extends ConsumerState<FeedCommentBottomSheet> {
   final TextEditingController _controller = TextEditingController();
   int valueKey = 0;
   bool isEnabled = false;
@@ -722,119 +721,126 @@ class _FeedCommentBottomSheetState extends State<FeedCommentBottomSheet> {
     final myUid = FirebaseAuth.instance.currentUser!.uid;
     final isMine = data['authorUid'] == myUid;
     final timeText = DateTimeUtil.from(data['createdAt']);
-    return GestureDetector(
-      onTapDown: (d) => _tapPosition = d.globalPosition,
-      onLongPress: () {
-        if (_tapPosition == null) return;
-        HapticFeedback.mediumImpact();
-        final items = isMine
-            ? [
-                // CommonContextMenuItem(
-                //   icon: Icons.edit_outlined,
-                //   label: '수정하기',
-                //   onTap: () {
-                //     // TODO: 댓글 수정 모드 진입
-                //   },
-                // ),
-                CommonContextMenuItem(
-                  icon: Icons.delete_outline,
-                  label: '삭제하기',
-                  isDestructive: true,
-                  onTap: () async {
-                    try {
-                      await const FeedService().deleteComment(
-                        feedId: widget.feedId,
-                        commentId: data['id'],
-                        valueKey: valueKey,
-                      );
-                      setState(() {});
-                      SnackbarService.show(
-                        type: AppSnackType.success,
-                        message: '댓글이 삭제되었습니다',
-                      );
-                    } catch (e, st) {
-                      debugPrint('deleteComment error: $e\n$st');
+    final asyncMini = ref.watch(userMiniProvider(data['authorUid']));
+    return asyncMini.when(data: (mini){
+      return GestureDetector(
+        onTapDown: (d) => _tapPosition = d.globalPosition,
+        onLongPress: () {
+          if (_tapPosition == null) return;
+          HapticFeedback.mediumImpact();
+          final items = isMine
+              ? [
 
-                      SnackbarService.show(
-                        type: AppSnackType.error,
-                        message: '댓글 삭제에 실패했습니다',
-                      );
-                    }
-                  },
-                ),
-              ]
-            : [
-                CommonContextMenuItem(
-                  icon: Icons.flag_outlined,
-                  label: '신고하기',
-                  isDestructive: true,
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => ClaimView(
-                          target: ClaimTarget(
-                            type: ClaimTargetType.comment,
-                            targetId: data['id'],
-                            targetOwnerUid: data['authorNickname'],
-                            title: data['content'] ?? '피드',
-                            parentId: data['authorId'],
-                          ),
-                        ),
+            CommonContextMenuItem(
+              icon: Icons.delete_outline,
+              label: '삭제하기',
+              isDestructive: true,
+              onTap: () async {
+                try {
+                  await const FeedService().deleteComment(
+                    feedId: widget.feedId,
+                    commentId: data['id'],
+                    valueKey: valueKey,
+                  );
+                  setState(() {});
+                  SnackbarService.show(
+                    type: AppSnackType.success,
+                    message: '댓글이 삭제되었습니다',
+                  );
+                } catch (e, st) {
+                  debugPrint('deleteComment error: $e\n$st');
+
+                  SnackbarService.show(
+                    type: AppSnackType.error,
+                    message: '댓글 삭제에 실패했습니다',
+                  );
+                }
+              },
+            ),
+          ]
+              : [
+            CommonContextMenuItem(
+              icon: Icons.flag_outlined,
+              label: '신고하기',
+              isDestructive: true,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ClaimView(
+                      target: ClaimTarget(
+                        type: ClaimTargetType.comment,
+                        targetId: data['id'],
+                        targetOwnerUid: data['authorNickname'],
+                        title: data['content'] ?? '피드',
+                        parentId: data['authorId'],
                       ),
-                    );
-                  },
+                    ),
+                  ),
+                );
+              },
+            ),
+          ];
+
+          CommonContextMenu.show(
+            context: context,
+            position: _tapPosition!,
+            items: items,
+          );
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Container(
+            color: Colors.white,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                CommonProfileAvatar(
+                  imageUrl: mini!.photoUrl,
+                  size: 24,
+                  uid: data['authorUid'],
                 ),
-              ];
+                const SizedBox(width: 10),
 
-        CommonContextMenu.show(
-          context: context,
-          position: _tapPosition!,
-          items: items,
-        );
-      },
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Container(
-          color: Colors.white,
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              CommonProfileAvatar(imageUrl: data['authorPhotoUrl'], size: 24),
-              const SizedBox(width: 10),
-
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Text(
-                          data['authorNickname'] ?? '',
-                          style: AppTextStyle.labelMediumStyle,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          timeText,
-                          style: AppTextStyle.labelSmallStyle.copyWith(
-                            color: AppColors.textTeritary,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            mini.nickname ?? '',
+                            style: AppTextStyle.labelMediumStyle,
                           ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      data['content'] ?? '',
-                      style: AppTextStyle.bodyMediumStyle,
-                    ),
-                  ],
+                          const SizedBox(width: 6),
+                          Text(
+                            timeText,
+                            style: AppTextStyle.labelSmallStyle.copyWith(
+                              color: AppColors.textTeritary,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        data['content'] ?? '',
+                        style: AppTextStyle.bodyMediumStyle,
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
-      ),
-    );
+      );
+    }, loading: () => Center(child: CupertinoActivityIndicator()),
+      error: (e, _) => Text(
+        '작성자 불러오기 실패',
+        style: AppTextStyle.bodySmallStyle.copyWith(
+          color: AppColors.textSecondary,
+        ),
+      ),);
   }
 
   Widget commentInput() {
@@ -861,6 +867,7 @@ class _FeedCommentBottomSheetState extends State<FeedCommentBottomSheet> {
             GestureDetector(
               onTap: () {
                 if (isEnabled == false) return;
+
                 _submitComment();
               },
               child: Container(
@@ -907,6 +914,7 @@ class _FeedCommentBottomSheetState extends State<FeedCommentBottomSheet> {
 
         tx.update(feedRef, {'commentCount': FieldValue.increment(1)});
       });
+      ref.invalidate(feedDocProvider(widget.feedId));
     } catch (e) {
       debugPrint('addComment error: $e');
     }

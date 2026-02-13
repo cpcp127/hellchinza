@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hellchinza/claim/claim_view.dart';
 import 'package:hellchinza/common/common_chip.dart';
 import 'package:hellchinza/common/common_network_image.dart';
+import 'package:hellchinza/common/common_profile_avatar.dart';
 import '../../claim/domain/claim_model.dart';
 import '../../common/common_action_sheet.dart';
 import '../../constants/app_colors.dart';
@@ -58,7 +59,7 @@ class _MeetDetailViewState extends ConsumerState<MeetDetailView> {
                   context: context,
 
                   onDelete: () async {
-                    Navigator.pop(context);
+
 
                     final ok = await confirm(
                       context,
@@ -70,6 +71,8 @@ class _MeetDetailViewState extends ConsumerState<MeetDetailView> {
 
                     await controller.deleteMeet();
                     if (context.mounted) Navigator.pop(context);
+                    SnackbarService.show(type: AppSnackType.success, message: '모임을 삭제했습니다.');
+
                   },
                 );
               } else {
@@ -94,10 +97,7 @@ class _MeetDetailViewState extends ConsumerState<MeetDetailView> {
                       message: '모임에서 나왔어요',
                     );
                   },
-                  onShare: () {
-                    Navigator.pop(context);
-                    // TODO: 공유 로직
-                  },
+
                   onReport: () {
                     Navigator.push(
                       context,
@@ -213,16 +213,11 @@ class _MeetDetailViewState extends ConsumerState<MeetDetailView> {
 Future<void> showMeetGuestActionSheet({
   required BuildContext context,
   required bool isMember,
-  required VoidCallback onShare,
+
   required VoidCallback onReport,
   VoidCallback? onLeave,
 }) async {
   final items = <CommonActionSheetItem>[
-    CommonActionSheetItem(
-      icon: Icons.ios_share_outlined,
-      title: '공유하기',
-      onTap: onShare,
-    ),
 
     if (isMember && onLeave != null)
       CommonActionSheetItem(
@@ -390,98 +385,130 @@ class _MeetDetailBody extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          //padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
-          children: [
-            if (meet.imageUrls.isNotEmpty) ...[
-              ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: CommonNetworkImage(
-                  imageUrl: meet.imageUrls.first,
-                  width: double.infinity,
-                  height: 180,
-                  fit: BoxFit.cover,
+      child: RefreshIndicator(
+        color: AppColors.sky400,
+        backgroundColor: AppColors.bgWhite,
+        onRefresh: () async {
+          controller.init();
+          await Future.delayed(const Duration(milliseconds: 250));
+        },
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            //padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+            children: [
+              if (meet.imageUrls.isNotEmpty) ...[
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: CommonNetworkImage(
+                    imageUrl: meet.imageUrls.first,
+                    width: double.infinity,
+                    height: 180,
+                    fit: BoxFit.cover,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
-            ],
-
-            Text(meet.title, style: AppTextStyle.headlineSmallBoldStyle),
-            const SizedBox(height: 6),
-            CommonChip(label: meet.category, selected: true),
-
-            const SizedBox(height: 10),
-
-            Text(
-              meet.intro ?? '',
-              style: AppTextStyle.bodyMediumStyle.copyWith(
-                color: AppColors.textDefault,
-              ),
-            ),
-
-            const SizedBox(height: 16),
-
-            // 참가자 미리보기(UID 리스트)
-            Row(
-              children: [
-                Text(
-                  '참가자 ${meet.memberUids.length}명',
-                  style: AppTextStyle.titleMediumBoldStyle,
-                ),
-                Expanded(child: SizedBox()),
-                Text(
-                  '최대 ${meet.maxMembers}명',
-                  style: AppTextStyle.titleSmallMediumStyle,
-                ),
+                const SizedBox(height: 12),
               ],
-            ),
-            const SizedBox(height: 10),
-            _MemberPreviewRow(memberUids: meet.memberUids),
-            const SizedBox(height: 16),
-            _MeetPhotoFeedSection(
-              meetId: meet.id,
-              state: state,
-              controller: controller,
-              onTapAll: () {
-                if (!state.isMember) {
-                  SnackbarService.show(
-                    type: AppSnackType.error,
-                    message: '모임에 먼저 참가해야 해요',
-                  );
-                  return;
-                }
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => MeetFeedListView(meetId: meet.id),
-                  ),
-                );
-              },
-            ),
-            const SizedBox(height: 18),
 
-            _MeetLightningSection(
-              meetId: meet.id,
-              isMeetMember: state.isMember, // ✅ 추가
-              onTapAll: () async {
-                if (!state.isMember) {
-                  SnackbarService.show(
-                    type: AppSnackType.error,
-                    message: '모임에 먼저 참가해야 해요',
-                  );
-                  return;
-                }
-                await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => MeetLightningListView(meetId: meet.id),
+              Text(meet.title, style: AppTextStyle.headlineSmallBoldStyle),
+              const SizedBox(height: 6),
+              CommonChip(label: meet.category, selected: true),
+              const SizedBox(height: 6),
+              //주 활동 지역
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '주 활동 지역',
+                    style: AppTextStyle.titleSmallBoldStyle.copyWith(
+                      color: AppColors.textDefault,
+                    ),
                   ),
-                );
-              },
-            ),
-          ],
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      meet.regions.isEmpty
+                          ? '없음'
+                          : meet.regions.map((r) => r.fullName).join(', '),
+                      style: AppTextStyle.titleSmallMediumStyle.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 10),
+
+              Text(
+                meet.intro ?? '',
+                style: AppTextStyle.bodyMediumStyle.copyWith(
+                  color: AppColors.textDefault,
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // 참가자 미리보기(UID 리스트)
+              Row(
+                children: [
+                  Text(
+                    '참가자 ${meet.memberUids.length}명',
+                    style: AppTextStyle.titleMediumBoldStyle,
+                  ),
+                  Expanded(child: SizedBox()),
+                  Text(
+                    '최대 ${meet.maxMembers}명',
+                    style: AppTextStyle.titleSmallMediumStyle,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              _MemberPreviewRow(memberUids: meet.memberUids),
+              const SizedBox(height: 16),
+              _MeetPhotoFeedSection(
+                meetId: meet.id,
+                state: state,
+                controller: controller,
+                onTapAll: () {
+                  if (!state.isMember) {
+                    SnackbarService.show(
+                      type: AppSnackType.error,
+                      message: '모임에 먼저 참가해야 해요',
+                    );
+                    return;
+                  }
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => MeetFeedListView(meetId: meet.id),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 18),
+
+              _MeetLightningSection(
+                meetId: meet.id,
+                isMeetMember: state.isMember, // ✅ 추가
+                onTapAll: () async {
+                  if (!state.isMember) {
+                    SnackbarService.show(
+                      type: AppSnackType.error,
+                      message: '모임에 먼저 참가해야 해요',
+                    );
+                    return;
+                  }
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => MeetLightningListView(meetId: meet.id),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -500,18 +527,18 @@ class _MeetDetailBody extends StatelessWidget {
 }
 
 final meetLightningSectionProvider =
-FutureProvider.family<List<LightningModel>, String>((ref, meetId) async {
-  final snap = await FirebaseFirestore.instance
-      .collection('meets')
-      .doc(meetId)
-      .collection('lightnings')
-      .where('status', isEqualTo: 'open')
-      .orderBy('dateTime', descending: false)
-      .limit(5)
-      .get();
+    FutureProvider.family<List<LightningModel>, String>((ref, meetId) async {
+      final snap = await FirebaseFirestore.instance
+          .collection('meets')
+          .doc(meetId)
+          .collection('lightnings')
+          .where('status', isEqualTo: 'open')
+          .orderBy('dateTime', descending: false)
+          .limit(5)
+          .get();
 
-  return snap.docs.map((d) => LightningModel.fromDoc(d)).toList();
-});
+      return snap.docs.map((d) => LightningModel.fromDoc(d)).toList();
+    });
 
 class _MeetLightningSection extends ConsumerWidget {
   const _MeetLightningSection({
@@ -527,73 +554,90 @@ class _MeetLightningSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(meetLightningSectionProvider(meetId));
 
-
-    return async.when(
-      loading: () => Container(), // 기존처럼 조용히
-      error: (e, _) => Container(),
-      data: (all) {
-        final now = DateTime.now();
-        final items = <LightningModel>[];
-
-        for (final m in all) {
-          if (m.dateTime.isBefore(now.subtract(const Duration(minutes: 1)))) {
-            continue;
-          }
-          items.add(m);
-          if (items.length >= 3) break;
-        }
-
-        if (items.isEmpty) return const SizedBox.shrink();
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    return Column(
+      children: [
+        Row(
           children: [
-            Row(
-              children: [
-                Text('번개', style: AppTextStyle.titleMediumBoldStyle),
-                const Spacer(),
-                if (isMeetMember) ...[
-                  _MiniWriteButton(
-                    title: '번개 생성',
-                    onTap: () async {
-                      await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => LightningCreateView(meetId: meetId),
-                        ),
-                      );
-
-                      // ✅ 작성 후 돌아오면: 이 섹션만 새로고침
-                      ref.invalidate(meetLightningSectionProvider(meetId));
-                    },
-                  ),
-                  const SizedBox(width: 6),
-                ],
-                TextButton(
-                  onPressed: onTapAll,
-                  child: Text(
-                    '전체보기',
-                    style: AppTextStyle.labelMediumStyle.copyWith(
-                      color: AppColors.textPrimary,
+            Text('번개', style: AppTextStyle.titleMediumBoldStyle),
+            const Spacer(),
+            if (isMeetMember) ...[
+              _MiniWriteButton(
+                title: '번개 생성',
+                onTap: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => LightningCreateView(meetId: meetId),
                     ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            ...items.map(
-                  (m) => Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: LightningCard(
-                  meetId: meetId,
-                  model: m,
-                  isMeetMember: isMeetMember,
+                  );
+
+                  // ✅ 작성 후 돌아오면: 이 섹션만 새로고침
+                  ref.invalidate(meetLightningSectionProvider(meetId));
+                },
+              ),
+              const SizedBox(width: 6),
+            ],
+            TextButton(
+              onPressed: onTapAll,
+              child: Text(
+                '전체보기',
+                style: AppTextStyle.labelMediumStyle.copyWith(
+                  color: AppColors.textPrimary,
                 ),
               ),
             ),
           ],
-        );
-      },
+        ),
+        const SizedBox(height: 10),
+        async.when(
+          loading: () => Container(), // 기존처럼 조용히
+          error: (e, _) => Container(),
+          data: (all) {
+            final now = DateTime.now();
+            final items = <LightningModel>[];
+
+            for (final m in all) {
+              if (m.dateTime.isBefore(
+                now.subtract(const Duration(minutes: 1)),
+              )) {
+                continue;
+              }
+              items.add(m);
+              if (items.length >= 3) break;
+            }
+
+            if (items.isEmpty) {
+              return Padding(
+                padding: const EdgeInsets.only(top: 20, bottom: 20),
+                child: Center(
+                  child: Text(
+                    '아직 번개 모임이 없어요. 첫 번개를 만들어보세요 ✍️',
+                    style: AppTextStyle.bodySmallStyle.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ),
+              );
+            }
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ...items.map(
+                  (m) => Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: LightningCard(
+                      meetId: meetId,
+                      model: m,
+                      isMeetMember: isMeetMember,
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ],
     );
   }
 }
@@ -804,30 +848,16 @@ class _MemberAvatar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: AppColors.bgWhite,
-            shape: BoxShape.circle,
-            border: Border.all(color: AppColors.borderSecondary),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: (user.photoUrl == null || user.photoUrl!.isEmpty)
-              ? const Icon(Icons.person, color: AppColors.icDisabled)
-              : CommonNetworkImage(imageUrl: user.photoUrl!, fit: BoxFit.cover),
-        ),
+        CommonProfileAvatar(imageUrl: user.photoUrl,size:40,uid: user.uid,),
+
         const SizedBox(height: 6),
-        SizedBox(
-          width: 54,
-          child: Text(
-            user.nickname,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-            style: AppTextStyle.labelXSmallStyle.copyWith(
-              color: AppColors.textSecondary,
-            ),
+        Text(
+          user.nickname,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
+          style: AppTextStyle.labelXSmallStyle.copyWith(
+            color: AppColors.textSecondary,
           ),
         ),
       ],
@@ -888,21 +918,20 @@ class _EmptyMemberBox extends StatelessWidget {
 }
 
 final meetPhotoFeedSectionProvider =
-FutureProvider.family<List<Map<String, dynamic>>, String>((ref, meetId) async {
-  final snap = await FirebaseFirestore.instance
-      .collection('feeds')
-      .where('meetId', isEqualTo: meetId)
-      .orderBy('createdAt', descending: true)
-      .limit(9)
-      .get();
+    FutureProvider.family<List<Map<String, dynamic>>, String>((
+      ref,
+      meetId,
+    ) async {
+      final snap = await FirebaseFirestore.instance
+          .collection('feeds')
+          .where('meetId', isEqualTo: meetId)
+          .orderBy('createdAt', descending: true)
+          .limit(9)
+          .get();
 
-  // doc.id가 필요해서 _docId로 같이 넣음
-  return snap.docs.map((d) => {
-    '_docId': d.id,
-    ...d.data(),
-  }).toList();
-});
-
+      // doc.id가 필요해서 _docId로 같이 넣음
+      return snap.docs.map((d) => {'_docId': d.id, ...d.data()}).toList();
+    });
 
 class _MeetPhotoFeedSection extends StatelessWidget {
   const _MeetPhotoFeedSection({
@@ -919,8 +948,6 @@ class _MeetPhotoFeedSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -988,7 +1015,8 @@ class _MeetPhotoFeedSection extends StatelessWidget {
                 final items = <_PhotoItem>[];
 
                 for (final data in docs) {
-                  final feedId = ((data['id'] ?? data['_docId']) ?? '').toString();
+                  final feedId = ((data['id'] ?? data['_docId']) ?? '')
+                      .toString();
 
                   final urls = (data['imageUrls'] as List?)
                       ?.whereType<String>()
@@ -1059,7 +1087,6 @@ class _MeetPhotoFeedSection extends StatelessWidget {
         ),
       ],
     );
-
   }
 
   String _ellipsis(String s, int max) {

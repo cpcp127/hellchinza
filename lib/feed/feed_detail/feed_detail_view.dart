@@ -29,14 +29,17 @@ class FeedDetailView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(feedDocProvider(feedId));
-
-    return async.when(
-      loading: () => const Center(child: CupertinoActivityIndicator()),
-      error: (e, _) => Center(child: Text('error: $e')),
-      data: (feed) {
-        if (feed == null) return const Center(child: Text('피드가 없어요'));
-        return FeedCard(feed: feed);
-      },
+    return Scaffold(
+      appBar: CommonBackAppbar(title: '피드'),
+      body: async.when(
+        loading: () => const Center(child: CupertinoActivityIndicator()),
+        error: (e, _) => Center(child: Text('error: $e')),
+        data: (feed) {
+          if (feed == null) return const Center(child: Text('피드가 없어요'));
+          return FeedCard(feed: feed);
+        },
+      ),
     );
+
   }
 }
