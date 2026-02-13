@@ -3,11 +3,13 @@ class ExtraInfoState {
   final String? nicknameErrorText;
   final int currentIndex;
   final String? nickname;
+  final String? gender;
   final List<String>? selectedCategory;
 
   ExtraInfoState({
     this.isLoading = false,
     this.nicknameErrorText,
+    this.gender,
     this.nickname,
     this.currentIndex = 0,
     this.selectedCategory,
@@ -17,6 +19,7 @@ class ExtraInfoState {
     bool? isLoading,
     String? nicknameErrorText,
     String? nickname,
+    String? gender,
     int? currentIndex,
     List<String>? selectedCategory,
   }) {
@@ -25,6 +28,7 @@ class ExtraInfoState {
       nicknameErrorText: nicknameErrorText ?? this.nicknameErrorText,
       currentIndex: currentIndex ?? this.currentIndex,
       nickname: nickname ?? this.nickname,
+      gender:  gender ?? this.gender,
       selectedCategory: selectedCategory ?? this.selectedCategory,
     );
   }

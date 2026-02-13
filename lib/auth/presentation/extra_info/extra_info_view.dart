@@ -19,7 +19,6 @@ import '../../../constants/app_colors.dart';
 final _nicknameFormKey = GlobalKey<FormState>();
 
 class ExtraInfoView extends ConsumerStatefulWidget {
-
   const ExtraInfoView({super.key});
 
   @override
@@ -28,17 +27,8 @@ class ExtraInfoView extends ConsumerStatefulWidget {
 
 class _ExtraInfoViewState extends ConsumerState<ExtraInfoView> {
   TextEditingController nickController = TextEditingController();
-  bool _popping = false;
 
-  Future<void> _cancelAndBackToAuth() async {
-    if (_popping) return;
-    _popping = true;
 
-    await FirebaseAuth.instance.signOut(); // ✅ 핵심
-    //if (mounted) Navigator.of(context).pop(); // AuthGate가 AuthView를 보여줌
-
-    _popping = false;
-  }
   @override
   Widget build(BuildContext context) {
     final controller = ref.read(extraInfoControllerProvider.notifier);
@@ -46,20 +36,23 @@ class _ExtraInfoViewState extends ConsumerState<ExtraInfoView> {
     return PopScope(
       canPop: false,
       onPopInvoked: (didPop) {
-        if (didPop) return;
-        _cancelAndBackToAuth();
+       controller.back();
       },
       child: Scaffold(
         appBar: AppBar(
           title: Text('회원가입'),
           leading: IconButton(
             icon: const Icon(Icons.arrow_back_ios_new),
-            onPressed: _cancelAndBackToAuth,
+            onPressed: (){
+              controller.back();
+            },
           ),
         ),
         body: SafeArea(
           child: state.currentIndex == 0
               ? buildNickNameInputView(controller, state)
+              : state.currentIndex == 1
+              ? buildSelectGenderView(controller, state) // ✅ 추가
               : buildSelectCategoryView(controller, state),
         ),
       ),
@@ -121,7 +114,7 @@ class _ExtraInfoViewState extends ConsumerState<ExtraInfoView> {
           ),
           state.nicknameErrorText == null
               ? Container()
-              : Text(state.nicknameErrorText!),
+              : Text(state.nicknameErrorText!,style: AppTextStyle.labelSmallStyle,),
           Expanded(child: SizedBox()),
           CommonBottomButton(
             title: '다음',
@@ -132,6 +125,89 @@ class _ExtraInfoViewState extends ConsumerState<ExtraInfoView> {
             },
           ),
           SizedBox(height: 16),
+        ],
+      ),
+    );
+  }
+
+  Padding buildSelectGenderView(
+    ExtraInfoController controller,
+    ExtraInfoState state,
+  ) {
+    Widget genderChip(String label) {
+      final selected = state.gender == label;
+      return Expanded(
+        child: GestureDetector(
+          onTap: () => controller.onSelectGender(label),
+          child: Container(
+            height: 48,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: selected ? AppColors.sky50 : AppColors.bgWhite,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: selected ? AppColors.sky400 : AppColors.borderSecondary,
+              ),
+            ),
+            child: Text(
+              label,
+              style: AppTextStyle.labelLargeStyle.copyWith(
+                color: selected ? AppColors.textPrimary : AppColors.textDefault,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CommonFadeWidget(
+            duration: const Duration(milliseconds: 400),
+            child: Text(
+              '성별을 선택해주세요',
+              style: AppTextStyle.headlineMediumBoldStyle,
+            ),
+          ),
+          const SizedBox(height: 12),
+          CommonFadeWidget(
+            delay: const Duration(milliseconds: 800),
+            child: Text(
+              '매칭/추천에 활용돼요',
+              style: AppTextStyle.bodyMediumStyle.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          CommonFadeWidget(
+            delay: const Duration(milliseconds: 1100),
+            child: Row(
+              children: [
+                genderChip('남성'),
+                const SizedBox(width: 10),
+                genderChip('여성'),
+
+              ],
+            ),
+          ),
+
+          Expanded(child: const SizedBox()),
+
+          CommonBottomButton(
+            title: '다음',
+            enabled: state.gender != null,
+            loading: false,
+            onTap: () {
+              controller.submitGender();
+            },
+          ),
+          const SizedBox(height: 16),
         ],
       ),
     );

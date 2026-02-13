@@ -206,7 +206,7 @@ class FeedAuthorRow extends ConsumerWidget {
 
         return Row(
           children: [
-            CommonProfileAvatar(imageUrl: photoUrl, size: 40, uid: mini!.uid),
+            CommonProfileAvatar(imageUrl: photoUrl, size: 40, uid: mini!.uid,gender: mini.gender,),
             const SizedBox(width: 8),
             Text(
               nickname,
@@ -723,6 +723,7 @@ class _FeedCommentBottomSheetState
     final timeText = DateTimeUtil.from(data['createdAt']);
     final asyncMini = ref.watch(userMiniProvider(data['authorUid']));
     return asyncMini.when(data: (mini){
+      if(mini==null) return Container();
       return GestureDetector(
         onTapDown: (d) => _tapPosition = d.globalPosition,
         onLongPress: () {
@@ -798,7 +799,7 @@ class _FeedCommentBottomSheetState
                 CommonProfileAvatar(
                   imageUrl: mini!.photoUrl,
                   size: 24,
-                  uid: data['authorUid'],
+                  uid: data['authorUid'],gender: mini.gender,
                 ),
                 const SizedBox(width: 10),
 

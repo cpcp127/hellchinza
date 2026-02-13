@@ -126,7 +126,6 @@ class ManageRequestsSheet extends ConsumerWidget {
                   );
                 },
               ),
-
             ],
           ),
         );
@@ -242,7 +241,10 @@ class _RequestRowState extends State<_RequestRow> {
                       border: Border.all(color: AppColors.borderSecondary),
                     ),
                     clipBehavior: Clip.antiAlias,
-                    child: const Icon(Icons.person, color: AppColors.icDisabled),
+                    child: const Icon(
+                      Icons.person,
+                      color: AppColors.icDisabled,
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -281,7 +283,10 @@ class _RequestRowState extends State<_RequestRow> {
                       border: Border.all(color: AppColors.borderSecondary),
                     ),
                     clipBehavior: Clip.antiAlias,
-                    child: const Icon(Icons.person, color: AppColors.icDisabled),
+                    child: const Icon(
+                      Icons.person,
+                      color: AppColors.icDisabled,
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -292,7 +297,6 @@ class _RequestRowState extends State<_RequestRow> {
                       ),
                     ),
                   ),
-
                 ],
               ),
             );
@@ -312,7 +316,12 @@ class _RequestRowState extends State<_RequestRow> {
               ),
               child: Row(
                 children: [
-                  CommonProfileAvatar(imageUrl: photoUrl, size: 40,uid: mini!.uid,),
+                  CommonProfileAvatar(
+                    imageUrl: photoUrl,
+                    size: 40,
+                    uid: mini!.uid,
+                    gender: mini.gender,
+                  ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
@@ -323,7 +332,10 @@ class _RequestRowState extends State<_RequestRow> {
                     ),
                   ),
                   const SizedBox(width: 10),
-                  _SmallOutlineButton(text: '거절', onTap: _busy ? null : _reject),
+                  _SmallOutlineButton(
+                    text: '거절',
+                    onTap: _busy ? null : _reject,
+                  ),
                   const SizedBox(width: 8),
                   _SmallPrimaryButton(
                     text: _busy ? '처리중' : '승인',
@@ -336,7 +348,6 @@ class _RequestRowState extends State<_RequestRow> {
         );
       },
     );
-
   }
 }
 

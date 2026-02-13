@@ -1,29 +1,23 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_pagination/firebase_pagination.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hellchinza/auth/domain/user_model.dart';
 import 'package:hellchinza/common/common_chip.dart';
+import 'package:hellchinza/profile/profile_controller.dart';
 import 'package:hellchinza/profile/profile_edit_view.dart';
-import 'package:hellchinza/profile/widget/feed_mini_card.dart';
 import 'package:hellchinza/profile/widget/feed_preview_section.dart';
 import 'package:hellchinza/profile/widget/meet_preview_section.dart';
 import 'package:hellchinza/profile/widget/my_feed_list_view.dart';
 import 'package:hellchinza/profile/widget/my_meets_list_view.dart';
-import 'package:hellchinza/profile/widget/section_header.dart';
 
-import '../common/common_feed_preview_card.dart';
-import '../common/common_network_image.dart';
-import '../common/common_profile_avatar.dart';
+import '../common/common_bottom_button.dart';
+import '../common/common_text_field.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_text_style.dart';
-import '../feed/domain/feed_model.dart';
-import '../feed/feed_detail/feed_detail_view.dart';
-import '../meet/meet_detail/meat_detail_view.dart';
-import '../meet/domain/meet_model.dart';
+import '../services/snackbar_service.dart';
 
 final userByUidProvider = FutureProvider.family<UserModel?, String>((
   ref,
@@ -38,10 +32,10 @@ final userByUidProvider = FutureProvider.family<UserModel?, String>((
 });
 
 class ProfileView extends ConsumerStatefulWidget {
-  const ProfileView({super.key, this.uid});
+  const ProfileView({super.key, required this.uid});
 
   /// null이면 내 프로필
-  final String? uid;
+  final String uid;
 
   @override
   ConsumerState createState() => _ProfileViewState();
@@ -50,9 +44,47 @@ class ProfileView extends ConsumerStatefulWidget {
 class _ProfileViewState extends ConsumerState<ProfileView> {
   @override
   Widget build(BuildContext context) {
+    final state = ref.watch(profileControllerProvider(widget.uid));
+    final controller = ref.read(profileControllerProvider(widget.uid).notifier);
+
     final myUid = FirebaseAuth.instance.currentUser?.uid;
     return Scaffold(
-      appBar: AppBar(),
+      appBar: widget.uid == myUid ? null : AppBar(),
+      bottomNavigationBar: state.showFriendButton
+          ? SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+                child: CommonBottomButton(
+                  title: state.friendButtonTitle,
+                  enabled: state.friendButtonEnabled,
+                  loading: state.isBusy,
+                  onTap: () async {
+                    // ✅ View는 메시지 입력만 받고 controller 호출
+                    final msg = await _showFriendRequestDialog(context);
+                    if (msg == null) return;
+
+                    try {
+                      await controller.sendFriendRequest(
+                        message: msg,
+                        targetUid: widget.uid,
+                      );
+                      SnackbarService.show(
+                        type: AppSnackType.success,
+                        message: '친구 신청을 보냈어요',
+                      );
+                    } catch (e) {
+                      print(e);
+                      SnackbarService.show(
+                        type: AppSnackType.error,
+                        message: e.toString().replaceAll('Exception: ', ''),
+                      );
+                    }
+                  },
+                ),
+              ),
+            )
+          : null,
       body: Builder(
         builder: (context) {
           if (myUid == null) {
@@ -97,6 +129,13 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
           );
         },
       ),
+    );
+  }
+
+  Future<String?> _showFriendRequestDialog(BuildContext context) async {
+    return showDialog<String?>(
+      context: context,
+      builder: (_) => const _FriendRequestDialog(),
     );
   }
 
@@ -398,6 +437,60 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _FriendRequestDialog extends StatefulWidget {
+  const _FriendRequestDialog();
+
+  @override
+  State<_FriendRequestDialog> createState() => _FriendRequestDialogState();
+}
+
+class _FriendRequestDialogState extends State<_FriendRequestDialog> {
+  late final TextEditingController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = TextEditingController(text: '같이 운동해요! 🙂');
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose(); // ✅ 이제 안전하게 다이얼로그가 완전히 내려갈 때 dispose 됨
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text('친구 신청', style: AppTextStyle.titleMediumBoldStyle),
+      content: CommonTextField(controller: _ctrl, hintText: '신청 메시지를 입력하세요'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, null),
+          child: Text(
+            '취소',
+            style: AppTextStyle.labelMediumStyle.copyWith(
+              color: AppColors.textSecondary,
+            ),
+          ),
+        ),
+        TextButton(
+          onPressed: () {
+            final text = _ctrl.text.trim();
+            Navigator.pop(context, text.isEmpty ? '같이 운동해요! 🙂' : text);
+          },
+          child: Text(
+            '보내기',
+            style: AppTextStyle.labelMediumStyle.copyWith(
+              color: AppColors.textPrimary,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

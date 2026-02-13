@@ -69,7 +69,7 @@ class ExtraInfoController extends StateNotifier<ExtraInfoState> {
         'category':state.selectedCategory!,
         'nickname': state.nickname,
         'profileCompleted': true,
-
+        'gender':state.gender
       });
 
     }catch(e){
@@ -82,5 +82,21 @@ class ExtraInfoController extends StateNotifier<ExtraInfoState> {
   void prevStep() {
     if (state.currentIndex <= 0) return;
     state = state.copyWith(currentIndex: state.currentIndex - 1);
+  }
+
+  void onSelectGender(String gender) {
+    state = state.copyWith(gender: gender);
+  }
+  void submitGender() {
+
+    state = state.copyWith(currentIndex: 2);
+  }
+
+  Future<void> back() async {
+    if(state.currentIndex==0){
+      await FirebaseAuth.instance.signOut();
+    }else{
+      prevStep();
+    }
   }
 }

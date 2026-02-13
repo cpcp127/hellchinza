@@ -7,6 +7,7 @@ import 'package:hellchinza/claim/claim_view.dart';
 import 'package:hellchinza/common/common_chip.dart';
 import 'package:hellchinza/common/common_network_image.dart';
 import 'package:hellchinza/common/common_profile_avatar.dart';
+import '../../auth/domain/user_mini.dart';
 import '../../claim/domain/claim_model.dart';
 import '../../common/common_action_sheet.dart';
 import '../../constants/app_colors.dart';
@@ -59,8 +60,6 @@ class _MeetDetailViewState extends ConsumerState<MeetDetailView> {
                   context: context,
 
                   onDelete: () async {
-
-
                     final ok = await confirm(
                       context,
                       title: '모임을 삭제할까요?',
@@ -71,8 +70,10 @@ class _MeetDetailViewState extends ConsumerState<MeetDetailView> {
 
                     await controller.deleteMeet();
                     if (context.mounted) Navigator.pop(context);
-                    SnackbarService.show(type: AppSnackType.success, message: '모임을 삭제했습니다.');
-
+                    SnackbarService.show(
+                      type: AppSnackType.success,
+                      message: '모임을 삭제했습니다.',
+                    );
                   },
                 );
               } else {
@@ -218,7 +219,6 @@ Future<void> showMeetGuestActionSheet({
   VoidCallback? onLeave,
 }) async {
   final items = <CommonActionSheetItem>[
-
     if (isMember && onLeave != null)
       CommonActionSheetItem(
         icon: Icons.exit_to_app_outlined,
@@ -655,7 +655,7 @@ class _MemberPreviewRow extends StatefulWidget {
 }
 
 class _MemberPreviewRowState extends State<_MemberPreviewRow> {
-  final List<_UserMini> _users = [];
+  final List<UserMini> _users = [];
   final Set<String> _loadedUids = {};
   bool _isLoading = false;
 
@@ -721,7 +721,7 @@ class _MemberPreviewRowState extends State<_MemberPreviewRow> {
           .get();
 
       final fetched = snap.docs
-          .map((d) => _UserMini.fromJson(d.data()))
+          .map((d) => UserMini.fromMap(d.data(), d.id))
           .toList();
 
       // whereIn은 순서 보장 X → need 순서로 정렬
@@ -819,36 +819,21 @@ class _LoadMoreChip extends StatelessWidget {
   }
 }
 
-class _UserMini {
-  final String uid;
-  final String nickname;
-  final String? photoUrl;
-
-  const _UserMini({
-    required this.uid,
-    required this.nickname,
-    required this.photoUrl,
-  });
-
-  factory _UserMini.fromJson(Map<String, dynamic> json) {
-    return _UserMini(
-      uid: (json['uid'] ?? '') as String,
-      nickname: (json['nickname'] ?? '') as String,
-      photoUrl: json['photoUrl'] as String?,
-    );
-  }
-}
-
 class _MemberAvatar extends StatelessWidget {
   const _MemberAvatar({required this.user});
 
-  final _UserMini user;
+  final UserMini user;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        CommonProfileAvatar(imageUrl: user.photoUrl,size:40,uid: user.uid,),
+        CommonProfileAvatar(
+          imageUrl: user.photoUrl,
+          size: 40,
+          uid: user.uid,
+          gender: user.gender,
+        ),
 
         const SizedBox(height: 6),
         Text(

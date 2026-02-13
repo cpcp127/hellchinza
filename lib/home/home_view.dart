@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,6 +9,7 @@ import 'package:hellchinza/meet/meet_list/meet_list_view.dart';
 import 'package:hellchinza/profile/profile_view.dart';
 
 import '../auth/domain/user_model.dart';
+import '../chat/chat_list_view.dart';
 import '../constants/app_colors.dart';
 import '../services/snackbar_service.dart';
 import '../setting/setting_view.dart';
@@ -101,16 +103,13 @@ class _HomeViewState extends ConsumerState<HomeView> {
                     color: AppColors.icDefault,
                   ),
                   onPressed: () {
-                    SnackbarService.show(
-                      type: AppSnackType.uploading,
-                      message: '업로드 중입니다...',
+
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const ChatListView(), // 채팅 리스트 화면
+                      ),
                     );
-                    // Navigator.push(
-                    //   context,
-                    //   MaterialPageRoute(
-                    //     builder: (_) => const ChatListView(), // 채팅 리스트 화면
-                    //   ),
-                    // );
                   },
                 ),
               ],
@@ -165,7 +164,7 @@ class _HomeViewState extends ConsumerState<HomeView> {
               FeedListView(),
               MeetListView(),
               Container(),
-              ProfileView(),
+              ProfileView(uid: FirebaseAuth.instance.currentUser!.uid,),
             ],
           ),
         );
