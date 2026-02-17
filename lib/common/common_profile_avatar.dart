@@ -73,7 +73,7 @@ class _DefaultAvatar extends StatelessWidget {
       alignment: Alignment.center,
       child: Icon(
         Icons.person,
-        size: size * 0.5,
+        size: size * 0.7,
         color: AppColors.icSecondary,
       ),
     );

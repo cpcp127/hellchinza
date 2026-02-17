@@ -86,79 +86,69 @@ class ProfileController extends StateNotifier<ProfileState> {
     }
   }
 
-  Future<void> sendFriendRequest({
-    required String targetUid,
-    required String message,
+  Future<String> sendFriendRequest({
+    required String otherUid,
+    required String requestText,
   }) async {
-    final db = FirebaseFirestore.instance;
     final myUid = FirebaseAuth.instance.currentUser!.uid;
 
-    final a = myUid.compareTo(targetUid) < 0 ? myUid : targetUid;
-    final b = myUid.compareTo(targetUid) < 0 ? targetUid : myUid;
-    final roomId = 'dm_${a}_$b';
+    String dmKey(String a, String b) {
+      final x = [a, b]..sort();
+      return '${x[0]}_${x[1]}';
+    }
 
-    final roomRef = db.collection('chatRooms').doc(roomId);
+    final key = dmKey(myUid, otherUid);
+    final roomRef = _db.collection('chatRooms').doc(key);
     final msgRef = roomRef.collection('messages').doc();
 
-    await db.runTransaction((tx) async {
-      // ✅ READ 먼저
+    await _db.runTransaction((tx) async {
       final roomSnap = await tx.get(roomRef);
 
-      if (roomSnap.exists) {
-        final data = roomSnap.data()!;
-        final status = (data['status'] ?? 'pending').toString();
-
-        // 이미 친구(active)면 굳이 요청메시지 다시 만들 필요 없음(원하면 채팅방으로 이동)
-        if (status == 'active') {
-          throw Exception('이미 친구예요');
-        }
-
-        // 이미 pending이면 중복 요청 막기 (원하면 덮어쓰기 정책도 가능)
-        if (status == 'pending') {
-          throw Exception('이미 친구 요청을 보냈거나 받은 상태예요');
-        }
-      }
-
-      // ✅ WRITE
-      // 방이 없으면 생성
       if (!roomSnap.exists) {
+        // 방 생성
         tx.set(roomRef, {
-          'id': roomId,
-          'userUids': [myUid, targetUid],
           'type': 'dm',
-          'status': 'pending',
-          'requestFromUid': myUid,
-          'requestMessageId': msgRef.id,
-          'createdAt': FieldValue.serverTimestamp(),
-          'updatedAt': FieldValue.serverTimestamp(),
-          'lastMessage': message,
-          'lastMessageType': 'friend_request',
+          'dmKey': key,
+          'userUids': [myUid, otherUid],'visibleUids': [myUid, otherUid],
+          'allowMessages': false,
+          'friendshipStatus': 'pending',
+          'unreadCountMap': {myUid: 0, otherUid: 1}, // 상대에게 1개
+          'activeAtMap': {},
+          'lastMessageText': requestText.trim(),
           'lastMessageAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
         });
       } else {
-        // 방이 있어도 pending으로 갱신(거절 후 재요청 같은 케이스)
-        tx.update(roomRef, {
-          'status': 'pending',
-          'requestFromUid': myUid,
-          'requestMessageId': msgRef.id,
-          'updatedAt': FieldValue.serverTimestamp(),
-          'lastMessage': message,
-          'lastMessageType': 'friend_request',
-          'lastMessageAt': FieldValue.serverTimestamp(),
-        });
+        final room = roomSnap.data()!;
+        final status = (room['friendshipStatus'] ?? '').toString();
+        if (status == 'accepted') {
+          // 이미 친구면 요청 안 만들고 그냥 방만 사용
+          return;
+        }
+        // pending이면 중복 요청 메시지 만들지 않게 하고 싶으면 여기서 return 가능
       }
 
-      // friend_request 메시지 생성
+      // friend_request 메시지
       tx.set(msgRef, {
         'id': msgRef.id,
         'type': 'friend_request',
         'authorUid': myUid,
-        'text': message,
+        'text': requestText.trim(),
         'requestStatus': 'pending',
         'createdAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
       });
+
+      // lastMessageText 갱신(채팅리스트에서 "수락대기"로 보이게)
+      tx.set(roomRef, {
+        'lastMessageText': requestText.trim(),
+        'lastMessageAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+        'allowMessages': false,
+        'friendshipStatus': 'pending',
+      }, SetOptions(merge: true));
     });
+
+    return key; // roomId
   }
 
 

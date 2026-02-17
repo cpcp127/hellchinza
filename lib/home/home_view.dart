@@ -9,7 +9,7 @@ import 'package:hellchinza/meet/meet_list/meet_list_view.dart';
 import 'package:hellchinza/profile/profile_view.dart';
 
 import '../auth/domain/user_model.dart';
-import '../chat/chat_list_view.dart';
+import '../chat/chat_list/chat_list_view.dart';
 import '../constants/app_colors.dart';
 import '../services/snackbar_service.dart';
 import '../setting/setting_view.dart';
@@ -164,7 +164,7 @@ class _HomeViewState extends ConsumerState<HomeView> {
               FeedListView(),
               MeetListView(),
               Container(),
-              ProfileView(uid: FirebaseAuth.instance.currentUser!.uid,),
+              ProfileView(uid: FirebaseAuth.instance.currentUser!.uid,fromHomeTab: true,),
             ],
           ),
         );

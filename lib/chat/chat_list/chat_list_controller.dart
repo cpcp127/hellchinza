@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 
 import 'chat_list_state.dart';
-import 'chat_list_view.dart';
 
 final chatListControllerProvider =
 StateNotifierProvider.autoDispose<ChatListController, ChatListState>((ref) {
@@ -33,7 +32,7 @@ class ChatListController extends StateNotifier<ChatListState> {
     // ✅ 내 채팅방만
     return FirebaseFirestore.instance
         .collection('chatRooms')
-        .where('userUids', arrayContains: uid)
+        .where('visibleUids', arrayContains: uid)
         .orderBy('lastMessageAt', descending: true);
   }
 }

@@ -32,11 +32,11 @@ final userByUidProvider = FutureProvider.family<UserModel?, String>((
 });
 
 class ProfileView extends ConsumerStatefulWidget {
-  const ProfileView({super.key, required this.uid});
+  const ProfileView({super.key, required this.uid,this.fromHomeTab});
 
   /// null이면 내 프로필
   final String uid;
-
+  final bool? fromHomeTab;
   @override
   ConsumerState createState() => _ProfileViewState();
 }
@@ -49,7 +49,7 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
 
     final myUid = FirebaseAuth.instance.currentUser?.uid;
     return Scaffold(
-      appBar: widget.uid == myUid ? null : AppBar(),
+      appBar: widget.fromHomeTab==null || widget.fromHomeTab==false ? AppBar() : null,
       bottomNavigationBar: state.showFriendButton
           ? SafeArea(
               top: false,
@@ -66,8 +66,8 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
 
                     try {
                       await controller.sendFriendRequest(
-                        message: msg,
-                        targetUid: widget.uid,
+                        requestText: msg,
+                        otherUid: widget.uid,
                       );
                       SnackbarService.show(
                         type: AppSnackType.success,
