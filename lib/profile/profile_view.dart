@@ -13,6 +13,9 @@ import 'package:hellchinza/profile/widget/meet_preview_section.dart';
 import 'package:hellchinza/profile/widget/my_feed_list_view.dart';
 import 'package:hellchinza/profile/widget/my_meets_list_view.dart';
 
+import '../claim/claim_view.dart';
+import '../claim/domain/claim_model.dart';
+import '../common/common_action_sheet.dart';
 import '../common/common_bottom_button.dart';
 import '../common/common_text_field.dart';
 import '../constants/app_colors.dart';
@@ -32,11 +35,12 @@ final userByUidProvider = FutureProvider.family<UserModel?, String>((
 });
 
 class ProfileView extends ConsumerStatefulWidget {
-  const ProfileView({super.key, required this.uid,this.fromHomeTab});
+  const ProfileView({super.key, required this.uid, this.fromHomeTab});
 
   /// null이면 내 프로필
   final String uid;
   final bool? fromHomeTab;
+
   @override
   ConsumerState createState() => _ProfileViewState();
 }
@@ -49,7 +53,72 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
 
     final myUid = FirebaseAuth.instance.currentUser?.uid;
     return Scaffold(
-      appBar: widget.fromHomeTab==null || widget.fromHomeTab==false ? AppBar() : null,
+      appBar: widget.fromHomeTab == null || widget.fromHomeTab == false
+          ? AppBar(
+              actions: [
+                if (widget.uid != myUid) ...[
+                  IconButton(
+                    icon: const Icon(
+                      Icons.more_horiz,
+                      color: AppColors.icDefault,
+                    ),
+                    onPressed: () {
+                      _showUserMoreSheet(
+                        context: context,
+                        onReport: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => ClaimView(
+                                target: ClaimTarget(
+                                  type: ClaimTargetType.user,
+                                  // ✅ 없으면 추가
+                                  targetId: widget.uid,
+                                  targetOwnerUid: widget.uid,
+                                  // 상대 uid
+                                  title: '유저 신고',
+                                  parentId: null,
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                        onBlock: () async {
+                          final ok = await _confirmBlockDialog(context);
+                          if (!ok) return;
+
+                          try {
+                            await ref
+                                .read(
+                                  profileControllerProvider(
+                                    widget.uid,
+                                  ).notifier,
+                                )
+                                .blockUser(targetUid: widget.uid); // ✅ 아래 3) 참고
+
+                            SnackbarService.show(
+                              type: AppSnackType.success,
+                              message: '차단했어요',
+                            );
+
+                            Navigator.pop(context); // ✅ 차단 후 프로필 화면 닫고 싶으면
+                          } catch (e) {
+                            SnackbarService.show(
+                              type: AppSnackType.error,
+                              message: e.toString().replaceAll(
+                                'Exception: ',
+                                '',
+                              ),
+                            );
+                          }
+                        },
+                      );
+                    },
+                  ),
+                ],
+              ],
+            )
+          : null,
       bottomNavigationBar: state.showFriendButton
           ? SafeArea(
               top: false,
@@ -132,11 +201,75 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
     );
   }
 
+  Future<void> _showUserMoreSheet({
+    required BuildContext context,
+
+    VoidCallback? onBlock,
+    VoidCallback? onReport,
+  }) async {
+    final items = <CommonActionSheetItem>[
+      CommonActionSheetItem(
+        icon: Icons.delete_outline,
+        title: '차단하기',
+        onTap: onBlock ?? () {},
+        isDestructive: true,
+      ),
+
+      CommonActionSheetItem(
+        icon: Icons.flag_outlined,
+        title: '신고하기',
+        onTap: onReport ?? () {},
+        isDestructive: true,
+      ),
+    ];
+
+    await showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => CommonActionSheet(title: '유저', items: items),
+    );
+  }
+
   Future<String?> _showFriendRequestDialog(BuildContext context) async {
     return showDialog<String?>(
       context: context,
       builder: (_) => const _FriendRequestDialog(),
     );
+  }
+
+  Future<bool> _confirmBlockDialog(BuildContext context) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (_) {
+        return AlertDialog(
+          title: Text('차단할까요?', style: AppTextStyle.titleMediumBoldStyle),
+          content: Text(
+            '차단하면 서로 프로필/피드가 제한되고 친구도 끊어집니다.',
+            style: AppTextStyle.bodyMediumStyle.copyWith(
+              color: AppColors.textSecondary,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text('취소', style: AppTextStyle.labelMediumStyle),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: Text(
+                '차단',
+                style: AppTextStyle.labelMediumStyle.copyWith(
+                  color: AppColors.red100,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    return result == true;
   }
 
   /// ✅ 너가 올린 UI 구조를 그대로 유지하되

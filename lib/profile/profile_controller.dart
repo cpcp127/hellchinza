@@ -151,5 +151,31 @@ class ProfileController extends StateNotifier<ProfileState> {
     return key; // roomId
   }
 
+  Future<void> blockUser({required String targetUid}) async {
+    final myUid = FirebaseAuth.instance.currentUser!.uid;
+    final myBlockRef =
+    _db.collection('users').doc(myUid).collection('blocks').doc(targetUid);
+
+    final myFriendRef =
+    _db.collection('users').doc(myUid).collection('friends').doc(targetUid);
+    final otherFriendRef =
+    _db.collection('users').doc(targetUid).collection('friends').doc(myUid);
+
+    await _db.runTransaction((tx) async {
+      // READ 먼저 (필요하면)
+      final blockSnap = await tx.get(myBlockRef);
+
+      if (!blockSnap.exists) {
+        tx.set(myBlockRef, {
+          'uid': targetUid,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      }
+
+      // ✅ 친구도 끊기 (존재하면 삭제)
+      tx.delete(myFriendRef);
+      tx.delete(otherFriendRef);
+    });
+  }
 
 }
