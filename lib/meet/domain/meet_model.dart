@@ -15,7 +15,7 @@ class MeetModel {
   final int maxMembers;
   final int currentMemberCount;
   final bool needApproval;
-  final List<String> memberUids;
+  final List<String> userUids;
   final String status;
 
   final List<String> imageUrls;
@@ -33,7 +33,7 @@ class MeetModel {
     required this.maxMembers,
     required this.currentMemberCount,
     required this.needApproval,
-    required this.memberUids,
+    required this.userUids,
     required this.status,
     required this.imageUrls,
     required this.createdAt,
@@ -61,7 +61,7 @@ class MeetModel {
       maxMembers: (d['maxMembers'] as num?)?.toInt() ?? 0,
       currentMemberCount: (d['currentMemberCount'] as num?)?.toInt() ?? 0,
       needApproval: (d['needApproval'] as bool?) ?? false,
-      memberUids: List<String>.from(d['memberUids'] ?? const []),
+      userUids: List<String>.from(d['userUids'] ?? const []),
       status: (d['status'] as String?) ?? 'open',
       imageUrls: imageRaw.map((e) => e.toString()).toList(),
       createdAt: tsToDt(d['createdAt']),

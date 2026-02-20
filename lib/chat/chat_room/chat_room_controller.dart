@@ -533,5 +533,39 @@ class ChatController extends StateNotifier<ChatState> {
       );
     }
   }
+  Future<void> leaveGroupRoomAndMeet() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) throw Exception('로그인이 필요해요');
 
+    final db = FirebaseFirestore.instance;
+
+    final roomRef = db.collection('chatRooms').doc(roomId);
+    final meetRef = db.collection('meets').doc(roomId);
+    // roomId == meetId 설계 기준
+
+    await db.runTransaction((tx) async {
+      final roomSnap = await tx.get(roomRef);
+      final meetSnap = await tx.get(meetRef);
+
+      if (!roomSnap.exists || !meetSnap.exists) {
+        throw Exception('데이터가 존재하지 않아요');
+      }
+
+      // 🔹 chatRooms 업데이트
+      tx.update(roomRef, {
+        'userUids': FieldValue.arrayRemove([uid]),
+        'visibleUids': FieldValue.arrayRemove([uid]),
+        'unreadCountMap.$uid': FieldValue.delete(),
+        'activeAtMap.$uid': FieldValue.delete(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      // 🔹 meets 업데이트
+      tx.update(meetRef, {
+        'userUids': FieldValue.arrayRemove([uid]),
+        'currentMemberCount': FieldValue.increment(-1),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    });
+  }
 }

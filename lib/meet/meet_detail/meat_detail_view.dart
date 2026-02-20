@@ -453,7 +453,7 @@ class _MeetDetailBody extends StatelessWidget {
               Row(
                 children: [
                   Text(
-                    '참가자 ${meet.memberUids.length}명',
+                    '참가자 ${meet.userUids.length}명',
                     style: AppTextStyle.titleMediumBoldStyle,
                   ),
                   Expanded(child: SizedBox()),
@@ -464,7 +464,7 @@ class _MeetDetailBody extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 10),
-              _MemberPreviewRow(memberUids: meet.memberUids),
+              _MemberPreviewRow(memberUids: meet.userUids),
               const SizedBox(height: 16),
               _MeetPhotoFeedSection(
                 meetId: meet.id,

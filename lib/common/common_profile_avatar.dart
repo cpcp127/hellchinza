@@ -8,12 +8,12 @@ class CommonProfileAvatar extends StatelessWidget {
   final String? imageUrl;
   final double size;
   final String uid;
-  final String gender;
+  final String? gender;
 
   const CommonProfileAvatar({
     super.key,
     required this.imageUrl,
-    required this.gender,
+     this.gender,
     this.size = 40,
     required this.uid,
   });

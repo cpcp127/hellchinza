@@ -195,10 +195,58 @@ class MeetCreateController extends StateNotifier<MeetCreateState> {
           ...update,
           'status': 'open',
           'currentMemberCount': 1,
-          'memberUids': [uid],
+          // ✅ 너 규칙: userUids 사용
+          'userUids': [uid],
           'createdAt': FieldValue.serverTimestamp(),
+          // (선택) 나중에 접근 쉽게
+          'chatRoomId': meetId,
         };
-        await meetRef.set(create);
+
+        // ✅ 단톡방(그룹 채팅)도 같이 생성
+        final chatRoomRef = db.collection('chatRooms').doc(meetId); // roomId = meetId
+        final firstMsgRef = chatRoomRef.collection('messages').doc();
+
+        final now = FieldValue.serverTimestamp();
+
+        final batch = db.batch();
+
+        // 1) meet 생성
+        batch.set(meetRef, create);
+
+        // 2) chatRoom 생성 (dm 구조 확장)
+        batch.set(chatRoomRef, <String, dynamic>{
+          'type': 'group',                // ✅ 단톡 타입
+          'meetId': meetId,               // ✅ 모임 연결
+          'title': state.title.trim(),    // 표시용(선택)
+          'allowMessages': true,
+
+          // ✅ 멤버/가시성
+          'userUids': [uid],
+          'visibleUids': [uid],
+
+          // ✅ unread/active 맵 초기화
+          'unreadCountMap': { uid: 0 },
+          'activeAtMap': { uid: now },
+
+          // ✅ 마지막 메시지(시스템)
+          'lastMessageAt': now,
+          'lastMessageText': '모임 채팅이 생성되었어요 🎉',
+          'lastMessageType': 'system',
+
+          'createdAt': now,
+          'updatedAt': now,
+        });
+
+        // 3) 첫 시스템 메시지
+        batch.set(firstMsgRef, <String, dynamic>{
+          'id': firstMsgRef.id,
+          'type': 'system',
+          'text': '모임 채팅이 생성되었어요 🎉',
+          'authorUid': uid, // 시스템이면 'system'으로 두고 싶으면 바꿔도 됨
+          'createdAt': now,
+        });
+
+        await batch.commit();
       } else {
         await meetRef.update(update);
       }

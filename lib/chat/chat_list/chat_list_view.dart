@@ -10,6 +10,7 @@ import '../../auth/domain/user_mini_provider.dart';
 import '../../common/common_profile_avatar.dart';
 import '../../constants/app_colors.dart';
 import '../../constants/app_text_style.dart';
+import '../../meet/domain/meet_summary_model.dart';
 import '../../utils/date_time_util.dart';
 import 'chat_list_controller.dart';
 
@@ -25,9 +26,7 @@ class ChatListView extends ConsumerWidget {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) {
       return Scaffold(
-        appBar: AppBar(
-          title: Text('채팅', style: AppTextStyle.titleMediumBoldStyle),
-        ),
+
         body: Center(
           child: Text(
             '로그인이 필요합니다',
@@ -42,9 +41,7 @@ class ChatListView extends ConsumerWidget {
     final query = controller.buildQuery();
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text('채팅', style: AppTextStyle.titleMediumBoldStyle),
-      ),
+
       body: RefreshIndicator(
         onRefresh: () async {
           controller.refresh();
@@ -83,26 +80,30 @@ class ChatListView extends ConsumerWidget {
               ],
             ),
           ),
-          // ✅ 너 패키지: (context, docs, index)
           itemBuilder: (context, docs, index) {
-            final doc = docs[index]; // ✅ List에서 하나 꺼내고
+            final doc = docs[index];
 
             final data =
                 (doc.data() as Map?)?.cast<String, dynamic>() ??
-                <String, dynamic>{};
+                    <String, dynamic>{};
 
             final roomId = (data['id'] ?? doc.id).toString();
+            final roomType = (data['type'] ?? 'dm').toString(); // ✅ 추가
 
             final userUids =
                 (data['userUids'] as List?)
                     ?.map((e) => e.toString())
                     .toList() ??
-                [];
+                    [];
 
-            final otherUid = userUids.firstWhere(
-              (e) => e != uid,
+            final meetId = data['meetId']?.toString(); // ✅ group일 때 사용
+
+            final otherUid = roomType == 'dm'
+                ? userUids.firstWhere(
+                  (e) => e != uid,
               orElse: () => '',
-            );
+            )
+                : null;
 
             final lastMessage = (data['lastMessageText'] ?? '').toString();
             final lastType = (data['lastMessageType'] ?? 'text').toString();
@@ -116,16 +117,24 @@ class ChatListView extends ConsumerWidget {
               padding: const EdgeInsets.only(bottom: 10),
               child: _ChatRoomRow(
                 roomId: roomId,
-                otherUid: otherUid,
+                roomType: roomType,      // ✅ 추가
+                otherUid: otherUid,      // dm만 사용
+                meetId: meetId,          // group만 사용
                 lastMessage: lastMessage,
                 lastType: lastType,
                 status: status,
                 lastAt: lastAt,
                 onTap: () {
-                  print(roomId);
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => ChatView(roomId: roomId, otherUid: otherUid,)),
+                    MaterialPageRoute(
+                      builder: (_) => ChatView(
+                        roomId: roomId,
+                        roomType: roomType,   // ✅ 추가
+                        otherUid: otherUid,   // dm이면 값 있음, group이면 null
+                        meetId: meetId,       // group이면 넣고, 없으면 null
+                      ),
+                    ),
                   );
                 },
               ),
@@ -140,7 +149,9 @@ class ChatListView extends ConsumerWidget {
 class _ChatRoomRow extends ConsumerWidget {
   const _ChatRoomRow({
     required this.roomId,
-    required this.otherUid,
+    required this.roomType,      // ✅ 추가: 'dm' | 'group'
+    this.otherUid,               // ✅ dm에서만 필요
+    this.meetId,                 // ✅ group에서만 필요
     required this.lastMessage,
     required this.lastType,
     required this.status,
@@ -149,7 +160,9 @@ class _ChatRoomRow extends ConsumerWidget {
   });
 
   final String roomId;
-  final String otherUid;
+  final String roomType;
+  final String? otherUid;
+  final String? meetId;
 
   final String lastMessage;
   final String lastType;
@@ -160,98 +173,187 @@ class _ChatRoomRow extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-
-
-
     final subtitle = lastType == 'friend_request'
         ? '친구 요청: $lastMessage'
         : lastMessage;
 
-    final timeText = (lastAt == null)
-        ? ''
-        : DateTimeUtil.formatRelative(lastAt!); // 너 포맷 유틸에 맞춰
-    final asyncMini = ref.watch(userMiniProvider(otherUid));
+    final timeText = (lastAt == null) ? '' : DateTimeUtil.formatRelative(lastAt!);
+
+    if (roomType == 'group') {
+      final id = meetId ?? roomId; // ✅ 너 설계에서 roomId=meetId면 이걸로 OK
+      final asyncMeet = ref.watch(meetSummaryProvider(id));
+
+      return asyncMeet.when(
+        data: (meet) {
+          if (meet == null) return const SizedBox.shrink();
+
+          return _BaseChatRoomTile(
+            title: meet.title,
+            subtitle: subtitle,
+            timeText: timeText,
+            imageUrl: meet.imageUrls!.first,
+            onTap: onTap,
+          );
+        },
+        loading: () => const Center(child: CupertinoActivityIndicator()),
+        error: (e, _) => Text(
+          '모임 불러오기 실패 $e',
+          style: AppTextStyle.bodySmallStyle.copyWith(color: AppColors.textSecondary),
+        ),
+      );
+    }
+
+    // ✅ dm
+    final uid = otherUid;
+    if (uid == null) return const SizedBox.shrink();
+
+    final asyncMini = ref.watch(userMiniProvider(uid));
     return asyncMini.when(
-      data: (mini){
-        if(mini==null) return Container();
-        return InkWell(
-          borderRadius: BorderRadius.circular(16),
+      data: (mini) {
+        if (mini == null) return const SizedBox.shrink();
+
+        return _BaseChatRoomTile(
+          title: mini.nickname,
+          subtitle: subtitle,
+          timeText: timeText,
+          imageUrl: mini.photoUrl,
+          gender: mini.gender,
+          uidForAvatar: uid,
           onTap: onTap,
-          child: Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: AppColors.bgWhite,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.borderSecondary),
+        );
+      },
+      loading: () => const Center(child: CupertinoActivityIndicator()),
+      error: (e, _) => Text(
+        '작성자 불러오기 실패 $e',
+        style: AppTextStyle.bodySmallStyle.copyWith(color: AppColors.textSecondary),
+      ),
+    );
+  }
+}
+
+class _BaseChatRoomTile extends StatelessWidget {
+  const _BaseChatRoomTile({
+    required this.title,
+    required this.subtitle,
+    required this.timeText,
+    required this.imageUrl,
+    required this.onTap,
+    this.uidForAvatar,
+    this.gender,
+  });
+
+  final String title;
+  final String subtitle;
+  final String timeText;
+  final String? imageUrl;
+  final VoidCallback onTap;
+
+  // dm에서만 쓰는 값(프로필 기본이미지 처리용)
+  final String? uidForAvatar;
+  final String? gender;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppColors.bgWhite,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.borderSecondary),
+        ),
+        child: Row(
+          children: [
+            // ✅ dm이면 CommonProfileAvatar 그대로, group이면 썸네일 아바타로
+            _LeadingAvatar(
+              imageUrl: imageUrl,
+              uid: uidForAvatar,
+              gender: gender,
             ),
-            child: Row(
-              children: [
-                CommonProfileAvatar(
-                  imageUrl: mini.photoUrl,
-                  size: 44,
-                  uid: otherUid,
-                  gender: mini.gender,
-                ),
-                const SizedBox(width: 12),
-
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
                     children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              mini.nickname,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: AppTextStyle.titleSmallBoldStyle.copyWith(
-                                color: AppColors.textDefault,
-                              ),
-                            ),
+                      Expanded(
+                        child: Text(
+                          title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTextStyle.titleSmallBoldStyle.copyWith(
+                            color: AppColors.textDefault,
                           ),
-                          const SizedBox(width: 8),
-                          Text(
-                            timeText,
-                            style: AppTextStyle.labelSmallStyle.copyWith(
-                              color: AppColors.textTeritary,
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
-                      const SizedBox(height: 6),
-
-                      Row(
-                        children: [
-
-                          Expanded(
-                            child: Text(
-                              subtitle,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: AppTextStyle.bodySmallStyle.copyWith(
-                                color: AppColors.textSecondary,
-                              ),
-                            ),
-                          ),
-                        ],
+                      const SizedBox(width: 8),
+                      Text(
+                        timeText,
+                        style: AppTextStyle.labelSmallStyle.copyWith(
+                          color: AppColors.textTeritary,
+                        ),
                       ),
                     ],
                   ),
-                ),
-              ],
+                  const SizedBox(height: 6),
+                  Text(
+                    subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTextStyle.bodySmallStyle.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-        );
-      },
-      loading: () => Center(child: CupertinoActivityIndicator()),
-      error: (e, _) => Text(
-        '작성자 불러오기 실패',
-        style: AppTextStyle.bodySmallStyle.copyWith(
-          color: AppColors.textSecondary,
+          ],
         ),
       ),
     );
+  }
+}
 
+class _LeadingAvatar extends StatelessWidget {
+  const _LeadingAvatar({
+    required this.imageUrl,
+    this.uid,
+     this.gender,
+  });
+
+  final String? imageUrl;
+  final String? uid;
+  final String? gender;
+
+  @override
+  Widget build(BuildContext context) {
+    // uid가 있으면 DM 아바타로 취급
+    if (uid != null) {
+      return CommonProfileAvatar(
+        imageUrl: imageUrl,
+        size: 44,
+        uid: uid!,
+        gender: gender,
+      );
+    }
+
+    // 그룹(모임) 썸네일
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          color: AppColors.bgSecondary,
+          border: Border.all(color: AppColors.borderSecondary),
+        ),
+        child: (imageUrl == null || imageUrl!.isEmpty)
+            ? const Icon(Icons.groups, color: AppColors.icSecondary, size: 22)
+            : Image.network(imageUrl!, fit: BoxFit.cover),
+      ),
+    );
   }
 }

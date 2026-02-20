@@ -24,11 +24,15 @@ class ChatView extends ConsumerStatefulWidget {
   const ChatView({
     super.key,
     required this.roomId,
-    required this.otherUid, // DM일 때 상대 uid
+    required this.roomType, // ✅ 추가: 'dm' | 'group'
+    this.otherUid, // ✅ dm일 때만
+    this.meetId, // ✅ group일 때만(없으면 roomId==meetId로 처리 가능)
   });
 
   final String roomId;
-  final String otherUid;
+  final String roomType;
+  final String? otherUid;
+  final String? meetId;
 
   @override
   ConsumerState<ChatView> createState() => _ChatViewState();
@@ -89,6 +93,7 @@ class _ChatViewState extends ConsumerState<ChatView>
         .doc(widget.roomId)
         .collection('messages')
         .orderBy('createdAt', descending: true);
+    final isDm = widget.roomType == 'dm';
     final otherUid = ref.watch(otherUidProvider(widget.roomId));
     final otherAsync = (otherUid == null)
         ? const AsyncValue<UserMini?>.data(null)
@@ -97,41 +102,63 @@ class _ChatViewState extends ConsumerState<ChatView>
     return Scaffold(
       appBar: AppBar(
         title: Text('채팅', style: AppTextStyle.titleMediumBoldStyle),
+
         actions: [
           IconButton(
             icon: const Icon(Icons.more_horiz, color: AppColors.icDefault),
             onPressed: () {
-              _showChatMoreSheet(
-                context: context,
-                controller: controller,
-                roomId: widget.roomId,
-                otherUid: widget.otherUid,
-                onReport: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => ClaimView(
-                        target: ClaimTarget(
-                          type: ClaimTargetType.user,
-                          // ✅ 없으면 추가
-                          targetId: otherUid!,
-                          targetOwnerUid: otherUid,
-                          // 상대 uid
-                          title: '유저 신고',
-                          parentId: null,
+              if (widget.roomType == 'dm') {
+                final other = widget.otherUid;
+                if (other == null || other.isEmpty) return;
+
+                _showChatMoreSheetDm(
+                  context: context,
+                  controller: controller,
+                  roomId: widget.roomId,
+                  otherUid: other,
+                  onReport: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ClaimView(
+                          target: ClaimTarget(
+                            type: ClaimTargetType.user,
+                            // ✅ 없으면 추가
+                            targetId: otherUid!,
+                            targetOwnerUid: otherUid,
+                            // 상대 uid
+                            title: '유저 신고',
+                            parentId: null,
+                          ),
                         ),
                       ),
-                    ),
-                  );
-                },
-                onLeave: () async {
-                  await showLeaveRoomDialog(
-                    context: context,
-                    controller: controller,
-                    otherUid: widget.otherUid,
-                  );
-                },
-              );
+                    );
+                  },
+                  onLeave: () async {
+                    await showLeaveRoomDialog(
+                      context: context,
+                      controller: controller,
+                      otherUid: widget.otherUid,
+                      roomType: widget.roomType,
+                    );
+                  },
+                );
+              } else {
+                _showChatMoreSheetGroup(
+                  context: context,
+                  controller: controller,
+                  roomId: widget.roomId,
+                  meetId: widget.meetId ?? widget.roomId,
+                  onLeave: () async {
+                    await showLeaveRoomDialog(
+                      context: context,
+                      controller: controller,
+
+                      roomType: widget.roomType,
+                    );
+                  },
+                );
+              }
             },
           ),
         ],
@@ -186,7 +213,7 @@ class _ChatViewState extends ConsumerState<ChatView>
                       padding: const EdgeInsets.only(bottom: 10),
                       child: _ChatBubble(
                         roomId: widget.roomId,
-                        otherUid: widget.otherUid,
+                        roomType: widget.roomType,
                         data: data,
                         otherUser: otherAsync.value,
                         pendingLocalPath: pendingPath,
@@ -196,7 +223,7 @@ class _ChatViewState extends ConsumerState<ChatView>
                             await controller.acceptFriendRequest(
                               requestMessageId: (data['id'] ?? doc.id)
                                   .toString(),
-                              otherUid: widget.otherUid,
+                              otherUid: widget.otherUid!,
                             );
                             SnackbarService.show(
                               type: AppSnackType.success,
@@ -262,6 +289,61 @@ class _ChatViewState extends ConsumerState<ChatView>
     );
   }
 
+  Future<void> _showChatMoreSheetDm({
+    required BuildContext context,
+    required ChatController controller,
+    required String roomId,
+    required String otherUid,
+    VoidCallback? onLeave,
+    VoidCallback? onReport,
+  }) async {
+    final items = <CommonActionSheetItem>[
+      CommonActionSheetItem(
+        icon: Icons.delete_outline,
+        title: '나가기',
+        onTap: onLeave ?? () {},
+        isDestructive: true,
+      ),
+      CommonActionSheetItem(
+        icon: Icons.flag_outlined,
+        title: '신고하기',
+        onTap: onReport ?? () {},
+        isDestructive: true,
+      ),
+    ];
+
+    await showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => CommonActionSheet(title: '채팅', items: items),
+    );
+  }
+
+  Future<void> _showChatMoreSheetGroup({
+    required BuildContext context,
+    required ChatController controller,
+    required String roomId,
+    required String meetId,
+    VoidCallback? onLeave,
+  }) async {
+    final items = <CommonActionSheetItem>[
+      CommonActionSheetItem(
+        icon: Icons.exit_to_app,
+        title: '채팅방 나가기',
+        onTap: onLeave ?? () {},
+        isDestructive: true,
+      ),
+    ];
+
+    await showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => CommonActionSheet(title: '단톡', items: items),
+    );
+  }
+
   Future<void> _showChatMoreSheet({
     required BuildContext context,
     required ChatController controller,
@@ -297,9 +379,11 @@ class _ChatViewState extends ConsumerState<ChatView>
   Future<void> showLeaveRoomDialog({
     required BuildContext context,
     required ChatController controller,
-
-    required String otherUid, // 친구 끊기/room 업데이트용
+    required String roomType,
+    String? otherUid, // DM에서만 필요
   }) async {
+    final isDm = roomType == 'dm';
+
     final ok = await showDialog<bool>(
       context: context,
       barrierDismissible: true,
@@ -310,13 +394,15 @@ class _ChatViewState extends ConsumerState<ChatView>
             borderRadius: BorderRadius.circular(16),
           ),
           title: Text(
-            '채팅방을 나갈까요?',
+            isDm ? '채팅방을 나갈까요?' : '모임에서 나갈까요?',
             style: AppTextStyle.titleMediumBoldStyle.copyWith(
               color: AppColors.textDefault,
             ),
           ),
           content: Text(
-            '채팅방을 나가면 친구도 끊어집니다.\n정말 나가시겠어요?',
+            isDm
+                ? '채팅방을 나가면 친구도 끊어집니다.\n정말 나가시겠어요?'
+                : '모임에서 나가면 단톡방에서도 나가게 됩니다.\n정말 나가시겠어요?',
             style: AppTextStyle.bodyMediumStyle.copyWith(
               color: AppColors.textSecondary,
               height: 1.35,
@@ -348,10 +434,13 @@ class _ChatViewState extends ConsumerState<ChatView>
 
     if (ok != true) return;
 
-    if (ok != true) return;
-
     final controller = ref.read(chatControllerProvider(widget.roomId).notifier);
-    await controller.leaveRoomAndUnfriend(otherUid: widget.otherUid);
+    if (isDm) {
+      if (otherUid == null) return;
+      await controller.leaveRoomAndUnfriend(otherUid: otherUid);
+    } else {
+      await controller.leaveGroupRoomAndMeet();
+    }
 
     if (mounted) Navigator.pop(context); // 방 화면 닫기
   }
@@ -360,16 +449,16 @@ class _ChatViewState extends ConsumerState<ChatView>
 class _ChatBubble extends StatelessWidget {
   const _ChatBubble({
     required this.roomId,
-    required this.otherUid,
     required this.data,
     required this.onAccept,
     required this.onReject,
     required this.otherUser,
     required this.pendingLocalPath,
+    required this.roomType,
   });
 
   final String roomId;
-  final String otherUid;
+  final String roomType; // ✅ 추가
   final Map<String, dynamic> data;
   final Future<void> Function() onAccept;
   final Future<void> Function() onReject;

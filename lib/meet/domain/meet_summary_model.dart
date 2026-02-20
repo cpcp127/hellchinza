@@ -1,6 +1,18 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../feed/create_feed/create_feed_state.dart';
+
+final meetSummaryProvider =
+FutureProvider.family<MeetSummary?, String>((ref, meetId) async {
+  final doc = await FirebaseFirestore.instance
+      .collection('meets')
+      .doc(meetId)
+      .get();
+
+  if (!doc.exists) return null;
+  return MeetSummary.fromDoc(doc);
+});
 
 class MeetSummary {
   final String id;

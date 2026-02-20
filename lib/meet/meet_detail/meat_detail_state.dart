@@ -63,7 +63,7 @@ class MeetDetailState {
 
   bool get isMember {
     if (meet == null || myUid == null) return false;
-    return meet!.memberUids.contains(myUid);
+    return meet!.userUids.contains(myUid);
   }
 
   bool get isFull {

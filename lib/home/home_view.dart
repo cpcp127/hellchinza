@@ -24,7 +24,7 @@ class HomeView extends ConsumerStatefulWidget {
 
 class _HomeViewState extends ConsumerState<HomeView> {
   int pageIndex = 0;
-  List<String> title = ['피드', '모임', '프로필', '프로필'];
+  List<String> title = ['피드', '모임', '채팅', '프로필'];
 
   @override
   Widget build(BuildContext context) {
@@ -95,23 +95,23 @@ class _HomeViewState extends ConsumerState<HomeView> {
                     );
                   },
                 ),
-
-                IconButton(
-                  icon: const Icon(
-                    Icons.chat_bubble_outline,
-                    size: 24,
-                    color: AppColors.icDefault,
-                  ),
-                  onPressed: () {
-
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const ChatListView(), // 채팅 리스트 화면
-                      ),
-                    );
-                  },
-                ),
+                //
+                // IconButton(
+                //   icon: const Icon(
+                //     Icons.chat_bubble_outline,
+                //     size: 24,
+                //     color: AppColors.icDefault,
+                //   ),
+                //   onPressed: () {
+                //
+                //     Navigator.push(
+                //       context,
+                //       MaterialPageRoute(
+                //         builder: (_) => const ChatListView(), // 채팅 리스트 화면
+                //       ),
+                //     );
+                //   },
+                // ),
               ],
             ],
           ),
@@ -147,8 +147,8 @@ class _HomeViewState extends ConsumerState<HomeView> {
                   BottomNavigationBarItem(icon: Icon(Icons.feed), label: '피드'),
                   BottomNavigationBarItem(icon: Icon(Icons.home), label: '모음'),
                   BottomNavigationBarItem(
-                    icon: Icon(Icons.person),
-                    label: '프로필',
+                    icon: Icon(Icons.chat_bubble),
+                    label: '채팅',
                   ),
                   BottomNavigationBarItem(
                     icon: Icon(Icons.person),
@@ -163,7 +163,7 @@ class _HomeViewState extends ConsumerState<HomeView> {
             children: [
               FeedListView(),
               MeetListView(),
-              Container(),
+              ChatListView(),
               ProfileView(uid: FirebaseAuth.instance.currentUser!.uid,fromHomeTab: true,),
             ],
           ),
