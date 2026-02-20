@@ -20,6 +20,7 @@ import '../common/common_bottom_button.dart';
 import '../common/common_text_field.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_text_style.dart';
+import '../services/dialog_service.dart';
 import '../services/snackbar_service.dart';
 
 final userByUidProvider = FutureProvider.family<UserModel?, String>((
@@ -130,7 +131,12 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
                   loading: state.isBusy,
                   onTap: () async {
                     // ✅ View는 메시지 입력만 받고 controller 호출
-                    final msg = await _showFriendRequestDialog(context);
+                    final msg =  await DialogService.showTextInput(
+                      context: context,
+                      title: '친구 신청',
+                      hintText: '신청 메시지를 입력하세요',
+                      confirmText: '보내기',
+                    );
                     if (msg == null) return;
 
                     try {
@@ -231,43 +237,17 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
     );
   }
 
-  Future<String?> _showFriendRequestDialog(BuildContext context) async {
-    return showDialog<String?>(
-      context: context,
-      builder: (_) => const _FriendRequestDialog(),
-    );
-  }
+
 
   Future<bool> _confirmBlockDialog(BuildContext context) async {
-    final result = await showDialog<bool>(
+    final result =  await DialogService.showConfirm(
       context: context,
-      builder: (_) {
-        return AlertDialog(
-          title: Text('차단할까요?', style: AppTextStyle.titleMediumBoldStyle),
-          content: Text(
-            '차단하면 서로 프로필/피드가 제한되고 친구도 끊어집니다.',
-            style: AppTextStyle.bodyMediumStyle.copyWith(
-              color: AppColors.textSecondary,
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: Text('취소', style: AppTextStyle.labelMediumStyle),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: Text(
-                '차단',
-                style: AppTextStyle.labelMediumStyle.copyWith(
-                  color: AppColors.red100,
-                ),
-              ),
-            ),
-          ],
-        );
-      },
+      title:  '차단할까요?',
+      message: '차단하면 서로 프로필/피드가 제한되고 친구도 끊어집니다.',
+      confirmText: '차단하기',
+      isDestructive: true,
     );
+
 
     return result == true;
   }
@@ -570,60 +550,6 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _FriendRequestDialog extends StatefulWidget {
-  const _FriendRequestDialog();
-
-  @override
-  State<_FriendRequestDialog> createState() => _FriendRequestDialogState();
-}
-
-class _FriendRequestDialogState extends State<_FriendRequestDialog> {
-  late final TextEditingController _ctrl;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = TextEditingController(text: '같이 운동해요! 🙂');
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose(); // ✅ 이제 안전하게 다이얼로그가 완전히 내려갈 때 dispose 됨
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text('친구 신청', style: AppTextStyle.titleMediumBoldStyle),
-      content: CommonTextField(controller: _ctrl, hintText: '신청 메시지를 입력하세요'),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context, null),
-          child: Text(
-            '취소',
-            style: AppTextStyle.labelMediumStyle.copyWith(
-              color: AppColors.textSecondary,
-            ),
-          ),
-        ),
-        TextButton(
-          onPressed: () {
-            final text = _ctrl.text.trim();
-            Navigator.pop(context, text.isEmpty ? '같이 운동해요! 🙂' : text);
-          },
-          child: Text(
-            '보내기',
-            style: AppTextStyle.labelMediumStyle.copyWith(
-              color: AppColors.textPrimary,
-            ),
-          ),
-        ),
-      ],
     );
   }
 }

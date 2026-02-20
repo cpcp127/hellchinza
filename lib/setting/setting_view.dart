@@ -5,6 +5,7 @@ import 'package:hellchinza/setting/setting_controller.dart';
 import '../auth/presentation/auth_controller.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_text_style.dart';
+import '../services/dialog_service.dart';
 import '../services/snackbar_service.dart';
 
 class SettingView extends ConsumerWidget {
@@ -15,9 +16,7 @@ class SettingView extends ConsumerWidget {
     final state = ref.watch(settingControllerProvider);
     final controller = ref.read(settingControllerProvider.notifier);
     return Scaffold(
-      appBar: AppBar(
-        title: Text('설정'),
-      ),
+      appBar: AppBar(title: Text('설정')),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
@@ -39,12 +38,17 @@ class SettingView extends ConsumerWidget {
                     if (!ok) return;
                     try {
                       await controller.logout(context);
-                      SnackbarService.show(type: AppSnackType.success, message: '로그아웃 되었습니다');
+                      SnackbarService.show(
+                        type: AppSnackType.success,
+                        message: '로그아웃 되었습니다',
+                      );
                       // 필요하면 로그인 화면으로 이동
                     } catch (_) {
                       SnackbarService.show(
                         type: AppSnackType.error,
-                        message: ref.read(settingControllerProvider).errorMessage ?? '로그아웃 실패',
+                        message:
+                            ref.read(settingControllerProvider).errorMessage ??
+                            '로그아웃 실패',
                       );
                     }
                   },
@@ -63,12 +67,15 @@ class SettingView extends ConsumerWidget {
                     if (!ok) return;
                     try {
                       await controller.deleteAccount();
-                      SnackbarService.show(type: AppSnackType.success, message: '회원탈퇴가 완료되었습니다');
+                      SnackbarService.show(
+                        type: AppSnackType.success,
+                        message: '회원탈퇴가 완료되었습니다',
+                      );
                       // 필요하면 로그인 화면으로 이동
                     } catch (_) {
                       SnackbarService.show(
                         type: AppSnackType.error,
-                        message:  '회원탈퇴 실패',
+                        message: '회원탈퇴 실패',
                       );
                     }
                   },
@@ -82,49 +89,28 @@ class SettingView extends ConsumerWidget {
   }
 
   Future<bool> _confirm(
-      BuildContext context, {
-        required String title,
-        required String message,
-        required bool destructive,
-      }) async {
-    final result = await showDialog<bool>(
+    BuildContext context, {
+    required String title,
+    required String message,
+    required bool destructive,
+  }) async {
+    final result = await DialogService.showConfirm(
       context: context,
-      builder: (_) => AlertDialog(
-        title: Text(title, style: AppTextStyle.titleSmallBoldStyle),
-        content: Text(
-          message,
-          style: AppTextStyle.bodyMediumStyle.copyWith(
-            color: AppColors.textSecondary,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text('취소', style: AppTextStyle.labelMediumStyle),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(
-              '확인',
-              style: AppTextStyle.labelMediumStyle.copyWith(
-                color: destructive ? AppColors.textError : AppColors.textPrimary,
-              ),
-            ),
-          ),
-        ],
-      ),
+      title: title,
+      message: message,
+      confirmText: '확인',
+      isDestructive: destructive,
     );
+
     return result ?? false;
   }
 }
+
 class _SettingSection extends StatelessWidget {
   final String title;
   final List<Widget> children;
 
-  const _SettingSection({
-    required this.title,
-    required this.children,
-  });
+  const _SettingSection({required this.title, required this.children});
 
   @override
   Widget build(BuildContext context) {
@@ -167,7 +153,9 @@ class _SettingTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final titleColor = isDestructive ? AppColors.textError : AppColors.textDefault;
+    final titleColor = isDestructive
+        ? AppColors.textError
+        : AppColors.textDefault;
 
     return GestureDetector(
       onTap: onTap,
@@ -198,10 +186,7 @@ class _SettingTile extends StatelessWidget {
                 ],
               ),
             ),
-            Icon(
-              Icons.chevron_right,
-              color: AppColors.icSecondary,
-            ),
+            Icon(Icons.chevron_right, color: AppColors.icSecondary),
           ],
         ),
       ),

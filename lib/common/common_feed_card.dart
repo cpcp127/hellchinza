@@ -21,6 +21,7 @@ import '../feed/domain/feed_model.dart';
 import '../feed/domain/poll_model.dart';
 import '../feed/feed_detail/feed_detail_view.dart';
 import '../profile/widget/feed_type_pill.dart';
+import '../services/dialog_service.dart';
 import '../services/snackbar_service.dart';
 import '../utils/date_time_util.dart';
 import 'common_action_sheet.dart';
@@ -206,7 +207,12 @@ class FeedAuthorRow extends ConsumerWidget {
 
         return Row(
           children: [
-            CommonProfileAvatar(imageUrl: photoUrl, size: 40, uid: mini!.uid,gender: mini.gender,),
+            CommonProfileAvatar(
+              imageUrl: photoUrl,
+              size: 40,
+              uid: mini!.uid,
+              gender: mini.gender,
+            ),
             const SizedBox(width: 8),
             Text(
               nickname,
@@ -487,50 +493,12 @@ class PollSection extends ConsumerWidget {
     required String title,
     required String message,
   }) async {
-    final result = await showDialog<bool>(
+    final result = await DialogService.showConfirm(
       context: context,
-      builder: (_) => AlertDialog(
-        actionsOverflowButtonSpacing: 0,
-        actionsPadding: EdgeInsets.only(bottom: 10),
-        title: Text(title, style: AppTextStyle.titleSmallBoldStyle),
-        content: Text(message, style: AppTextStyle.bodyMediumStyle),
-        actions: [
-          GestureDetector(
-            onTap: () {
-              Navigator.pop(context, false);
-            },
-            child: Container(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-                child: Text('취소', style: AppTextStyle.labelMediumStyle),
-              ),
-            ),
-          ),
-          GestureDetector(
-            onTap: () {
-              Navigator.pop(context, true);
-            },
-            child: Container(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-                child: Text(
-                  '확인',
-                  style: AppTextStyle.labelMediumStyle.copyWith(
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-              ),
-            ),
-          ),
-          SizedBox(width: 10),
-        ],
-      ),
+      title: title,
+      message: message,
+      confirmText: '확인',
+      isDestructive: false,
     );
 
     return result ?? false;
@@ -722,126 +690,129 @@ class _FeedCommentBottomSheetState
     final isMine = data['authorUid'] == myUid;
     final timeText = DateTimeUtil.from(data['createdAt']);
     final asyncMini = ref.watch(userMiniProvider(data['authorUid']));
-    return asyncMini.when(data: (mini){
-      if(mini==null) return Container();
-      return GestureDetector(
-        onTapDown: (d) => _tapPosition = d.globalPosition,
-        onLongPress: () {
-          if (_tapPosition == null) return;
-          HapticFeedback.mediumImpact();
-          final items = isMine
-              ? [
+    return asyncMini.when(
+      data: (mini) {
+        if (mini == null) return Container();
+        return GestureDetector(
+          onTapDown: (d) => _tapPosition = d.globalPosition,
+          onLongPress: () {
+            if (_tapPosition == null) return;
+            HapticFeedback.mediumImpact();
+            final items = isMine
+                ? [
+                    CommonContextMenuItem(
+                      icon: Icons.delete_outline,
+                      label: '삭제하기',
+                      isDestructive: true,
+                      onTap: () async {
+                        try {
+                          await const FeedService().deleteComment(
+                            feedId: widget.feedId,
+                            commentId: data['id'],
+                            valueKey: valueKey,
+                          );
+                          setState(() {});
+                          SnackbarService.show(
+                            type: AppSnackType.success,
+                            message: '댓글이 삭제되었습니다',
+                          );
+                        } catch (e, st) {
+                          debugPrint('deleteComment error: $e\n$st');
 
-            CommonContextMenuItem(
-              icon: Icons.delete_outline,
-              label: '삭제하기',
-              isDestructive: true,
-              onTap: () async {
-                try {
-                  await const FeedService().deleteComment(
-                    feedId: widget.feedId,
-                    commentId: data['id'],
-                    valueKey: valueKey,
-                  );
-                  setState(() {});
-                  SnackbarService.show(
-                    type: AppSnackType.success,
-                    message: '댓글이 삭제되었습니다',
-                  );
-                } catch (e, st) {
-                  debugPrint('deleteComment error: $e\n$st');
-
-                  SnackbarService.show(
-                    type: AppSnackType.error,
-                    message: '댓글 삭제에 실패했습니다',
-                  );
-                }
-              },
-            ),
-          ]
-              : [
-            CommonContextMenuItem(
-              icon: Icons.flag_outlined,
-              label: '신고하기',
-              isDestructive: true,
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => ClaimView(
-                      target: ClaimTarget(
-                        type: ClaimTargetType.comment,
-                        targetId: data['id'],
-                        targetOwnerUid: data['authorNickname'],
-                        title: data['content'] ?? '피드',
-                        parentId: data['authorId'],
-                      ),
+                          SnackbarService.show(
+                            type: AppSnackType.error,
+                            message: '댓글 삭제에 실패했습니다',
+                          );
+                        }
+                      },
                     ),
-                  ),
-                );
-              },
-            ),
-          ];
-
-          CommonContextMenu.show(
-            context: context,
-            position: _tapPosition!,
-            items: items,
-          );
-        },
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Container(
-            color: Colors.white,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                CommonProfileAvatar(
-                  imageUrl: mini!.photoUrl,
-                  size: 24,
-                  uid: data['authorUid'],gender: mini.gender,
-                ),
-                const SizedBox(width: 10),
-
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Text(
-                            mini.nickname ?? '',
-                            style: AppTextStyle.labelMediumStyle,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            timeText,
-                            style: AppTextStyle.labelSmallStyle.copyWith(
-                              color: AppColors.textTeritary,
+                  ]
+                : [
+                    CommonContextMenuItem(
+                      icon: Icons.flag_outlined,
+                      label: '신고하기',
+                      isDestructive: true,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => ClaimView(
+                              target: ClaimTarget(
+                                type: ClaimTargetType.comment,
+                                targetId: data['id'],
+                                targetOwnerUid: data['authorNickname'],
+                                title: data['content'] ?? '피드',
+                                parentId: data['authorId'],
+                              ),
                             ),
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        data['content'] ?? '',
-                        style: AppTextStyle.bodyMediumStyle,
-                      ),
-                    ],
+                        );
+                      },
+                    ),
+                  ];
+
+            CommonContextMenu.show(
+              context: context,
+              position: _tapPosition!,
+              items: items,
+            );
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Container(
+              color: Colors.white,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  CommonProfileAvatar(
+                    imageUrl: mini!.photoUrl,
+                    size: 24,
+                    uid: data['authorUid'],
+                    gender: mini.gender,
                   ),
-                ),
-              ],
+                  const SizedBox(width: 10),
+
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              mini.nickname ?? '',
+                              style: AppTextStyle.labelMediumStyle,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              timeText,
+                              style: AppTextStyle.labelSmallStyle.copyWith(
+                                color: AppColors.textTeritary,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          data['content'] ?? '',
+                          style: AppTextStyle.bodyMediumStyle,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
-      );
-    }, loading: () => Center(child: CupertinoActivityIndicator()),
+        );
+      },
+      loading: () => Center(child: CupertinoActivityIndicator()),
       error: (e, _) => Text(
         '작성자 불러오기 실패',
         style: AppTextStyle.bodySmallStyle.copyWith(
           color: AppColors.textSecondary,
         ),
-      ),);
+      ),
+    );
   }
 
   Widget commentInput() {

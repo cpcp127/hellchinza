@@ -17,6 +17,7 @@ import '../../common/common_profile_avatar.dart';
 import '../../common/common_text_field.dart';
 import '../../constants/app_colors.dart';
 import '../../constants/app_text_style.dart';
+import '../../services/dialog_service.dart';
 import '../../services/snackbar_service.dart';
 import 'chat_room_controller.dart';
 
@@ -384,52 +385,14 @@ class _ChatViewState extends ConsumerState<ChatView>
   }) async {
     final isDm = roomType == 'dm';
 
-    final ok = await showDialog<bool>(
+    final ok = await DialogService.showConfirm(
       context: context,
-      barrierDismissible: true,
-      builder: (_) {
-        return AlertDialog(
-          backgroundColor: AppColors.bgWhite,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: Text(
-            isDm ? '채팅방을 나갈까요?' : '모임에서 나갈까요?',
-            style: AppTextStyle.titleMediumBoldStyle.copyWith(
-              color: AppColors.textDefault,
-            ),
-          ),
-          content: Text(
-            isDm
-                ? '채팅방을 나가면 친구도 끊어집니다.\n정말 나가시겠어요?'
-                : '모임에서 나가면 단톡방에서도 나가게 됩니다.\n정말 나가시겠어요?',
-            style: AppTextStyle.bodyMediumStyle.copyWith(
-              color: AppColors.textSecondary,
-              height: 1.35,
-            ),
-          ),
-          actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-          actions: [
-            Row(
-              children: [
-                Expanded(
-                  child: _SmallOutlineButton(
-                    text: '취소',
-                    onTap: () => Navigator.pop(context, false),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _SmallPrimaryButton(
-                    text: '나가기',
-                    onTap: () => Navigator.pop(context, true),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        );
-      },
+      title: isDm ? '채팅방을 나갈까요?' : '모임에서 나갈까요?',
+      message: isDm
+          ? '채팅방을 나가면 친구도 끊어집니다.\n정말 나가시겠어요?'
+          : '모임에서 나가면 단톡방에서도 나가게 됩니다.\n정말 나가시겠어요?',
+      confirmText: '나가기',
+      isDestructive: true,
     );
 
     if (ok != true) return;
