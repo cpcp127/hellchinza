@@ -9,6 +9,7 @@ import 'package:hellchinza/common/common_chip.dart';
 import 'package:hellchinza/profile/profile_controller.dart';
 import 'package:hellchinza/profile/profile_edit_view.dart';
 import 'package:hellchinza/profile/widget/feed_preview_section.dart';
+import 'package:hellchinza/profile/widget/friend_list_view.dart';
 import 'package:hellchinza/profile/widget/meet_preview_section.dart';
 import 'package:hellchinza/profile/widget/my_feed_list_view.dart';
 import 'package:hellchinza/profile/widget/my_meets_list_view.dart';
@@ -33,6 +34,18 @@ final userByUidProvider = FutureProvider.family<UserModel?, String>((
       .get();
   if (!doc.exists) return null;
   return UserModel.fromFirestore(doc.data()!); // ✅ 너 변환 함수에 맞춰
+});
+
+final friendCountProvider =
+FutureProvider.family<int?, String>((ref, uid) async {
+  final aggregateQuery = FirebaseFirestore.instance
+      .collection('users')
+      .doc(uid)
+      .collection('friends')
+      .count();
+
+  final snapshot = await aggregateQuery.get();
+  return snapshot.count;
 });
 
 class ProfileView extends ConsumerStatefulWidget {
@@ -518,6 +531,41 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
                     selectedItems: user.category,
                     onTap: (str) {},
                   ),
+                const SizedBox(height: 14),
+                Builder(builder: (context){
+                  final asyncCount = ref.watch(friendCountProvider(user.uid));
+                  return asyncCount.when(
+                    loading: () => Text(
+                      '친구 -명',
+                      style: AppTextStyle.labelMediumStyle.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    error: (_, __) => Text(
+                      '친구 ?명',
+                      style: AppTextStyle.labelMediumStyle.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    data: (count) => GestureDetector(
+                      onTap: (){
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => FriendListView(targetUid: user.uid),
+                          ),
+                        );
+                      },
+                      child: Text(
+                        '친구 $count명',
+                        style: AppTextStyle.labelMediumStyle.copyWith(
+                          color: AppColors.textSecondary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  );
+                })
               ],
             ),
           ),
