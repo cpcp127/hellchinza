@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../common/common_network_image.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_text_style.dart';
 
@@ -10,7 +11,7 @@ class InquiryDetailView extends StatelessWidget {
     required this.status,
     required this.createdAt,
     required this.answer,
-    required this.answeredAt,
+    required this.answeredAt, required this.imageUrls,
   });
 
   final String message;
@@ -18,7 +19,7 @@ class InquiryDetailView extends StatelessWidget {
   final DateTime? createdAt;
   final String? answer;
   final DateTime? answeredAt;
-
+  final List<String> imageUrls;
   @override
   Widget build(BuildContext context) {
     final dateText = createdAt == null
@@ -51,6 +52,16 @@ class InquiryDetailView extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 12),
+            imageUrls.isNotEmpty? ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: CommonNetworkImage(
+                imageUrl: imageUrls.first,
+                width: 200,
+                height: 200,
+                fit: BoxFit.cover,
+              ),
+            ):Container(),
+            const SizedBox(height: 18),
             Text(
               message,
               style: AppTextStyle.bodyMediumStyle.copyWith(
@@ -59,6 +70,7 @@ class InquiryDetailView extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 18),
+
             if (answer != null && answer!.isNotEmpty) ...[
               Container(
                 width: double.infinity,

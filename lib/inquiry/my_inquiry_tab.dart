@@ -3,6 +3,7 @@ import 'package:firebase_pagination/firebase_pagination.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hellchinza/common/common_network_image.dart';
 
 import '../constants/app_colors.dart';
 import '../constants/app_text_style.dart';
@@ -10,6 +11,7 @@ import 'inquiry_detail_view.dart';
 
 class MyInquiryTab extends ConsumerWidget {
   const MyInquiryTab({super.key, required this.uid});
+
   final String uid;
 
   @override
@@ -57,7 +59,9 @@ class MyInquiryTab extends ConsumerWidget {
 
         final message = (data['message'] ?? '').toString();
         final status = (data['status'] ?? 'open').toString();
-
+        final imageUrls =
+            (data['imageUrls'] as List?)?.map((e) => e.toString()).toList() ??
+            [];
         DateTime? createdAt;
         final ts = data['createdAt'];
         if (ts is Timestamp) createdAt = ts.toDate();
@@ -78,6 +82,7 @@ class MyInquiryTab extends ConsumerWidget {
                     message: message,
                     status: status,
                     createdAt: createdAt,
+                    imageUrls: imageUrls,
                     answer: data['answer']?.toString(),
                     answeredAt: (data['answeredAt'] is Timestamp)
                         ? (data['answeredAt'] as Timestamp).toDate()
@@ -109,13 +114,34 @@ class MyInquiryTab extends ConsumerWidget {
                     ],
                   ),
                   const SizedBox(height: 10),
-                  Text(
-                    message,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTextStyle.bodyMediumStyle.copyWith(
-                      color: AppColors.textDefault,
-                    ),
+                  Row(
+                    children: [
+                      imageUrls.isEmpty
+                          ? Container()
+                          : Padding(
+                              padding: const EdgeInsets.only(right: 8.0),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: CommonNetworkImage(
+                                  imageUrl: imageUrls.first,
+                                  width: 50,
+                                  height: 50,
+                                  fit: BoxFit.cover,
+                                ),
+                              )
+                            ),
+
+                      Expanded(
+                        child: Text(
+                          message,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTextStyle.bodyMediumStyle.copyWith(
+                            color: AppColors.textDefault,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -129,6 +155,7 @@ class MyInquiryTab extends ConsumerWidget {
 
 class _InquiryStatusChip extends StatelessWidget {
   const _InquiryStatusChip({required this.status});
+
   final String status;
 
   @override

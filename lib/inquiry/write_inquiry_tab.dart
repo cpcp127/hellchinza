@@ -31,7 +31,8 @@ class _WriteInquiryTabState extends State<WriteInquiryTab> {
   XFile? _picked;
   bool _isSubmitting = false;
 
-  bool get _canSubmit => widget.controller.text.trim().isNotEmpty && !_isSubmitting;
+  bool get _canSubmit =>
+      widget.controller.text.trim().isNotEmpty && !_isSubmitting;
 
   @override
   void initState() {
@@ -51,8 +52,7 @@ class _WriteInquiryTabState extends State<WriteInquiryTab> {
   }
 
   Future<void> _pickImage() async {
-
-    final x =await ImageService().showImagePicker();
+    final x = await ImageService().showImagePicker();
     if (!mounted) return;
     setState(() => _picked = x);
   }
@@ -111,8 +111,7 @@ class _WriteInquiryTabState extends State<WriteInquiryTab> {
         'imageUrls': imageUrl == null ? [] : [imageUrl],
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
-        'answer':'',
-
+        'answer': '',
       });
 
       widget.controller.clear();
@@ -121,175 +120,182 @@ class _WriteInquiryTabState extends State<WriteInquiryTab> {
         _isSubmitting = false;
       });
 
-      SnackbarService.show(
-        type: AppSnackType.success,
-        message: '문의가 접수되었습니다',
-      );
+      SnackbarService.show(type: AppSnackType.success, message: '문의가 접수되었습니다');
 
       widget.onSubmitted();
     } catch (e) {
       setState(() => _isSubmitting = false);
-      SnackbarService.show(
-        type: AppSnackType.error,
-        message: '문의 접수에 실패했어요',
-      );
+      SnackbarService.show(type: AppSnackType.error, message: '문의 접수에 실패했어요');
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '문의 내용을 입력해주세요',
-            style: AppTextStyle.titleSmallBoldStyle.copyWith(
-              color: AppColors.textDefault,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '불편한 점이나 제안 사항을 남겨주시면\n빠르게 확인할게요 🙂',
-            style: AppTextStyle.bodySmallStyle.copyWith(
-              color: AppColors.textSecondary,
-              height: 1.35,
-            ),
-          ),
-          const SizedBox(height: 14),
+    return Scaffold(
+      bottomNavigationBar: buildSubmitButton(),
+      body: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '문의 내용을 입력해주세요',
+                style: AppTextStyle.titleSmallBoldStyle.copyWith(
+                  color: AppColors.textDefault,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '불편한 점이나 제안 사항을 남겨주시면\n빠르게 확인할게요 🙂',
+                style: AppTextStyle.bodySmallStyle.copyWith(
+                  color: AppColors.textSecondary,
+                  height: 1.35,
+                ),
+              ),
+              const SizedBox(height: 14),
 
-          // ✅ 첨부 영역(선택)
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppColors.bgWhite,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.borderSecondary),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+              // ✅ 첨부 영역(선택)
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.bgWhite,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.borderSecondary),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      '사진 첨부(선택)',
-                      style: AppTextStyle.labelMediumStyle.copyWith(
-                        color: AppColors.textDefault,
-                        fontWeight: FontWeight.w800,
-                      ),
+                    Row(
+                      children: [
+                        Text(
+                          '사진 첨부(선택)',
+                          style: AppTextStyle.labelMediumStyle.copyWith(
+                            color: AppColors.textDefault,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const Spacer(),
+                        GestureDetector(
+                          onTap: _isSubmitting ? null : _pickImage,
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.image_outlined,
+                                size: 18,
+                                color: AppColors.icDefault,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                _picked == null ? '추가' : '변경',
+                                style: AppTextStyle.labelMediumStyle.copyWith(
+                                  color: AppColors.textPrimary,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
-                    const Spacer(),
-                    GestureDetector(
-                      onTap: _isSubmitting ? null : _pickImage,
-                      child: Row(
+                    if (_picked != null) ...[
+                      const SizedBox(height: 10),
+                      Stack(
                         children: [
-                          const Icon(Icons.image_outlined, size: 18, color: AppColors.icDefault),
-                          const SizedBox(width: 6),
-                          Text(
-                            _picked == null ? '추가' : '변경',
-                            style: AppTextStyle.labelMediumStyle.copyWith(
-                              color: AppColors.textPrimary,
-                              fontWeight: FontWeight.w800,
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(14),
+                            child: Image.file(
+                              File(_picked!.path),
+                              width: double.infinity,
+                              height: 180,
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                          Positioned(
+                            top: 8,
+                            right: 8,
+                            child: GestureDetector(
+                              onTap: _isSubmitting
+                                  ? null
+                                  : () => setState(() => _picked = null),
+                              child: Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: AppColors.black.withOpacity(0.45),
+                                  borderRadius: BorderRadius.circular(999),
+                                ),
+                                child: const Icon(
+                                  Icons.close,
+                                  size: 18,
+                                  color: AppColors.white,
+                                ),
+                              ),
                             ),
                           ),
                         ],
                       ),
-                    ),
+                    ],
                   ],
                 ),
-                if (_picked != null) ...[
-                  const SizedBox(height: 10),
-                  Stack(
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(14),
-                        child: Image.file(
-                          File(_picked!.path),
-                          width: double.infinity,
-                          height: 180,
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                      Positioned(
-                        top: 8,
-                        right: 8,
-                        child: GestureDetector(
-                          onTap: _isSubmitting
-                              ? null
-                              : () => setState(() => _picked = null),
-                          child: Container(
-                            padding: const EdgeInsets.all(6),
-                            decoration: BoxDecoration(
-                              color: AppColors.black.withOpacity(0.45),
-                              borderRadius: BorderRadius.circular(999),
-                            ),
-                            child: const Icon(
-                              Icons.close,
-                              size: 18,
-                              color: AppColors.white,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
+              ),
+
+              const SizedBox(height: 12),
+
+              // ✅ 텍스트 입력
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.bgWhite,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.borderSecondary),
+                ),
+                child: CommonTextField(
+                  controller: widget.controller,
+                  hintText: '예) 모임 채팅이 안 열려요 / 피드가 안 올라가요 등',
+                  maxLines: 6,
+                  minLines: 4,
+                  onChanged: (_) {},
+                ),
+              ),
+
+
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget buildSubmitButton() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: SizedBox(
+        width: double.infinity,
+        height: 48,
+        child: ElevatedButton(
+          onPressed: _canSubmit ? _submit : null,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.btnPrimary,
+            disabledBackgroundColor: AppColors.btnDisabled,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
+            elevation: 0,
+          ),
+          child: _isSubmitting
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : Text(
+                  '문의 제출',
+                  style: AppTextStyle.labelLargeStyle.copyWith(
+                    color: AppColors.white,
+                    fontWeight: FontWeight.w800,
                   ),
-                ],
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 12),
-
-          // ✅ 텍스트 입력
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppColors.bgWhite,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.borderSecondary),
-            ),
-            child: CommonTextField(
-              controller: widget.controller,
-              hintText: '예) 모임 채팅이 안 열려요 / 피드가 안 올라가요 등',
-              maxLines: 6,
-              minLines: 4,
-              onChanged: (_) {},
-            ),
-          ),
-
-          const Spacer(),
-
-          // ✅ 제출 버튼: 텍스트 없으면 비활성화
-          SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: ElevatedButton(
-              onPressed: _canSubmit ? _submit : null,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.btnPrimary,
-                disabledBackgroundColor: AppColors.btnDisabled,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
                 ),
-                elevation: 0,
-              ),
-              child: _isSubmitting
-                  ? const SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
-                  : Text(
-                '문의 제출',
-                style: AppTextStyle.labelLargeStyle.copyWith(
-                  color: AppColors.white,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
