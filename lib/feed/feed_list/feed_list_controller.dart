@@ -69,4 +69,17 @@ class FeedListController extends StateNotifier<FeedListState> {
       refreshTick: state.refreshTick + 1, // ✅ FirestorePagination 리셋/새로고침 트리거
     );
   }
+
+  void applyFilters({
+    required String mainType,
+    required String subType,
+    required bool onlyFriends,
+  }) {
+    state = state.copyWith(
+      selectMainType: mainType,
+      selectSubType: subType,
+      onlyFriendFeeds: onlyFriends,
+      refreshTick: state.refreshTick + 1, // ✅ pagination 강제 새로고침
+    );
+  }
 }

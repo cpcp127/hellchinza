@@ -766,7 +766,7 @@ class _FeedCommentBottomSheetState
                 children: [
                   CommonProfileAvatar(
                     imageUrl: mini!.photoUrl,
-                    size: 24,
+                    size: 40,
                     uid: data['authorUid'],
                     gender: mini.gender,
                   ),

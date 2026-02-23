@@ -8,6 +8,7 @@ import '../../auth/domain/user_mini_provider.dart';
 import '../../common/common_profile_avatar.dart';
 import '../../constants/app_colors.dart';
 import '../../constants/app_text_style.dart';
+import '../profile_view.dart';
 
 class FriendListView extends ConsumerWidget {
   const FriendListView({
@@ -71,11 +72,10 @@ class FriendListView extends ConsumerWidget {
                 child: InkWell(
                   borderRadius: BorderRadius.circular(16),
                   onTap: () {
-                    // ✅ 1) 친구 프로필로 이동
-                    // Navigator.push(context, MaterialPageRoute(builder: (_) => ProfileView(uid: friendUid)));
-
-                    // ✅ 2) 또는 DM 열기 (너 프로젝트 라우팅에 맞춰)
-                    // Navigator.push(... ChatView(roomId: ..., roomType:'dm', otherUid: friendUid));
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => ProfileView(uid: mini.uid)),
+                    );
                   },
                   child: Container(
                     padding: const EdgeInsets.all(14),

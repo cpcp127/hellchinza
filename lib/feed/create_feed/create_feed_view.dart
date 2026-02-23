@@ -273,7 +273,7 @@ class _CreateFeedViewState extends ConsumerState<CreateFeedView> {
                             ),
                           )
                         : Container(),
-                    if (state.selectMainType == '후기') _buildPlaceButton(),
+                     _buildPlaceButton(),
                   ],
                 ),
               )
@@ -291,7 +291,7 @@ class _CreateFeedViewState extends ConsumerState<CreateFeedView> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '후기 장소',
+            '장소',
             style: AppTextStyle.titleSmallBoldStyle.copyWith(
               color: AppColors.textDefault,
             ),
@@ -335,7 +335,7 @@ class _CreateFeedViewState extends ConsumerState<CreateFeedView> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            '어디에 대한 후기인가요?',
+                            '장소를 추가해보세요~',
                             style: AppTextStyle.bodyMediumStyle.copyWith(
                               color: AppColors.textSecondary,
                             ),
