@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hellchinza/setting/setting_controller.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import '../auth/presentation/auth_controller.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_text_style.dart';
+import '../inquiry/inquiry_view.dart';
+import '../notice/notice_list_view.dart';
 import '../services/dialog_service.dart';
 import '../services/snackbar_service.dart';
 
@@ -78,6 +81,65 @@ class SettingView extends ConsumerWidget {
                         message: '회원탈퇴 실패',
                       );
                     }
+                  },
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 16),
+
+        // ---------------- 고객센터 ----------------
+        _SettingSection(
+          title: '고객센터',
+          children: [
+            _SettingTile(
+              title: '공지사항',
+              subtitle: '서비스 업데이트 및 공지 확인',
+              isDestructive: false,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const NoticeListView(),
+                  ),
+                );
+              },
+            ),
+            _SettingTile(
+              title: '문의하기',
+              subtitle: '서비스 관련 문의를 남겨주세요',
+              isDestructive: false,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const InquiryView(),
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 16),
+
+        // ---------------- 앱 정보 ----------------
+            _SettingSection(
+              title: '앱 정보',
+              children: [
+                _SettingTile(
+                  title: '버전 정보',
+                  subtitle: '현재 앱 버전 확인',
+                  isDestructive: false,
+                  onTap: () async {
+                    final packageInfo = await PackageInfo.fromPlatform();
+
+                    await DialogService.showConfirmOneButton(
+                      context: context,
+                      title: '버전 정보',
+                      message: '현재 버전: ${packageInfo.version}',
+                      confirmText: '확인',
+                    );
                   },
                 ),
               ],

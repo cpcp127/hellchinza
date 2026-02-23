@@ -129,6 +129,58 @@ class DialogService {
       },
     );
   }
+
+  /// 🔥 기본 확인 다이얼로그 (취소 / 확인)
+  static Future<bool?> showConfirmOneButton({
+    required BuildContext context,
+    required String title,
+    required String message,
+
+    String confirmText = '확인',
+    bool barrierDismissible = true,
+    bool isDestructive = false, // 확인버튼 빨간색 여부
+  }) {
+    return showDialog<bool>(
+      context: context,
+      barrierDismissible: barrierDismissible,
+      builder: (_) {
+        return AlertDialog(
+          backgroundColor: AppColors.bgWhite,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Text(
+            title,
+            style: AppTextStyle.titleMediumBoldStyle.copyWith(
+              color: AppColors.textDefault,
+            ),
+          ),
+          content: Text(
+            message,
+            style: AppTextStyle.bodyMediumStyle.copyWith(
+              color: AppColors.textSecondary,
+              height: 1.35,
+            ),
+          ),
+          actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          actions: [
+            Row(
+              children: [
+               
+                Expanded(
+                  child: _PrimaryButton(
+                    text: confirmText,
+                    onTap: () => Navigator.pop(context, true),
+                    isDestructive: isDestructive,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        );
+      },
+    );
+  }
 }
 
 /// ------------------ 내부 버튼 위젯 ------------------
