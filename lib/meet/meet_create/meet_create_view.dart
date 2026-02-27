@@ -10,16 +10,12 @@ import 'package:hellchinza/meet/domain/meet_model.dart';
 import '../../common/common_network_image.dart';
 import '../../common/common_text_field.dart';
 import '../../constants/app_colors.dart';
+import '../../constants/app_constants.dart';
 import '../../constants/app_text_style.dart';
 
 import '../widget/region_picker_sheet.dart';
 import 'meet_create_controller.dart';
 import 'meet_create_state.dart';
-
-const workList = [
-  '헬스','클라이밍','볼링','테니스','스쿼시','배드민턴','런닝','사이클','풋살/축구','수영','다이어트','골프',
-  '필라테스','요가','탁구','당구','복싱','주짓수','보드','기타',
-];
 
 class MeetCreateStepperView extends ConsumerStatefulWidget {
   const MeetCreateStepperView({super.key, this.meetId});
@@ -27,7 +23,8 @@ class MeetCreateStepperView extends ConsumerStatefulWidget {
   final String? meetId; // ✅ null이면 생성, 있으면 수정
 
   @override
-  ConsumerState<MeetCreateStepperView> createState() => _MeetCreateStepperViewState();
+  ConsumerState<MeetCreateStepperView> createState() =>
+      _MeetCreateStepperViewState();
 }
 
 class _MeetCreateStepperViewState extends ConsumerState<MeetCreateStepperView> {
@@ -92,7 +89,10 @@ class _MeetCreateStepperViewState extends ConsumerState<MeetCreateStepperView> {
           style: AppTextStyle.titleMediumBoldStyle,
         ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: AppColors.icDefault),
+          icon: const Icon(
+            Icons.arrow_back_ios_new,
+            color: AppColors.icDefault,
+          ),
           onPressed: () {
             if (state.step == 0) {
               Navigator.pop(context);
@@ -133,14 +133,14 @@ class _MeetCreateStepperViewState extends ConsumerState<MeetCreateStepperView> {
                 child: ElevatedButton(
                   onPressed: (state.canGoNext && !state.isLoading)
                       ? () async {
-                    if (!state.isLast) {
-                      controller.next();
-                      return;
-                    }
-                    await controller.submit();
-                    if (!mounted) return;
-                    Navigator.pop(context, true); // ✅ 목록 리프레시용
-                  }
+                          if (!state.isLast) {
+                            controller.next();
+                            return;
+                          }
+                          await controller.submit();
+                          if (!mounted) return;
+                          Navigator.pop(context, true); // ✅ 목록 리프레시용
+                        }
                       : null,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.btnPrimary,
@@ -151,19 +151,21 @@ class _MeetCreateStepperViewState extends ConsumerState<MeetCreateStepperView> {
                   ),
                   child: state.isLoading
                       ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: AppColors.white,
-                    ),
-                  )
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppColors.white,
+                          ),
+                        )
                       : Text(
-                    state.isLast ? (state.isEdit ? '수정 완료' : '생성 완료') : '다음',
-                    style: AppTextStyle.labelLargeStyle.copyWith(
-                      color: AppColors.white,
-                    ),
-                  ),
+                          state.isLast
+                              ? (state.isEdit ? '수정 완료' : '생성 완료')
+                              : '다음',
+                          style: AppTextStyle.labelLargeStyle.copyWith(
+                            color: AppColors.white,
+                          ),
+                        ),
                 ),
               ),
             ),
@@ -174,10 +176,10 @@ class _MeetCreateStepperViewState extends ConsumerState<MeetCreateStepperView> {
   }
 
   Widget _buildStep(
-      BuildContext context,
-      MeetCreateState state,
-      MeetCreateController controller,
-      ) {
+    BuildContext context,
+    MeetCreateState state,
+    MeetCreateController controller,
+  ) {
     switch (state.step) {
       case 0:
         return Column(
@@ -213,11 +215,13 @@ class _MeetCreateStepperViewState extends ConsumerState<MeetCreateStepperView> {
               spacing: 8,
               runSpacing: 8,
               children: workList
-                  .map((w) => CommonChip(
-                label: w,
-                selected: state.category == w,
-                onTap: () => controller.selectCategory(w),
-              ))
+                  .map(
+                    (w) => CommonChip(
+                      label: w,
+                      selected: state.category == w,
+                      onTap: () => controller.selectCategory(w),
+                    ),
+                  )
                   .toList(),
             ),
           ],
@@ -236,7 +240,10 @@ class _MeetCreateStepperViewState extends ConsumerState<MeetCreateStepperView> {
               },
               borderRadius: BorderRadius.circular(16),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
                 decoration: BoxDecoration(
                   color: AppColors.bgSecondary,
                   borderRadius: BorderRadius.circular(16),
@@ -244,7 +251,11 @@ class _MeetCreateStepperViewState extends ConsumerState<MeetCreateStepperView> {
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.search, size: 18, color: AppColors.icSecondary),
+                    const Icon(
+                      Icons.search,
+                      size: 18,
+                      color: AppColors.icSecondary,
+                    ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
@@ -254,7 +265,10 @@ class _MeetCreateStepperViewState extends ConsumerState<MeetCreateStepperView> {
                         ),
                       ),
                     ),
-                    const Icon(Icons.chevron_right, color: AppColors.icDisabled),
+                    const Icon(
+                      Icons.chevron_right,
+                      color: AppColors.icDisabled,
+                    ),
                   ],
                 ),
               ),
@@ -272,10 +286,12 @@ class _MeetCreateStepperViewState extends ConsumerState<MeetCreateStepperView> {
                 spacing: 8,
                 runSpacing: 8,
                 children: state.regions
-                    .map((r) => _SelectedRegionChip(
-                  label: r.fullName,
-                  onDelete: () => controller.removeRegion(r.code),
-                ))
+                    .map(
+                      (r) => _SelectedRegionChip(
+                        label: r.fullName,
+                        onDelete: () => controller.removeRegion(r.code),
+                      ),
+                    )
                     .toList(),
               ),
           ],
@@ -369,7 +385,9 @@ class _ThumbPicker extends StatelessWidget {
   final VoidCallback onRemove;
 
   bool get hasExisting => existingUrl != null && !removeExisting;
+
   bool get hasLocal => thumbnail != null;
+
   bool get hasAny => hasLocal || hasExisting;
 
   @override
@@ -391,11 +409,17 @@ class _ThumbPicker extends StatelessWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.image_outlined, color: AppColors.icSecondary, size: 28),
+                    const Icon(
+                      Icons.image_outlined,
+                      color: AppColors.icSecondary,
+                      size: 28,
+                    ),
                     const SizedBox(height: 8),
                     Text(
                       '썸네일 선택하기',
-                      style: AppTextStyle.labelMediumStyle.copyWith(color: AppColors.textSecondary),
+                      style: AppTextStyle.labelMediumStyle.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
                     ),
                   ],
                 ),
@@ -418,7 +442,11 @@ class _ThumbPicker extends StatelessWidget {
                       color: Colors.black.withOpacity(0.35),
                       borderRadius: BorderRadius.circular(999),
                     ),
-                    child: const Icon(Icons.close, color: Colors.white, size: 18),
+                    child: const Icon(
+                      Icons.close,
+                      color: Colors.white,
+                      size: 18,
+                    ),
                   ),
                 ),
               ),
@@ -451,6 +479,7 @@ class _ThumbPicker extends StatelessWidget {
 // --- 공통 스타일 위젯들(간단) ---
 class _StepIndicator extends StatelessWidget {
   const _StepIndicator({required this.step, required this.total});
+
   final int step;
   final int total;
 
@@ -464,11 +493,19 @@ class _StepIndicator extends StatelessWidget {
         children: [
           Row(
             children: [
-              Text('STEP ${step + 1}/$total',
-                  style: AppTextStyle.labelSmallStyle.copyWith(color: AppColors.textSecondary)),
+              Text(
+                'STEP ${step + 1}/$total',
+                style: AppTextStyle.labelSmallStyle.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+              ),
               const Spacer(),
-              Text('${(progress * 100).round()}%',
-                  style: AppTextStyle.labelSmallStyle.copyWith(color: AppColors.textTeritary)),
+              Text(
+                '${(progress * 100).round()}%',
+                style: AppTextStyle.labelSmallStyle.copyWith(
+                  color: AppColors.textTeritary,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 8),
@@ -487,40 +524,9 @@ class _StepIndicator extends StatelessWidget {
   }
 }
 
-class _Chip extends StatelessWidget {
-  const _Chip({required this.label, required this.selected, required this.onTap});
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(999),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-        decoration: BoxDecoration(
-          color: selected ? AppColors.sky50 : AppColors.bgWhite,
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(
-            color: selected ? AppColors.borderPrimary : AppColors.borderSecondary,
-          ),
-        ),
-        child: Text(
-          label,
-          style: AppTextStyle.labelSmallStyle.copyWith(
-            color: selected ? AppColors.textPrimary : AppColors.textSecondary,
-            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _SelectedRegionChip extends StatelessWidget {
   const _SelectedRegionChip({required this.label, required this.onDelete});
+
   final String label;
   final VoidCallback onDelete;
 

@@ -1,10 +1,9 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_pagination/firebase_pagination.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:hellchinza/common/common_network_image.dart';
 import 'package:hellchinza/meet/domain/meet_model.dart';
-import 'package:hellchinza/meet/meet_create/meet_create_view.dart' hide workList;
 import 'package:hellchinza/meet/meet_detail/meat_detail_view.dart';
 import 'package:hellchinza/meet/widget/empty_meet_list.dart';
 import 'package:hellchinza/meet/widget/meet_card.dart';
@@ -12,11 +11,8 @@ import 'package:hellchinza/meet/widget/meet_card.dart';
 import '../../common/common_chip.dart';
 import '../../constants/app_colors.dart';
 import '../../constants/app_constants.dart';
-import '../../constants/app_text_style.dart';
+import '../meet_create/meet_create_view.dart';
 import 'meet_list_controller.dart';
-import '../domain/meet_summary_model.dart';
-
-import 'package:cloud_firestore/cloud_firestore.dart';
 
 class MeetListView extends ConsumerStatefulWidget {
   const MeetListView({super.key});

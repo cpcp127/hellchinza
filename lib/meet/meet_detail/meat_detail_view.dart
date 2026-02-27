@@ -1,5 +1,4 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,6 +6,7 @@ import 'package:hellchinza/claim/claim_view.dart';
 import 'package:hellchinza/common/common_chip.dart';
 import 'package:hellchinza/common/common_network_image.dart';
 import 'package:hellchinza/common/common_profile_avatar.dart';
+
 import '../../auth/domain/user_mini.dart';
 import '../../claim/domain/claim_model.dart';
 import '../../common/common_action_sheet.dart';
@@ -14,16 +14,16 @@ import '../../constants/app_colors.dart';
 import '../../constants/app_text_style.dart';
 import '../../feed/create_feed/create_feed_view.dart';
 import '../../feed/feed_detail/feed_detail_view.dart';
+import '../../services/dialog_service.dart';
 import '../../services/snackbar_service.dart';
-import '../../utils/confirm.dart';
 import '../domain/lightning_model.dart';
+import '../domain/meet_model.dart';
 import '../lightning_create/lightning_create_view.dart';
 import '../widget/lightning_card.dart';
 import '../widget/manage_request_sheet.dart';
+import '../widget/meet_feed_list_view.dart';
 import '../widget/meet_ligthning_list_view.dart';
 import 'meat_detail_controller.dart';
-import '../widget/meet_feed_list_view.dart';
-import '../domain/meet_model.dart';
 import 'meat_detail_state.dart';
 
 class MeetDetailView extends ConsumerStatefulWidget {
@@ -49,105 +49,26 @@ class _MeetDetailViewState extends ConsumerState<MeetDetailView> {
         backgroundColor: AppColors.bgWhite,
         elevation: 0,
         scrolledUnderElevation: 0,
-        title: Text('모임 상세'),
+        title: const Text('모임 상세'),
         actions: [
           IconButton(
             icon: const Icon(Icons.more_horiz, color: AppColors.icDefault),
-            onPressed: () async {
-              if (state.isOwner) {
-                // ✅ 내가 만든 모임
-                await showMeetOwnerActionSheet(
-                  context: context,
-
-                  onDelete: () async {
-                    final ok = await confirm(
-                      context,
-                      title: '모임을 삭제할까요?',
-                      message: '삭제 후 되돌릴 수 없습니다.',
-                      destructive: true,
-                    );
-                    if (!ok) return;
-
-                    await controller.deleteMeet();
-                    if (context.mounted) Navigator.pop(context);
-                    SnackbarService.show(
-                      type: AppSnackType.success,
-                      message: '모임을 삭제했습니다.',
-                    );
-                  },
-                );
-              } else {
-                // ✅ 남이 만든 모임
-                await showMeetGuestActionSheet(
-                  context: context,
-                  isMember: state.isMember,
-                  onLeave: () async {
-                    Navigator.pop(context);
-
-                    final ok = await confirm(
-                      context,
-                      title: '모임에서 나갈까요?',
-                      message: '참가 기록은 사라집니다.',
-                      destructive: true,
-                    );
-                    if (!ok) return;
-
-                    await controller.leaveMeet();
-                    SnackbarService.show(
-                      type: AppSnackType.success,
-                      message: '모임에서 나왔어요',
-                    );
-                  },
-
-                  onReport: () {
-                    Navigator.push(
-                      context,
-                      CupertinoPageRoute(
-                        fullscreenDialog: true,
-                        builder: (context) {
-                          return ClaimView(
-                            target: ClaimTarget(
-                              type: ClaimTargetType.meet,
-                              targetId: state.meet!.id,
-                              targetOwnerUid: state.meet!.authorUid,
-                              title: state.meet!.title,
-                              imageUrl: state.meet!.imageUrls.isNotEmpty
-                                  ? state.meet!.imageUrls.first
-                                  : null,
-                            ),
-                          );
-                        },
-                      ),
-                    );
-                  },
-                );
-              }
-            },
-          ),
-        ],
-      ),
-      body: state.isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : (state.meet == null)
-          ? Center(
-              child: Text(
-                state.errorMessage ?? '모임이 없어요',
-                style: AppTextStyle.bodyMediumStyle.copyWith(
-                  color: AppColors.textSecondary,
-                ),
-              ),
-            )
-          : _MeetDetailBody(
-              meet: state.meet!,
+            onPressed: () => _onTapMore(
+              context: context,
               state: state,
               controller: controller,
             ),
+          ),
+        ],
+      ),
+      body: _buildBody(context: context, state: state, controller: controller),
       bottomNavigationBar: state.meet == null
           ? null
-          : _BottomActionBar(
+          : _buildBottomActionBar(
+              context: context,
               state: state,
               onTapPrimary: () async {
-                controller.onTapMeetPrimaryButton(
+                await controller.onTapMeetPrimaryButton(
                   state: state,
                   controller: controller,
                   context: context,
@@ -155,7 +76,7 @@ class _MeetDetailViewState extends ConsumerState<MeetDetailView> {
               },
               onTapSecondary: state.isOwner
                   ? () {
-                      openManageRequestsSheet(
+                      _openManageRequestsSheet(
                         context: context,
                         controller: controller,
                         meetId: state.meet!.id,
@@ -166,96 +87,43 @@ class _MeetDetailViewState extends ConsumerState<MeetDetailView> {
     );
   }
 
-  Future<void> openManageRequestsSheet({
+  // ---------------------------
+  // UI Builders (simple -> method)
+  // ---------------------------
+
+  Widget _buildBody({
     required BuildContext context,
+    required MeetDetailState state,
     required MeetDetailController controller,
-    required String meetId,
-  }) async {
-    await showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (_) {
-        return ManageRequestsSheet(
-          meetId: meetId,
-          onChanged: () async {
-            // ✅ 승인/거절 처리 후 호출됨
-            ref.invalidate(meetRequestUidsProvider(meetId));
-            await controller.init();
-          },
-        );
-      },
+  }) {
+    if (state.isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (state.meet == null) {
+      return Center(
+        child: Text(
+          state.errorMessage ?? '모임이 없어요',
+          style: AppTextStyle.bodyMediumStyle.copyWith(
+            color: AppColors.textSecondary,
+          ),
+        ),
+      );
+    }
+
+    return _MeetDetailBody(
+      meet: state.meet!,
+      state: state,
+      controller: controller,
     );
   }
 
-  Future<void> showMeetOwnerActionSheet({
+  Widget _buildBottomActionBar({
     required BuildContext context,
-
-    required VoidCallback onDelete,
-  }) async {
-    final items = <CommonActionSheetItem>[
-      CommonActionSheetItem(
-        icon: Icons.delete_outline,
-        title: '모임 삭제',
-        onTap: onDelete,
-        isDestructive: true, // ✅ 네 CommonActionSheetItem에 이런 옵션이 있으면 사용
-      ),
-    ];
-
-    await showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (_) => CommonActionSheet(title: '모임 관리', items: items),
-    );
-  }
-}
-
-Future<void> showMeetGuestActionSheet({
-  required BuildContext context,
-  required bool isMember,
-
-  required VoidCallback onReport,
-  VoidCallback? onLeave,
-}) async {
-  final items = <CommonActionSheetItem>[
-    if (isMember && onLeave != null)
-      CommonActionSheetItem(
-        icon: Icons.exit_to_app_outlined,
-        title: '모임 나가기',
-        onTap: onLeave,
-        isDestructive: true,
-      ),
-
-    CommonActionSheetItem(
-      icon: Icons.report_outlined,
-      title: '신고하기',
-      onTap: onReport,
-      isDestructive: true,
-    ),
-  ];
-
-  await showModalBottomSheet(
-    context: context,
-    backgroundColor: Colors.transparent,
-    isScrollControlled: true,
-    builder: (_) => CommonActionSheet(title: '더보기', items: items),
-  );
-}
-
-class _BottomActionBar extends StatelessWidget {
-  const _BottomActionBar({
-    required this.state,
-    required this.onTapPrimary,
-    this.onTapSecondary,
-  });
-
-  final MeetDetailState state;
-  final VoidCallback onTapPrimary;
-  final VoidCallback? onTapSecondary;
-
-  @override
-  Widget build(BuildContext context) {
+    required MeetDetailState state,
+    required VoidCallback onTapPrimary,
+    VoidCallback? onTapSecondary,
+  }) {
     final meet = state.meet!;
     final bottom = MediaQuery.of(context).padding.bottom;
 
@@ -290,13 +158,15 @@ class _BottomActionBar extends StatelessWidget {
         children: [
           if (state.isOwner && onTapSecondary != null) ...[
             Expanded(
-              child: _OutlinedButton(text: '참가자 관리', onTap: onTapSecondary!),
+              child: _buildOutlinedButton(
+                text: '참가자 관리',
+                onTap: onTapSecondary,
+              ),
             ),
             const SizedBox(width: 10),
           ],
           Expanded(
-            flex: 1,
-            child: _PrimaryButton(
+            child: _buildPrimaryButton(
               text: primaryText,
               enabled: primaryEnabled,
               onTap: primaryEnabled ? onTapPrimary : null,
@@ -306,17 +176,12 @@ class _BottomActionBar extends StatelessWidget {
       ),
     );
   }
-}
 
-class _PrimaryButton extends StatelessWidget {
-  const _PrimaryButton({required this.text, required this.enabled, this.onTap});
-
-  final String text;
-  final bool enabled;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildPrimaryButton({
+    required String text,
+    required bool enabled,
+    VoidCallback? onTap,
+  }) {
     return SizedBox(
       height: 52,
       child: ElevatedButton(
@@ -339,16 +204,11 @@ class _PrimaryButton extends StatelessWidget {
       ),
     );
   }
-}
 
-class _OutlinedButton extends StatelessWidget {
-  const _OutlinedButton({required this.text, required this.onTap});
-
-  final String text;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildOutlinedButton({
+    required String text,
+    required VoidCallback onTap,
+  }) {
     return SizedBox(
       height: 52,
       child: OutlinedButton(
@@ -358,6 +218,7 @@ class _OutlinedButton extends StatelessWidget {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
+          backgroundColor: AppColors.bgWhite,
         ),
         child: Text(
           text,
@@ -368,7 +229,208 @@ class _OutlinedButton extends StatelessWidget {
       ),
     );
   }
+
+  // ---------------------------
+  // Actions / Sheets (simple -> method)
+  // ---------------------------
+
+  Future<void> _onTapMore({
+    required BuildContext context,
+    required MeetDetailState state,
+    required MeetDetailController controller,
+  }) async {
+    if (state.meet == null) return;
+
+    if (state.isOwner) {
+      await _showMeetOwnerActionSheet(
+        context: context,
+        onDelete: () async {
+          final ok = await _confirm(
+            context,
+            title: '모임을 삭제할까요?',
+            message: '삭제 후 되돌릴 수 없습니다.',
+            destructive: true,
+          );
+          if (!ok) return;
+
+          await controller.deleteMeet();
+          if (context.mounted) Navigator.pop(context);
+          SnackbarService.show(
+            type: AppSnackType.success,
+            message: '모임을 삭제했습니다.',
+          );
+        },
+      );
+      return;
+    }
+
+    await _showMeetGuestActionSheet(
+      context: context,
+      isMember: state.isMember,
+      onLeave: () async {
+        Navigator.pop(context);
+
+        final ok = await _confirm(
+          context,
+          title: '모임에서 나갈까요?',
+          message: '참가 기록은 사라집니다.',
+          destructive: true,
+        );
+        if (!ok) return;
+
+        await controller.leaveMeet();
+        SnackbarService.show(type: AppSnackType.success, message: '모임에서 나왔어요');
+      },
+      onReport: () {
+        Navigator.push(
+          context,
+          CupertinoPageRoute(
+            fullscreenDialog: true,
+            builder: (context) {
+              return ClaimView(
+                target: ClaimTarget(
+                  type: ClaimTargetType.meet,
+                  targetId: state.meet!.id,
+                  targetOwnerUid: state.meet!.authorUid,
+                  title: state.meet!.title,
+                  imageUrl: state.meet!.imageUrls.isNotEmpty
+                      ? state.meet!.imageUrls.first
+                      : null,
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _openManageRequestsSheet({
+    required BuildContext context,
+    required MeetDetailController controller,
+    required String meetId,
+  }) async {
+    await showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) {
+        return ManageRequestsSheet(
+          meetId: meetId,
+          onChanged: () async {
+            ref.invalidate(meetRequestUidsProvider(meetId));
+            await controller.init();
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _showMeetOwnerActionSheet({
+    required BuildContext context,
+    required VoidCallback onDelete,
+  }) async {
+    final items = <CommonActionSheetItem>[
+      CommonActionSheetItem(
+        icon: Icons.delete_outline,
+        title: '모임 삭제',
+        onTap: onDelete,
+        isDestructive: true,
+      ),
+    ];
+
+    await showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => CommonActionSheet(title: '모임 관리', items: items),
+    );
+  }
+
+  Future<void> _showMeetGuestActionSheet({
+    required BuildContext context,
+    required bool isMember,
+    required VoidCallback onReport,
+    VoidCallback? onLeave,
+  }) async {
+    final items = <CommonActionSheetItem>[
+      if (isMember && onLeave != null)
+        CommonActionSheetItem(
+          icon: Icons.exit_to_app_outlined,
+          title: '모임 나가기',
+          onTap: onLeave,
+          isDestructive: true,
+        ),
+      CommonActionSheetItem(
+        icon: Icons.report_outlined,
+        title: '신고하기',
+        onTap: onReport,
+        isDestructive: true,
+      ),
+    ];
+
+    await showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => CommonActionSheet(title: '더보기', items: items),
+    );
+  }
+
+  Future<bool> _confirm(
+    BuildContext context, {
+    required String title,
+    required String message,
+    required bool destructive,
+  }) async {
+    final result = await DialogService.showConfirm(
+      context: context,
+      title: title,
+      message: message,
+      confirmText: '확인',
+      isDestructive: destructive,
+    );
+    return result ?? false;
+  }
 }
+
+// =======================================================
+// Providers
+// =======================================================
+
+final meetLightningSectionProvider =
+    FutureProvider.family<List<LightningModel>, String>((ref, meetId) async {
+      final snap = await FirebaseFirestore.instance
+          .collection('meets')
+          .doc(meetId)
+          .collection('lightnings')
+          .where('status', isEqualTo: 'open')
+          .orderBy('dateTime', descending: false)
+          .limit(5)
+          .get();
+
+      return snap.docs.map((d) => LightningModel.fromDoc(d)).toList();
+    });
+
+final meetPhotoFeedSectionProvider =
+    FutureProvider.family<List<Map<String, dynamic>>, String>((
+      ref,
+      meetId,
+    ) async {
+      final snap = await FirebaseFirestore.instance
+          .collection('feeds')
+          .where('meetId', isEqualTo: meetId)
+          .orderBy('createdAt', descending: true)
+          .limit(9)
+          .get();
+
+      // doc.id가 필요해서 _docId로 같이 넣음
+      return snap.docs.map((d) => {'_docId': d.id, ...d.data()}).toList();
+    });
+
+// =======================================================
+// Body Widgets (not simple -> keep widget)
+// =======================================================
 
 class _MeetDetailBody extends StatelessWidget {
   const _MeetDetailBody({
@@ -389,13 +451,12 @@ class _MeetDetailBody extends StatelessWidget {
         color: AppColors.sky400,
         backgroundColor: AppColors.bgWhite,
         onRefresh: () async {
-          controller.init();
+          await controller.init();
           await Future.delayed(const Duration(milliseconds: 250));
         },
         child: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            //padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
             children: [
               if (meet.imageUrls.isNotEmpty) ...[
                 ClipRRect(
@@ -414,7 +475,8 @@ class _MeetDetailBody extends StatelessWidget {
               const SizedBox(height: 6),
               CommonChip(label: meet.category, selected: true),
               const SizedBox(height: 6),
-              //주 활동 지역
+
+              // 주 활동 지역
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -449,14 +511,14 @@ class _MeetDetailBody extends StatelessWidget {
 
               const SizedBox(height: 16),
 
-              // 참가자 미리보기(UID 리스트)
+              // ✅ 참가자
               Row(
                 children: [
                   Text(
                     '참가자 ${meet.userUids.length}명',
                     style: AppTextStyle.titleMediumBoldStyle,
                   ),
-                  Expanded(child: SizedBox()),
+                  const Spacer(),
                   Text(
                     '최대 ${meet.maxMembers}명',
                     style: AppTextStyle.titleSmallMediumStyle,
@@ -466,6 +528,7 @@ class _MeetDetailBody extends StatelessWidget {
               const SizedBox(height: 10),
               _MemberPreviewRow(memberUids: meet.userUids),
               const SizedBox(height: 16),
+
               _MeetPhotoFeedSection(
                 meetId: meet.id,
                 state: state,
@@ -490,7 +553,7 @@ class _MeetDetailBody extends StatelessWidget {
 
               _MeetLightningSection(
                 meetId: meet.id,
-                isMeetMember: state.isMember, // ✅ 추가
+                isMeetMember: state.isMember,
                 onTapAll: () async {
                   if (!state.isMember) {
                     SnackbarService.show(
@@ -513,32 +576,7 @@ class _MeetDetailBody extends StatelessWidget {
       ),
     );
   }
-
-  String _formatDateTime(DateTime dt) {
-    final mm = dt.month.toString();
-    final dd = dt.day.toString();
-    final hh = dt.hour;
-    final mi = dt.minute.toString().padLeft(2, '0');
-    final isAm = hh < 12;
-    final h12 = hh == 0 ? 12 : (hh > 12 ? hh - 12 : hh);
-    final ap = isAm ? '오전' : '오후';
-    return '$mm/$dd $ap $h12:$mi';
-  }
 }
-
-final meetLightningSectionProvider =
-    FutureProvider.family<List<LightningModel>, String>((ref, meetId) async {
-      final snap = await FirebaseFirestore.instance
-          .collection('meets')
-          .doc(meetId)
-          .collection('lightnings')
-          .where('status', isEqualTo: 'open')
-          .orderBy('dateTime', descending: false)
-          .limit(5)
-          .get();
-
-      return snap.docs.map((d) => LightningModel.fromDoc(d)).toList();
-    });
 
 class _MeetLightningSection extends ConsumerWidget {
   const _MeetLightningSection({
@@ -549,7 +587,8 @@ class _MeetLightningSection extends ConsumerWidget {
 
   final String meetId;
   final VoidCallback onTapAll;
-  final bool isMeetMember; // ✅ 추가
+  final bool isMeetMember;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(meetLightningSectionProvider(meetId));
@@ -561,7 +600,7 @@ class _MeetLightningSection extends ConsumerWidget {
             Text('번개', style: AppTextStyle.titleMediumBoldStyle),
             const Spacer(),
             if (isMeetMember) ...[
-              _MiniWriteButton(
+              _buildMiniWriteChip(
                 title: '번개 생성',
                 onTap: () async {
                   await Navigator.push(
@@ -570,8 +609,6 @@ class _MeetLightningSection extends ConsumerWidget {
                       builder: (_) => LightningCreateView(meetId: meetId),
                     ),
                   );
-
-                  // ✅ 작성 후 돌아오면: 이 섹션만 새로고침
                   ref.invalidate(meetLightningSectionProvider(meetId));
                 },
               ),
@@ -590,8 +627,8 @@ class _MeetLightningSection extends ConsumerWidget {
         ),
         const SizedBox(height: 10),
         async.when(
-          loading: () => Container(), // 기존처럼 조용히
-          error: (e, _) => Container(),
+          loading: () => const SizedBox.shrink(),
+          error: (e, _) => const SizedBox.shrink(),
           data: (all) {
             final now = DateTime.now();
             final items = <LightningModel>[];
@@ -640,283 +677,38 @@ class _MeetLightningSection extends ConsumerWidget {
       ],
     );
   }
-}
 
-class _MemberPreviewRow extends StatefulWidget {
-  const _MemberPreviewRow({required this.memberUids, this.pageSize = 10});
-
-  final List<String> memberUids;
-
-  /// ✅ 10명씩
-  final int pageSize;
-
-  @override
-  State<_MemberPreviewRow> createState() => _MemberPreviewRowState();
-}
-
-class _MemberPreviewRowState extends State<_MemberPreviewRow> {
-  final List<UserMini> _users = [];
-  final Set<String> _loadedUids = {};
-  bool _isLoading = false;
-
-  int _cursor = 0; // memberUids에서 어디까지 로드했는지
-
-  @override
-  void initState() {
-    super.initState();
-    _loadNext(); // 첫 10명 로드
-  }
-
-  @override
-  void didUpdateWidget(covariant _MemberPreviewRow oldWidget) {
-    super.didUpdateWidget(oldWidget);
-
-    // memberUids가 바뀌면 초기화 후 재로딩
-    if (!_listEquals(oldWidget.memberUids, widget.memberUids)) {
-      _users.clear();
-      _loadedUids.clear();
-      _cursor = 0;
-      _isLoading = false;
-      _loadNext();
-    }
-  }
-
-  bool _listEquals(List<String> a, List<String> b) {
-    if (a.length != b.length) return false;
-    for (int i = 0; i < a.length; i++) {
-      if (a[i] != b[i]) return false;
-    }
-    return true;
-  }
-
-  bool get _hasMore => _cursor < widget.memberUids.length;
-
-  Future<void> _loadNext() async {
-    if (_isLoading) return;
-    if (!_hasMore) return;
-
-    setState(() => _isLoading = true);
-
-    try {
-      // 다음 10개 슬라이스
-      final end = (_cursor + widget.pageSize).clamp(
-        0,
-        widget.memberUids.length,
-      );
-      final slice = widget.memberUids.sublist(_cursor, end);
-
-      // 중복 제거
-      final need = slice.where((uid) => !_loadedUids.contains(uid)).toList();
-      _cursor = end;
-
-      if (need.isEmpty) {
-        setState(() => _isLoading = false);
-        return;
-      }
-
-      // ✅ whereIn 최대 10개 제한 -> pageSize=10이면 안전
-      final snap = await FirebaseFirestore.instance
-          .collection('users')
-          .where('uid', whereIn: need)
-          .get();
-
-      final fetched = snap.docs
-          .map((d) => UserMini.fromMap(d.data(), d.id))
-          .toList();
-
-      // whereIn은 순서 보장 X → need 순서로 정렬
-      fetched.sort(
-        (a, b) => need.indexOf(a.uid).compareTo(need.indexOf(b.uid)),
-      );
-
-      for (final u in fetched) {
-        _loadedUids.add(u.uid);
-      }
-
-      setState(() {
-        _users.addAll(fetched);
-        _isLoading = false;
-      });
-    } catch (_) {
-      setState(() => _isLoading = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (widget.memberUids.isEmpty) {
-      return _EmptyMemberBox();
-    }
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.bgSecondary,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.borderSecondary),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // ✅ 가로 스크롤 (overflow 방지)
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                // 로드된 사용자들
-                for (final u in _users) ...[
-                  _MemberAvatar(user: u),
-                  const SizedBox(width: 10),
-                ],
-
-                // 로딩 중 스켈레톤(가로로)
-                if (_isLoading) ...[
-                  for (int i = 0; i < 3; i++) ...[
-                    const _MemberAvatarSkeleton(),
-                    const SizedBox(width: 10),
-                  ],
-                ],
-
-                // ✅ 더보기 버튼 (아직 남아있으면)
-                if (_hasMore && !_isLoading)
-                  _LoadMoreChip(text: '10명 더보기', onTap: _loadNext),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _LoadMoreChip extends StatelessWidget {
-  const _LoadMoreChip({required this.text, required this.onTap});
-
-  final String text;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildMiniWriteChip({
+    required String title,
+    required VoidCallback onTap,
+  }) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(999),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
-          color: AppColors.bgWhite,
+          color: AppColors.bgSecondary,
           borderRadius: BorderRadius.circular(999),
           border: Border.all(color: AppColors.borderSecondary),
         ),
-        child: Text(
-          text,
-          style: AppTextStyle.labelSmallStyle.copyWith(
-            color: AppColors.textPrimary,
-          ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.add, size: 16, color: AppColors.icDefault),
+            const SizedBox(width: 4),
+            Text(
+              title,
+              style: AppTextStyle.labelSmallStyle.copyWith(
+                color: AppColors.textDefault,
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
-
-class _MemberAvatar extends StatelessWidget {
-  const _MemberAvatar({required this.user});
-
-  final UserMini user;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        CommonProfileAvatar(
-          imageUrl: user.photoUrl,
-          size: 40,
-          uid: user.uid,
-          gender: user.gender,
-        ),
-
-        const SizedBox(height: 6),
-        Text(
-          user.nickname,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          textAlign: TextAlign.center,
-          style: AppTextStyle.labelXSmallStyle.copyWith(
-            color: AppColors.textSecondary,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _MemberAvatarSkeleton extends StatelessWidget {
-  const _MemberAvatarSkeleton();
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: AppColors.gray100,
-            shape: BoxShape.circle,
-            border: Border.all(color: AppColors.borderSecondary),
-          ),
-        ),
-        const SizedBox(height: 6),
-        Container(
-          width: 46,
-          height: 10,
-          decoration: BoxDecoration(
-            color: AppColors.gray100,
-            borderRadius: BorderRadius.circular(6),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _EmptyMemberBox extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.bgSecondary,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.borderSecondary),
-      ),
-      child: Center(
-        child: Text(
-          '참가자가 없어요',
-          style: AppTextStyle.bodySmallStyle.copyWith(
-            color: AppColors.textSecondary,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-final meetPhotoFeedSectionProvider =
-    FutureProvider.family<List<Map<String, dynamic>>, String>((
-      ref,
-      meetId,
-    ) async {
-      final snap = await FirebaseFirestore.instance
-          .collection('feeds')
-          .where('meetId', isEqualTo: meetId)
-          .orderBy('createdAt', descending: true)
-          .limit(9)
-          .get();
-
-      // doc.id가 필요해서 _docId로 같이 넣음
-      return snap.docs.map((d) => {'_docId': d.id, ...d.data()}).toList();
-    });
 
 class _MeetPhotoFeedSection extends StatelessWidget {
   const _MeetPhotoFeedSection({
@@ -940,11 +732,10 @@ class _MeetPhotoFeedSection extends StatelessWidget {
           children: [
             Text('모임 피드', style: AppTextStyle.titleMediumBoldStyle),
             const Spacer(),
-
             if (state.isMember) ...[
               Consumer(
                 builder: (context, ref, _) {
-                  return _MiniWriteButton(
+                  return _buildMiniWriteChip(
                     title: '피드 작성',
                     onTap: () async {
                       await Navigator.push(
@@ -953,19 +744,13 @@ class _MeetPhotoFeedSection extends StatelessWidget {
                           builder: (_) => CreateFeedView(meetId: meetId),
                         ),
                       );
-
-                      // ✅ 작성 후 돌아오면: 이 섹션만 즉시 새로고침
                       ref.invalidate(meetPhotoFeedSectionProvider(meetId));
-
-                      // (선택) meetDetail 전체를 다시 읽어야 하는 게 있으면
-                      // controller.init();
                     },
                   );
                 },
               ),
               const SizedBox(width: 6),
             ],
-
             TextButton(
               onPressed: onTapAll,
               child: Text(
@@ -978,13 +763,12 @@ class _MeetPhotoFeedSection extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 10),
-
         Consumer(
           builder: (context, ref, _) {
             final async = ref.watch(meetPhotoFeedSectionProvider(meetId));
 
             return async.when(
-              loading: () => _PhotoGridSkeleton(),
+              loading: () => _buildPhotoGridSkeleton(),
               error: (e, _) => Padding(
                 padding: const EdgeInsets.only(top: 20),
                 child: Center(
@@ -1048,7 +832,8 @@ class _MeetPhotoFeedSection extends StatelessWidget {
                   );
                 }
 
-                return _PhotoGrid(
+                return _buildPhotoGrid(
+                  context: context,
                   items: items,
                   onTapItem: (feedId) {
                     if (!state.isMember) {
@@ -1078,26 +863,43 @@ class _MeetPhotoFeedSection extends StatelessWidget {
     if (s.length <= max) return s;
     return '${s.substring(0, max)}…';
   }
-}
 
-class _PhotoItem {
-  final String feedId;
-  final String? imageUrl;
-  final String? previewText;
+  Widget _buildMiniWriteChip({
+    required String title,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(999),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: AppColors.bgSecondary,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: AppColors.borderSecondary),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.add, size: 16, color: AppColors.icDefault),
+            const SizedBox(width: 4),
+            Text(
+              title,
+              style: AppTextStyle.labelSmallStyle.copyWith(
+                color: AppColors.textDefault,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
-  const _PhotoItem({required this.feedId, this.imageUrl, this.previewText});
-
-  bool get hasImage => imageUrl != null && imageUrl!.isNotEmpty;
-}
-
-class _PhotoGrid extends StatelessWidget {
-  const _PhotoGrid({required this.items, required this.onTapItem});
-
-  final List<_PhotoItem> items;
-  final void Function(String feedId) onTapItem;
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildPhotoGrid({
+    required BuildContext context,
+    required List<_PhotoItem> items,
+    required void Function(String feedId) onTapItem,
+  }) {
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -1121,21 +923,14 @@ class _PhotoGrid extends StatelessWidget {
                     height: double.infinity,
                     fit: BoxFit.cover,
                   )
-                : _TextTile(text: item.previewText ?? ''),
+                : _buildTextTile(text: item.previewText ?? ''),
           ),
         );
       },
     );
   }
-}
 
-class _TextTile extends StatelessWidget {
-  const _TextTile({required this.text});
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildTextTile({required String text}) {
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
@@ -1146,7 +941,6 @@ class _TextTile extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 작은 아이콘
           const Icon(Icons.subject, size: 16, color: AppColors.icSecondary),
           const SizedBox(height: 6),
           Expanded(
@@ -1164,11 +958,8 @@ class _TextTile extends StatelessWidget {
       ),
     );
   }
-}
 
-class _PhotoGridSkeleton extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildPhotoGridSkeleton() {
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -1192,36 +983,252 @@ class _PhotoGridSkeleton extends StatelessWidget {
   }
 }
 
-class _MiniWriteButton extends StatelessWidget {
-  const _MiniWriteButton({required this.onTap, required this.title});
+// =======================================================
+// Simple data model
+// =======================================================
 
-  final VoidCallback onTap;
-  final String title;
+class _PhotoItem {
+  final String feedId;
+  final String? imageUrl;
+  final String? previewText;
+
+  const _PhotoItem({required this.feedId, this.imageUrl, this.previewText});
+
+  bool get hasImage => imageUrl != null && imageUrl!.isNotEmpty;
+}
+
+// =======================================================
+// Member preview (complex -> keep as widget)
+// =======================================================
+
+class _MemberPreviewRow extends StatefulWidget {
+  const _MemberPreviewRow({required this.memberUids, this.pageSize = 10});
+
+  final List<String> memberUids;
+
+  /// ✅ 10명씩 (whereIn 제한 고려)
+  final int pageSize;
+
+  @override
+  State<_MemberPreviewRow> createState() => _MemberPreviewRowState();
+}
+
+class _MemberPreviewRowState extends State<_MemberPreviewRow> {
+  final List<UserMini> _users = [];
+  final Set<String> _loadedUids = {};
+  bool _isLoading = false;
+
+  int _cursor = 0; // memberUids에서 어디까지 로드했는지
+
+  @override
+  void initState() {
+    super.initState();
+    _loadNext(); // 첫 10명 로드
+  }
+
+  @override
+  void didUpdateWidget(covariant _MemberPreviewRow oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (!_listEquals(oldWidget.memberUids, widget.memberUids)) {
+      _users.clear();
+      _loadedUids.clear();
+      _cursor = 0;
+      _isLoading = false;
+      _loadNext();
+    }
+  }
+
+  bool _listEquals(List<String> a, List<String> b) {
+    if (a.length != b.length) return false;
+    for (int i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
+  }
+
+  bool get _hasMore => _cursor < widget.memberUids.length;
+
+  Future<void> _loadNext() async {
+    if (_isLoading) return;
+    if (!_hasMore) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      final end = (_cursor + widget.pageSize).clamp(
+        0,
+        widget.memberUids.length,
+      );
+      final slice = widget.memberUids.sublist(_cursor, end);
+
+      // 중복 제거
+      final need = slice.where((uid) => !_loadedUids.contains(uid)).toList();
+      _cursor = end;
+
+      if (need.isEmpty) {
+        setState(() => _isLoading = false);
+        return;
+      }
+
+      // ✅ whereIn 최대 10개 제한 -> pageSize=10이면 안전
+      final snap = await FirebaseFirestore.instance
+          .collection('users')
+          .where('uid', whereIn: need)
+          .get();
+
+      final fetched = snap.docs
+          .map((d) => UserMini.fromMap(d.data(), d.id))
+          .toList();
+
+      // whereIn은 순서 보장 X → need 순서로 정렬
+      fetched.sort(
+        (a, b) => need.indexOf(a.uid).compareTo(need.indexOf(b.uid)),
+      );
+
+      for (final u in fetched) {
+        _loadedUids.add(u.uid);
+      }
+
+      setState(() {
+        _users.addAll(fetched);
+        _isLoading = false;
+      });
+    } catch (_) {
+      setState(() => _isLoading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (widget.memberUids.isEmpty) {
+      return _buildEmptyMemberBox();
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.bgSecondary,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.borderSecondary),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ✅ 가로 스크롤 (overflow 방지)
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                for (final u in _users) ...[
+                  _buildMemberAvatar(user: u),
+                  const SizedBox(width: 10),
+                ],
+
+                if (_isLoading) ...[
+                  for (int i = 0; i < 3; i++) ...[
+                    _buildMemberAvatarSkeleton(),
+                    const SizedBox(width: 10),
+                  ],
+                ],
+
+                if (_hasMore && !_isLoading)
+                  _buildLoadMoreChip(text: '10명 더보기', onTap: _loadNext),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMemberAvatar({required UserMini user}) {
+    return Column(
+      children: [
+        CommonProfileAvatar(
+          imageUrl: user.photoUrl,
+          size: 40,
+          uid: user.uid,
+          gender: user.gender,
+        ),
+        const SizedBox(height: 6),
+        Text(
+          user.nickname,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
+          style: AppTextStyle.labelXSmallStyle.copyWith(
+            color: AppColors.textSecondary,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMemberAvatarSkeleton() {
+    return Column(
+      children: [
+        Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: AppColors.gray100,
+            shape: BoxShape.circle,
+            border: Border.all(color: AppColors.borderSecondary),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Container(
+          width: 46,
+          height: 10,
+          decoration: BoxDecoration(
+            color: AppColors.gray100,
+            borderRadius: BorderRadius.circular(6),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLoadMoreChip({
+    required String text,
+    required VoidCallback onTap,
+  }) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(999),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
-          color: AppColors.bgSecondary,
+          color: AppColors.bgWhite,
           borderRadius: BorderRadius.circular(999),
           border: Border.all(color: AppColors.borderSecondary),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.add, size: 16, color: AppColors.icDefault),
-            const SizedBox(width: 4),
-            Text(
-              title,
-              style: AppTextStyle.labelSmallStyle.copyWith(
-                color: AppColors.textDefault,
-              ),
-            ),
-          ],
+        child: Text(
+          text,
+          style: AppTextStyle.labelSmallStyle.copyWith(
+            color: AppColors.textPrimary,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyMemberBox() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.bgSecondary,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.borderSecondary),
+      ),
+      child: Center(
+        child: Text(
+          '참가자가 없어요',
+          style: AppTextStyle.bodySmallStyle.copyWith(
+            color: AppColors.textSecondary,
+          ),
         ),
       ),
     );

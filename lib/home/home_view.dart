@@ -8,12 +8,9 @@ import 'package:hellchinza/feed/feed_list/feed_list_view.dart';
 import 'package:hellchinza/meet/meet_create/meet_create_view.dart';
 import 'package:hellchinza/meet/meet_list/meet_list_view.dart';
 import 'package:hellchinza/profile/profile_view.dart';
-import 'package:persistent_bottom_nav_bar_v2/persistent_bottom_nav_bar_v2.dart';
 
-import '../auth/domain/user_model.dart';
 import '../chat/chat_list/chat_list_view.dart';
 import '../constants/app_colors.dart';
-import '../services/snackbar_service.dart';
 import '../setting/setting_view.dart';
 import 'home_controller.dart';
 
@@ -25,7 +22,8 @@ class HomeView extends ConsumerStatefulWidget {
 }
 
 class _HomeViewState extends ConsumerState<HomeView> {
-  int pageIndex = 0;
+  int _navIndex = 0;     // BottomNavigationBar 선택 인덱스 (0~4)
+  int _pageIndex = 0;    // 실제 화면 인덱스 (0~3)
   List<String> title = ['피드', '모임', '채팅', '프로필'];
 
 
@@ -41,7 +39,7 @@ class _HomeViewState extends ConsumerState<HomeView> {
       data: (ok) {
         return Scaffold(
           appBar: CommonHomeAppbar(
-            title: title[pageIndex],
+            title: title[_pageIndex],
 
             actions: [
               IconButton(
@@ -100,13 +98,11 @@ class _HomeViewState extends ConsumerState<HomeView> {
                       );
                     },
                   );
+                  return;
                 } else {
                   setState(() {
-                    if (index == 0 || index == 1) {
-                      pageIndex = index;
-                    } else {
-                      pageIndex = index - 1;
-                    }
+                    _navIndex = index;
+                    _pageIndex = index > 2 ? index - 1 : index;
                   });
                 }
               },
@@ -116,10 +112,11 @@ class _HomeViewState extends ConsumerState<HomeView> {
               backgroundColor: Colors.white,
               selectedItemColor: AppColors.btnPrimary,
               unselectedItemColor: Colors.grey,
-              currentIndex: pageIndex,
-              items: const [
+              currentIndex: _navIndex,
+              items:  [
                 BottomNavigationBarItem(icon: Icon(Icons.feed), label: ''),
                 BottomNavigationBarItem(icon: Icon(Icons.people_rounded), label: ''),
+
                 BottomNavigationBarItem(
                   icon: Icon(Icons.add_box_outlined),
                   label: '',
@@ -134,7 +131,7 @@ class _HomeViewState extends ConsumerState<HomeView> {
           ),
 
           body: IndexedStack(
-            index: pageIndex,
+            index: _pageIndex,
             children: [
               FeedListView(),
               MeetListView(),

@@ -151,7 +151,6 @@ class _CreateFeedViewState extends ConsumerState<CreateFeedView> {
 
                           GestureDetector(
                             onTap: () async {
-                              // TODO: 사진 추가 로직
                               await controller.pickMultiImage();
                             },
                             behavior: HitTestBehavior.translucent,
