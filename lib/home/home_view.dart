@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hellchinza/common/common_home_app_bar.dart';
 import 'package:hellchinza/feed/create_feed/create_feed_view.dart';
 import 'package:hellchinza/feed/feed_list/feed_list_view.dart';
 import 'package:hellchinza/meet/meet_create/meet_create_view.dart';
@@ -26,7 +27,7 @@ class HomeView extends ConsumerStatefulWidget {
 class _HomeViewState extends ConsumerState<HomeView> {
   int pageIndex = 0;
   List<String> title = ['피드', '모임', '채팅', '프로필'];
-  late final PersistentTabController _tabCtrl;
+
 
   @override
   Widget build(BuildContext context) {
@@ -39,8 +40,8 @@ class _HomeViewState extends ConsumerState<HomeView> {
           Scaffold(body: Center(child: Text('Home init error: $e'))),
       data: (ok) {
         return Scaffold(
-          appBar: AppBar(
-            title: Text(title[pageIndex]),
+          appBar: CommonHomeAppbar(
+            title: title[pageIndex],
 
             actions: [
               IconButton(
@@ -60,43 +61,6 @@ class _HomeViewState extends ConsumerState<HomeView> {
                   );
                 },
               ),
-
-              if (pageIndex != 3) ...[
-                IconButton(
-                  icon: const Icon(
-                    Icons.add_box_outlined,
-                    size: 24,
-                    color: AppColors.icDefault,
-                  ),
-                  onPressed: () {
-                    controller.showCreateActionSheet(
-                      context: context,
-                      onCreateFeed: () {
-                        Navigator.push(
-                          context,
-                          CupertinoPageRoute(
-                            fullscreenDialog: true,
-                            builder: (context) {
-                              return CreateFeedView();
-                            },
-                          ),
-                        );
-                      },
-                      onCreateMeeting: () {
-                        Navigator.push(
-                          context,
-                          CupertinoPageRoute(
-                            fullscreenDialog: true,
-                            builder: (context) {
-                              return MeetCreateStepperView();
-                            },
-                          ),
-                        );
-                      },
-                    );
-                  },
-                ),
-              ],
             ],
           ),
           bottomNavigationBar: Theme(
@@ -155,7 +119,7 @@ class _HomeViewState extends ConsumerState<HomeView> {
               currentIndex: pageIndex,
               items: const [
                 BottomNavigationBarItem(icon: Icon(Icons.feed), label: ''),
-                BottomNavigationBarItem(icon: Icon(Icons.home), label: ''),
+                BottomNavigationBarItem(icon: Icon(Icons.people_rounded), label: ''),
                 BottomNavigationBarItem(
                   icon: Icon(Icons.add_box_outlined),
                   label: '',
@@ -189,6 +153,6 @@ class _HomeViewState extends ConsumerState<HomeView> {
   @override
   void initState() {
     super.initState();
-    _tabCtrl = PersistentTabController(initialIndex: 0);
+
   }
 }
