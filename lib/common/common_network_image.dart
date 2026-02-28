@@ -11,6 +11,9 @@ class CommonNetworkImage extends StatelessWidget {
   final double? width;
   final double? height;
 
+  /// ✅ 탭해서 원본 뷰어 열기
+  final bool enableViewer;
+
   const CommonNetworkImage({
     super.key,
     required this.imageUrl,
@@ -18,6 +21,7 @@ class CommonNetworkImage extends StatelessWidget {
     this.borderRadius,
     this.width,
     this.height,
+    this.enableViewer = true,
   });
 
   @override
@@ -33,14 +37,70 @@ class CommonNetworkImage extends StatelessWidget {
       fadeOutDuration: const Duration(milliseconds: 150),
     );
 
-    if (borderRadius != null) {
-      return ClipRRect(
-        borderRadius: borderRadius!,
-        child: image,
-      );
-    }
+    Widget child = (borderRadius != null)
+        ? ClipRRect(borderRadius: borderRadius!, child: image)
+        : image;
 
-    return image;
+    if (!enableViewer) return child;
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () {
+        Navigator.push(
+          context,
+          PageRouteBuilder(
+            opaque: false,
+            pageBuilder: (_, __, ___) => _PhotoViewerPage(imageUrl: imageUrl),
+            transitionsBuilder: (_, anim, __, child) {
+              return FadeTransition(opacity: anim, child: child);
+            },
+          ),
+        );
+      },
+      child: child,
+    );
+  }
+}
+
+class _PhotoViewerPage extends StatelessWidget {
+  const _PhotoViewerPage({required this.imageUrl});
+
+  final String imageUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    final top = MediaQuery.of(context).padding.top;
+
+    return Scaffold(
+      backgroundColor: AppColors.black.withOpacity(0.92),
+      body: Stack(
+        children: [
+          Center(
+            child: InteractiveViewer(
+              minScale: 1.0,
+              maxScale: 4.0,
+              child: CachedNetworkImage(
+                imageUrl: imageUrl,
+                fit: BoxFit.contain,
+                placeholder: (_, __) => const _ImagePlaceholder(),
+                errorWidget: (_, __, ___) => const _ImageError(),
+                fadeInDuration: const Duration(milliseconds: 150),
+                fadeOutDuration: const Duration(milliseconds: 150),
+              ),
+            ),
+          ),
+
+          Positioned(
+            top: top + 8,
+            left: 8,
+            child: IconButton(
+              onPressed: () => Navigator.pop(context),
+              icon: const Icon(Icons.close, color: AppColors.white),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 class _ImagePlaceholder extends StatelessWidget {

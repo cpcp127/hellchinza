@@ -272,7 +272,9 @@ class _CreateFeedViewState extends ConsumerState<CreateFeedView> {
                             ),
                           )
                         : Container(),
+
                      _buildPlaceButton(),
+                    SizedBox(height: 16),
                   ],
                 ),
               )
@@ -298,6 +300,7 @@ class _CreateFeedViewState extends ConsumerState<CreateFeedView> {
           const SizedBox(height: 8),
           GestureDetector(
             onTap: () async {
+              FocusManager.instance.primaryFocus?.unfocus();
               final FeedPlace? selected = await Navigator.push(
                 context,
                 CupertinoPageRoute(

@@ -49,6 +49,7 @@ class CommonProfileAvatar extends StatelessWidget {
               ? _DefaultAvatar(size: size)
               : CommonNetworkImage(
             imageUrl: imageUrl!,
+            enableViewer: false,
             width: size,
             height: size,
             fit: BoxFit.cover,

@@ -84,7 +84,8 @@ class FeedCard extends StatelessWidget {
               child: PollSection(poll: feed.poll!, feedId: feed.id),
             ),
           ],
-          if (feed.place != null)
+          if (feed.place != null) ...[
+            const SizedBox(height: 12),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
               child: CommonPlaceWidget(
@@ -94,17 +95,9 @@ class FeedCard extends StatelessWidget {
                 lng: feed.place!.lng,
               ),
             ),
-          // GestureDetector(
-          //   onTap: () {
-          //     final place = feed.place!;
-          //     FeedService().openNaverMapPlace(
-          //       title: place.title,
-          //       lat: place.lat,
-          //       lng: place.lng,
-          //     );
-          //   },
-          //   child: _buildPlaceSection(feed.place!),
-          // ),
+          ],
+
+
           const SizedBox(height: 12),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -121,62 +114,6 @@ class FeedCard extends StatelessWidget {
             child: _FeedActionRow(feed: feed),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildPlaceSection(FeedPlace place) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: AppColors.bgSecondary,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.borderSecondary),
-        ),
-        child: Row(
-          children: [
-            const Icon(
-              Icons.place_outlined,
-              size: 18,
-              color: AppColors.icSecondary,
-            ),
-            const SizedBox(width: 8),
-
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    place.title,
-                    style: AppTextStyle.titleSmallBoldStyle.copyWith(
-                      color: AppColors.textDefault,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    place.address,
-                    style: AppTextStyle.bodySmallStyle.copyWith(
-                      color: AppColors.textSecondary,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(width: 6),
-            const Icon(
-              Icons.chevron_right,
-              size: 18,
-              color: AppColors.icSecondary,
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -330,6 +267,7 @@ class _FeedImagePagerState extends State<_FeedImagePager> {
               return CommonNetworkImage(
                 imageUrl: widget.imageUrls[index],
                 fit: BoxFit.cover,
+
               );
             },
           ),

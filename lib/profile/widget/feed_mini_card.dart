@@ -35,24 +35,21 @@ class FeedMiniCard extends StatelessWidget {
         ),
         child: Row(
           children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(14),
-              child: Container(
-                width: 56,
-                height: 56,
-                color: AppColors.bgSecondary,
-                child: thumb == null
-                    ? Icon(
-                  mainTypeIcon(feed.mainType),
-                  color: AppColors.icDisabled,
-                )
-                    : CommonNetworkImage(
-                  imageUrl: thumb,
-                  height: 56,
-                  fit: BoxFit.cover,
-                ),
-              ),
-            ),
+            thumb == null
+                ? Container()
+                : ClipRRect(
+                    borderRadius: BorderRadius.circular(14),
+                    child: Container(
+                      width: 56,
+                      height: 56,
+                      color: AppColors.bgSecondary,
+                      child: CommonNetworkImage(
+                        imageUrl: thumb,
+                        height: 56,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  ),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
