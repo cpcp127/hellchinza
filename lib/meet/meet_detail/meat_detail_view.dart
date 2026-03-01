@@ -921,7 +921,7 @@ class _MeetPhotoFeedSection extends StatelessWidget {
                 ? CommonNetworkImage(
                     imageUrl: item.imageUrl!,
                     height: double.infinity,
-                    fit: BoxFit.cover,
+                    fit: BoxFit.cover,enableViewer: false,
                   )
                 : _buildTextTile(text: item.previewText ?? ''),
           ),

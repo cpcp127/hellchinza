@@ -220,7 +220,6 @@ class _ChatViewState extends ConsumerState<ChatView>
                     }
 
                     // ✅ 날짜 구분선 조건:
-                    // - 첫 번째 아이템이면 항상 날짜 표시
                     // - 이전 메시지와 "날짜가 다르면" 표시
                     final showDateDivider = currAt != null &&
                         ( prevAt == null || !controller.isSameDay(currAt, prevAt));

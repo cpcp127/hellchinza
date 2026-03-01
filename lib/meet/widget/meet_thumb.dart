@@ -22,7 +22,7 @@ class MeetThumb extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: (url == null || url!.isEmpty)
           ? const Icon(Icons.image_outlined, color: AppColors.icDisabled)
-          : CommonNetworkImage(imageUrl: url!.first, fit: BoxFit.cover),
+          : CommonNetworkImage(imageUrl: url!.first, fit: BoxFit.cover,enableViewer: false),
       //: Image.network(url!, fit: BoxFit.cover),
     );
   }
