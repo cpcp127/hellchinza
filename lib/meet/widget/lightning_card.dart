@@ -25,9 +25,9 @@ class LightningCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final myUid = FirebaseAuth.instance.currentUser?.uid;
     final isOwner = myUid != null && model.authorUid == myUid;
-    final isMember = myUid != null && model.memberUids.contains(myUid);
+    final isMember = myUid != null && model.userUids.contains(myUid);
     final isFull = model.isFull;
-    final isJoined = myUid != null && model.memberUids.contains(myUid);
+    final isJoined = myUid != null && model.userUids.contains(myUid);
     final canJoin = myUid != null && !isOwner && !isMember && !isFull;
     final bool enabled =
         !isOwner && isMeetMember && (isJoined || canJoin); // ✅ 핵심
@@ -127,7 +127,7 @@ class LightningCard extends ConsumerWidget {
           ),
           const SizedBox(height: 6),
           // 참가자 간단 표시
-          LightningMemberMiniRow(memberUids: model.memberUids),
+          LightningMemberMiniRow(userUids: model.userUids),
 
           const SizedBox(height: 12),
 
@@ -227,15 +227,15 @@ class LightningCard extends ConsumerWidget {
 
       final current = (data['currentMemberCount'] as num?)?.toInt() ?? 0;
       final max = (data['maxMembers']);
-      final memberUids = List<String>.from(data['memberUids'] ?? const []);
+      final userUids = List<String>.from(data['userUids'] ?? const []);
 
-      if (memberUids.contains(uid)) return;
+      if (userUids.contains(uid)) return;
       if (current >= max) throw Exception('정원이 마감되었습니다');
 
-      memberUids.add(uid);
+      userUids.add(uid);
 
       tx.update(_ref, {
-        'memberUids': memberUids,
+        'userUids': userUids,
         'currentMemberCount': current + 1,
         'updatedAt': FieldValue.serverTimestamp(),
       });
@@ -254,16 +254,16 @@ class LightningCard extends ConsumerWidget {
       final data = snap.data() ?? {};
 
       final current = (data['currentMemberCount'] as num?)?.toInt() ?? 0;
-      final memberUids = List<String>.from(data['memberUids'] ?? const []);
+      final userUids = List<String>.from(data['userUids'] ?? const []);
 
-      if (!memberUids.contains(uid)) return;
+      if (!userUids.contains(uid)) return;
 
-      memberUids.remove(uid);
+      userUids.remove(uid);
 
       final nextCount = (current - 1) < 0 ? 0 : (current - 1);
 
       tx.update(_ref, {
-        'memberUids': memberUids,
+        'userUids': userUids,
         'currentMemberCount': nextCount,
         'updatedAt': FieldValue.serverTimestamp(),
       });

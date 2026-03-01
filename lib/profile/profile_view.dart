@@ -329,7 +329,7 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
                 builder: (context) {
                   final joinedPreviewQuery = FirebaseFirestore.instance
                       .collection('meets')
-                      .where('memberUids', arrayContains: uid)
+                      .where('userUids', arrayContains: uid)
                       .where('authorUid', isNotEqualTo: uid)
                       .orderBy('dateTime')
                       .limit(3);
@@ -337,7 +337,7 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
                   final joinedAllQuery = FirebaseFirestore.instance
                       .collection('meets')
                       .where('status', isEqualTo: 'open')
-                      .where('memberUids', arrayContains: uid)
+                      .where('userUids', arrayContains: uid)
                       .where('authorUid', isNotEqualTo: uid)
                       .orderBy('dateTime');
 

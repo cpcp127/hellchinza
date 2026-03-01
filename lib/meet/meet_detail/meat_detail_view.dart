@@ -526,7 +526,7 @@ class _MeetDetailBody extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 10),
-              _MemberPreviewRow(memberUids: meet.userUids),
+              _MemberPreviewRow(userUids: meet.userUids),
               const SizedBox(height: 16),
 
               _MeetPhotoFeedSection(
@@ -1002,9 +1002,9 @@ class _PhotoItem {
 // =======================================================
 
 class _MemberPreviewRow extends StatefulWidget {
-  const _MemberPreviewRow({required this.memberUids, this.pageSize = 10});
+  const _MemberPreviewRow({required this.userUids, this.pageSize = 10});
 
-  final List<String> memberUids;
+  final List<String> userUids;
 
   /// ✅ 10명씩 (whereIn 제한 고려)
   final int pageSize;
@@ -1018,7 +1018,7 @@ class _MemberPreviewRowState extends State<_MemberPreviewRow> {
   final Set<String> _loadedUids = {};
   bool _isLoading = false;
 
-  int _cursor = 0; // memberUids에서 어디까지 로드했는지
+  int _cursor = 0; // userUids에서 어디까지 로드했는지
 
   @override
   void initState() {
@@ -1030,7 +1030,7 @@ class _MemberPreviewRowState extends State<_MemberPreviewRow> {
   void didUpdateWidget(covariant _MemberPreviewRow oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    if (!_listEquals(oldWidget.memberUids, widget.memberUids)) {
+    if (!_listEquals(oldWidget.userUids, widget.userUids)) {
       _users.clear();
       _loadedUids.clear();
       _cursor = 0;
@@ -1047,7 +1047,7 @@ class _MemberPreviewRowState extends State<_MemberPreviewRow> {
     return true;
   }
 
-  bool get _hasMore => _cursor < widget.memberUids.length;
+  bool get _hasMore => _cursor < widget.userUids.length;
 
   Future<void> _loadNext() async {
     if (_isLoading) return;
@@ -1058,9 +1058,9 @@ class _MemberPreviewRowState extends State<_MemberPreviewRow> {
     try {
       final end = (_cursor + widget.pageSize).clamp(
         0,
-        widget.memberUids.length,
+        widget.userUids.length,
       );
-      final slice = widget.memberUids.sublist(_cursor, end);
+      final slice = widget.userUids.sublist(_cursor, end);
 
       // 중복 제거
       final need = slice.where((uid) => !_loadedUids.contains(uid)).toList();
@@ -1101,7 +1101,7 @@ class _MemberPreviewRowState extends State<_MemberPreviewRow> {
 
   @override
   Widget build(BuildContext context) {
-    if (widget.memberUids.isEmpty) {
+    if (widget.userUids.isEmpty) {
       return _buildEmptyMemberBox();
     }
 

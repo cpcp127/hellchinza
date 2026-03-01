@@ -90,15 +90,15 @@ class MeetDetailController extends StateNotifier<MeetDetailState> {
       final data = snap.data()!;
       final current = (data['currentMemberCount'] ?? 0) as int;
       final max = (data['maxMembers'] ?? 0) as int;
-      final memberUids = List<String>.from(data['memberUids'] ?? []);
+      final userUids = List<String>.from(data['userUids'] ?? []);
 
-      if (memberUids.contains(uid)) return;
+      if (userUids.contains(uid)) return;
       if (current >= max) throw Exception('정원이 마감되었습니다');
 
-      memberUids.add(uid);
+      userUids.add(uid);
 
       tx.update(_meetRef, {
-        'memberUids': memberUids,
+        'userUids': userUids,
         'currentMemberCount': current + 1,
         'updatedAt': FieldValue.serverTimestamp(),
       });
@@ -120,14 +120,14 @@ class MeetDetailController extends StateNotifier<MeetDetailState> {
       final snap = await tx.get(_meetRef);
       final data = snap.data()!;
       final current = (data['currentMemberCount'] ?? 0) as int;
-      final memberUids = List<String>.from(data['memberUids'] ?? []);
+      final userUids = List<String>.from(data['userUids'] ?? []);
 
-      if (!memberUids.contains(uid)) return;
+      if (!userUids.contains(uid)) return;
 
-      memberUids.remove(uid);
+      userUids.remove(uid);
 
       tx.update(_meetRef, {
-        'memberUids': memberUids,
+        'userUids': userUids,
         'currentMemberCount': (current - 1).clamp(0, 999999),
         'updatedAt': FieldValue.serverTimestamp(),
       });

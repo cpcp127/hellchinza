@@ -7,9 +7,9 @@ import '../../constants/app_colors.dart';
 import '../../constants/app_text_style.dart';
 
 class LightningMemberMiniRow extends StatefulWidget {
-  const LightningMemberMiniRow({super.key, required this.memberUids});
+  const LightningMemberMiniRow({super.key, required this.userUids});
 
-  final List<String> memberUids;
+  final List<String> userUids;
 
   @override
   State<LightningMemberMiniRow> createState() => _LightningMemberMiniRowState();
@@ -28,14 +28,14 @@ class _LightningMemberMiniRowState extends State<LightningMemberMiniRow> {
   void didUpdateWidget(covariant LightningMemberMiniRow oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    // memberUids가 바뀌면 다시 로드
-    if (!_listEquals(oldWidget.memberUids, widget.memberUids)) {
+    // userUids가 바뀌면 다시 로드
+    if (!_listEquals(oldWidget.userUids, widget.userUids)) {
       _future = _load();
     }
   }
 
   Future<List<Map<String, dynamic>>> _load() async {
-    final uids = widget.memberUids.take(3).toList();
+    final uids = widget.userUids.take(3).toList();
     if (uids.isEmpty) return const [];
 
     final snap = await FirebaseFirestore.instance
@@ -59,7 +59,7 @@ class _LightningMemberMiniRowState extends State<LightningMemberMiniRow> {
 
   @override
   Widget build(BuildContext context) {
-    final uids = widget.memberUids.take(3).toList();
+    final uids = widget.userUids.take(3).toList();
     if (uids.isEmpty) return const SizedBox.shrink();
 
     return FutureBuilder<List<Map<String, dynamic>>>(
@@ -83,9 +83,9 @@ class _LightningMemberMiniRowState extends State<LightningMemberMiniRow> {
                 child: CommonProfileAvatar(imageUrl: photoUrl, size: 22,uid: u['uid'],gender: u['gender'],),
               );
             }),
-            if (widget.memberUids.length > 3)
+            if (widget.userUids.length > 3)
               Text(
-                '+${widget.memberUids.length - 3}',
+                '+${widget.userUids.length - 3}',
                 style: AppTextStyle.labelSmallStyle.copyWith(
                   color: AppColors.textTeritary,
                 ),

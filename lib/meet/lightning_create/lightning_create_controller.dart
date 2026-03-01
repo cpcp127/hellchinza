@@ -126,7 +126,7 @@ class LightningCreateController extends StateNotifier<LightningCreateState> {
 
         'maxMembers': state.maxMembersText!,
         'currentMemberCount': 1,
-        'memberUids': [uid],
+        'userUids': [uid],
 
         'place': state.selectedPlace?.toJson(),
 

@@ -167,7 +167,7 @@ class _RequestRowState extends State<_RequestRow> {
         final data = meetSnap.data()!;
         final current = (data['currentMemberCount'] ?? 0) as int;
         final max = (data['maxMembers'] ?? 0) as int;
-        final members = List<String>.from(data['memberUids'] ?? []);
+        final members = List<String>.from(data['userUids'] ?? []);
 
         if (members.contains(widget.uid)) {
           tx.delete(reqRef);
@@ -178,7 +178,7 @@ class _RequestRowState extends State<_RequestRow> {
         members.add(widget.uid);
 
         tx.update(_meetRef, {
-          'memberUids': members,
+          'userUids': members,
           'currentMemberCount': current + 1,
           'updatedAt': FieldValue.serverTimestamp(),
         });

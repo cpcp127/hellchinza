@@ -13,7 +13,7 @@ class LightningModel {
   final int maxMembers;
   final int currentMemberCount;
 
-  final List<String> memberUids;
+  final List<String> userUids;
 
   final Map<String, dynamic>? place; // ✅ selectedPlace.toJson() 그대로 저장했으니 일단 map
   final List<String> imageUrls;
@@ -32,7 +32,7 @@ class LightningModel {
     required this.dateTime,
     required this.maxMembers,
     required this.currentMemberCount,
-    required this.memberUids,
+    required this.userUids,
     required this.place,
     required this.imageUrls,
     required this.status,
@@ -51,7 +51,7 @@ class LightningModel {
 
   factory LightningModel.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
     final d = doc.data() ?? {};
-    final memberRaw = (d['memberUids'] as List?) ?? const [];
+    final memberRaw = (d['userUids'] as List?) ?? const [];
     final imageRaw = (d['imageUrls'] as List?) ?? const [];
 
     return LightningModel(
@@ -63,7 +63,7 @@ class LightningModel {
       dateTime: _tsToDt(d['dateTime']) ?? DateTime.now(),
       maxMembers: _toInt(d['maxMembers']),
       currentMemberCount: _toInt(d['currentMemberCount']),
-      memberUids: memberRaw.whereType<String>().toList(),
+      userUids: memberRaw.whereType<String>().toList(),
       place: (d['place'] is Map) ? Map<String, dynamic>.from(d['place']) : null,
       imageUrls: imageRaw.map((e) => e.toString()).toList(),
       status: (d['status'] as String?) ?? 'open',

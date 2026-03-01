@@ -22,10 +22,9 @@ class HomeView extends ConsumerStatefulWidget {
 }
 
 class _HomeViewState extends ConsumerState<HomeView> {
-  int _navIndex = 0;     // BottomNavigationBar 선택 인덱스 (0~4)
-  int _pageIndex = 0;    // 실제 화면 인덱스 (0~3)
+  int _navIndex = 0; // BottomNavigationBar 선택 인덱스 (0~4)
+  int _pageIndex = 0; // 실제 화면 인덱스 (0~3)
   List<String> title = ['피드', '모임', '채팅', '프로필'];
-
 
   @override
   Widget build(BuildContext context) {
@@ -113,9 +112,12 @@ class _HomeViewState extends ConsumerState<HomeView> {
               selectedItemColor: AppColors.btnPrimary,
               unselectedItemColor: Colors.grey,
               currentIndex: _navIndex,
-              items:  [
+              items: [
                 BottomNavigationBarItem(icon: Icon(Icons.feed), label: ''),
-                BottomNavigationBarItem(icon: Icon(Icons.people_rounded), label: ''),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.people_rounded),
+                  label: '',
+                ),
 
                 BottomNavigationBarItem(
                   icon: Icon(Icons.add_box_outlined),
@@ -136,10 +138,12 @@ class _HomeViewState extends ConsumerState<HomeView> {
               FeedListView(),
               MeetListView(),
               ChatListView(),
-              ProfileView(
-                uid: FirebaseAuth.instance.currentUser!.uid,
-                fromHomeTab: true,
-              ),
+              FirebaseAuth.instance.currentUser == null
+                  ? Container()
+                  : ProfileView(
+                      uid: FirebaseAuth.instance.currentUser!.uid,
+                      fromHomeTab: true,
+                    ),
             ],
           ),
         );
@@ -150,6 +154,5 @@ class _HomeViewState extends ConsumerState<HomeView> {
   @override
   void initState() {
     super.initState();
-
   }
 }
