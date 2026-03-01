@@ -210,57 +210,77 @@ class _ChatViewState extends ConsumerState<ChatView>
                     final pendingPath = ref
                         .watch(chatControllerProvider(widget.roomId))
                         .pendingImageLocalPathByMsgId[msgId];
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: _ChatBubble(
-                        roomId: widget.roomId,
-                        roomType: widget.roomType,
-                        data: data,
-                        otherUser: otherAsync.value,
-                        pendingLocalPath: pendingPath,
-                        // ✅ 추가
-                        onAccept: () async {
-                          try {
-                            await controller.acceptFriendRequest(
-                              requestMessageId: (data['id'] ?? doc.id)
-                                  .toString(),
-                              otherUid: widget.otherUid!,
-                            );
-                            SnackbarService.show(
-                              type: AppSnackType.success,
-                              message: '수락했어요',
-                            );
-                          } catch (e) {
-                            SnackbarService.show(
-                              type: AppSnackType.error,
-                              message: e.toString().replaceAll(
-                                'Exception: ',
-                                '',
-                              ),
-                            );
-                          }
-                        },
-                        onReject: () async {
-                          try {
-                            await controller.rejectFriendRequest(
-                              requestMessageId: (data['id'] ?? doc.id)
-                                  .toString(),
-                            );
-                            SnackbarService.show(
-                              type: AppSnackType.success,
-                              message: '거절했어요',
-                            );
-                          } catch (e) {
-                            SnackbarService.show(
-                              type: AppSnackType.error,
-                              message: e.toString().replaceAll(
-                                'Exception: ',
-                                '',
-                              ),
-                            );
-                          }
-                        },
-                      ),
+
+                    final currAt = controller.createdAtFrom(data);
+                    DateTime? prevAt;
+
+                    if (index + 1 < docs.length) {
+                      final nextData = (docs[index + 1].data() as Map<String, dynamic>? ?? {});
+                      prevAt = controller.createdAtFrom(nextData);
+                    }
+
+                    // ✅ 날짜 구분선 조건:
+                    // - 첫 번째 아이템이면 항상 날짜 표시
+                    // - 이전 메시지와 "날짜가 다르면" 표시
+                    final showDateDivider = currAt != null &&
+                        ( prevAt == null || !controller.isSameDay(currAt, prevAt));
+
+                    return Column(
+                      children: [
+                        if (showDateDivider) _buildDateDivider(currAt!),
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: _ChatBubble(
+                            roomId: widget.roomId,
+                            roomType: widget.roomType,
+                            data: data,
+                            otherUser: otherAsync.value,
+                            pendingLocalPath: pendingPath,
+                            // ✅ 추가
+                            onAccept: () async {
+                              try {
+                                await controller.acceptFriendRequest(
+                                  requestMessageId: (data['id'] ?? doc.id)
+                                      .toString(),
+                                  otherUid: widget.otherUid!,
+                                );
+                                SnackbarService.show(
+                                  type: AppSnackType.success,
+                                  message: '수락했어요',
+                                );
+                              } catch (e) {
+                                SnackbarService.show(
+                                  type: AppSnackType.error,
+                                  message: e.toString().replaceAll(
+                                    'Exception: ',
+                                    '',
+                                  ),
+                                );
+                              }
+                            },
+                            onReject: () async {
+                              try {
+                                await controller.rejectFriendRequest(
+                                  requestMessageId: (data['id'] ?? doc.id)
+                                      .toString(),
+                                );
+                                SnackbarService.show(
+                                  type: AppSnackType.success,
+                                  message: '거절했어요',
+                                );
+                              } catch (e) {
+                                SnackbarService.show(
+                                  type: AppSnackType.error,
+                                  message: e.toString().replaceAll(
+                                    'Exception: ',
+                                    '',
+                                  ),
+                                );
+                              }
+                            },
+                          ),
+                        ),
+                      ],
                     );
                   },
                 ),
@@ -286,6 +306,29 @@ class _ChatViewState extends ConsumerState<ChatView>
             ],
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildDateDivider(DateTime day) {
+    final controller = ref.read(chatControllerProvider(widget.roomId).notifier);
+    return Padding(
+      padding: const EdgeInsets.only(top: 6, bottom: 12),
+      child: Center(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: AppColors.bgSecondary,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: AppColors.borderSecondary),
+          ),
+          child: Text(
+            controller.formatDayKorean(day),
+            style: AppTextStyle.labelSmallStyle.copyWith(
+              color: AppColors.textSecondary,
+            ),
+          ),
+        ),
       ),
     );
   }

@@ -568,4 +568,22 @@ class ChatController extends StateNotifier<ChatState> {
       });
     });
   }
+
+  DateTime? createdAtFrom(Map<String, dynamic> data) {
+    final ts = data['createdAt'];
+    if (ts is Timestamp) return ts.toDate();
+    if (ts is DateTime) return ts;
+    return null;
+  }
+
+  bool isSameDay(DateTime a, DateTime b) {
+    return a.year == b.year && a.month == b.month && a.day == b.day;
+  }
+
+  String formatDayKorean(DateTime d) {
+    // 간단 버전: 2026. 3. 1 (일)
+    const week = ['월', '화', '수', '목', '금', '토', '일'];
+    final w = week[(d.weekday - 1).clamp(0, 6)];
+    return '${d.year}. ${d.month}. ${d.day} ($w)';
+  }
 }
