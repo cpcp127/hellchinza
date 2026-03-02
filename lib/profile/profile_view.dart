@@ -331,7 +331,7 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
                       .collection('meets')
                       .where('userUids', arrayContains: uid)
                       .where('authorUid', isNotEqualTo: uid)
-                      .orderBy('dateTime')
+                      .orderBy('createdAt')
                       .limit(3);
 
                   final joinedAllQuery = FirebaseFirestore.instance
@@ -339,7 +339,7 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
                       .where('status', isEqualTo: 'open')
                       .where('userUids', arrayContains: uid)
                       .where('authorUid', isNotEqualTo: uid)
-                      .orderBy('dateTime');
+                      .orderBy('createdAt');
 
                   return MeetPreviewSection(
                     title: isMe ? '내가 참가한 모임' : '참가한 모임',

@@ -26,25 +26,55 @@ class MyMeetsListView extends StatelessWidget {
       body: FirestorePagination(
         query: query,
         limit: 10,
+        onEmpty: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.people_rounded,
+                size: 42,
+                color: AppColors.icDisabled,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                '아직 모임이 없어요',
+                style: AppTextStyle.titleSmallBoldStyle.copyWith(
+                  color: AppColors.textDefault,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                '운동친구를 만나는 첫 모임에 참가,생성 해볼까요?',
+                textAlign: TextAlign.center,
+                style: AppTextStyle.bodySmallStyle.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
+        ),
         itemBuilder: (context, docSnapshots, index) {
           final doc =
           docSnapshots[index] as DocumentSnapshot<Map<String, dynamic>>;
           final item = MeetModel.fromDoc(doc);
 
-          return MeetCard(
-            item: item,
-            onTap: () {
+          return Padding(
+            padding: const EdgeInsets.only(left: 16,right: 16,bottom: 12),
+            child: MeetCard(
+              item: item,
+              onTap: () {
 
-              Navigator.push(
-                context,
-                CupertinoPageRoute(
-                  fullscreenDialog: true,
-                  builder: (context) {
-                    return MeetDetailView(meetId: item.id);
-                  },
-                ),
-              );
-            },
+                Navigator.push(
+                  context,
+                  CupertinoPageRoute(
+                    fullscreenDialog: true,
+                    builder: (context) {
+                      return MeetDetailView(meetId: item.id);
+                    },
+                  ),
+                );
+              },
+            ),
           );
         },
       ),

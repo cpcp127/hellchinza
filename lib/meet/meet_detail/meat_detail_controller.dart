@@ -289,6 +289,7 @@ class MeetDetailController extends StateNotifier<MeetDetailState> {
   Future<void> deleteMeet() async {
     if (!state.isOwner) return;
     await _meetRef.delete();
+    await _db.collection('chatRooms').doc(state.meet!.id).delete();
   }
 
   /// ✅ 내 모임: 상태 변경(open/closed 등) 필요하면
