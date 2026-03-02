@@ -44,11 +44,7 @@ class ManageRequestsSheet extends ConsumerWidget {
       minChildSize: 0.55,
       maxChildSize: 0.98,
       builder: (context, scrollController) {
-        final reqQuery = FirebaseFirestore.instance
-            .collection('meets')
-            .doc(meetId)
-            .collection('requests')
-            .orderBy('createdAt', descending: true);
+
 
         return Container(
           decoration: const BoxDecoration(
@@ -160,41 +156,92 @@ class _RequestRowState extends State<_RequestRow> {
     setState(() => _busy = true);
 
     try {
-      final reqRef = _meetRef.collection('requests').doc(widget.uid);
+      final uidToApprove = widget.uid; // 승인할 사람 uid
+      final reqRef = _meetRef.collection('requests').doc(uidToApprove);
 
-      await FirebaseFirestore.instance.runTransaction((tx) async {
+      final db = FirebaseFirestore.instance;
+      final roomRef = db.collection('chatRooms').doc(widget.meetId);
+
+
+      await db.runTransaction((tx) async {
+        // 1) meet
         final meetSnap = await tx.get(_meetRef);
         final data = meetSnap.data()!;
         final current = (data['currentMemberCount'] ?? 0) as int;
         final max = (data['maxMembers'] ?? 0) as int;
+
         final members = List<String>.from(data['userUids'] ?? []);
 
-        if (members.contains(widget.uid)) {
+        // 요청이 이미 승인되어 멤버면: 요청만 정리
+        if (members.contains(uidToApprove)) {
           tx.delete(reqRef);
           return;
         }
         if (current >= max) throw Exception('정원이 마감되었습니다');
 
-        members.add(widget.uid);
+        // 2) room
+        final roomSnap = await tx.get(roomRef);
+        if (!roomSnap.exists) throw Exception('채팅방이 없어요');
 
+        final roomData = roomSnap.data() as Map<String, dynamic>;
+        final roomUserUids = List<String>.from(roomData['userUids'] ?? []);
+        final visibleUids = List<String>.from(roomData['visibleUids'] ?? []);
+
+        final unreadCountMap =
+        Map<String, dynamic>.from(roomData['unreadCountMap'] ?? {});
+        final activeAtMap =
+        Map<String, dynamic>.from(roomData['activeAtMap'] ?? {});
+
+        // ✅ meet 멤버 추가
+        members.add(uidToApprove);
         tx.update(_meetRef, {
           'userUids': members,
           'currentMemberCount': current + 1,
           'updatedAt': FieldValue.serverTimestamp(),
         });
 
+        // ✅ 채팅방 멤버/노출 추가
+        if (!roomUserUids.contains(uidToApprove)) roomUserUids.add(uidToApprove);
+        if (!visibleUids.contains(uidToApprove)) visibleUids.add(uidToApprove);
+
+        unreadCountMap[uidToApprove] = 0;
+        activeAtMap[uidToApprove] = FieldValue.serverTimestamp();
+
+        tx.update(roomRef, {
+          'userUids': roomUserUids,
+          'visibleUids': visibleUids,
+          'unreadCountMap': unreadCountMap,
+          'activeAtMap': activeAtMap,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+
+        // (선택) 시스템 메시지
+        final msgRef = roomRef.collection('messages').doc();
+        tx.set(msgRef, {
+          'id': msgRef.id,
+          'authorUid': uidToApprove,
+          'type': 'system',
+          'text': '새 참가자가 승인되어 입장했어요 ✅',
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+        tx.update(roomRef, {
+          'lastMessageText': '새 참가자가 승인되어 입장했어요 ✅',
+          'lastMessageType': 'system',
+          'lastMessageAt': FieldValue.serverTimestamp(),
+        });
+
+        // ✅ 요청 문서 삭제(너 방식 유지)
         tx.delete(reqRef);
       });
 
       SnackbarService.show(type: AppSnackType.success, message: '승인했어요');
-      await widget.onChanged(); // ✅ 부모 init 호출
+      await widget.onChanged();
     } catch (e) {
       SnackbarService.show(type: AppSnackType.error, message: e.toString());
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
-
   Future<void> _reject() async {
     if (_busy) return;
     setState(() => _busy = true);

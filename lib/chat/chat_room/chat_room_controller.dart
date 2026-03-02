@@ -15,7 +15,50 @@ import '../../services/image_service.dart';
 import '../../services/snackbar_service.dart';
 import 'chat_room_state.dart';
 
+final chatRoomUsersMapProvider =
+StreamProvider.family<Map<String, UserMini>, String>((ref, roomId) async* {
+  final roomRef = FirebaseFirestore.instance.collection('chatRooms').doc(roomId);
 
+  await for (final roomSnap in roomRef.snapshots()) {
+    final data = roomSnap.data();
+    if (data == null) {
+      yield <String, UserMini>{};
+      continue;
+    }
+
+    final uids = (data['userUids'] as List?)
+        ?.map((e) => e.toString())
+        .toList() ??
+        [];
+
+    if (uids.isEmpty) {
+      yield <String, UserMini>{};
+      continue;
+    }
+
+    // ✅ whereIn 10개 제한 → 10개씩 나눠서 조회
+    final chunks = <List<String>>[];
+    for (int i = 0; i < uids.length; i += 10) {
+      chunks.add(uids.sublist(i, (i + 10).clamp(0, uids.length)));
+    }
+
+    final map = <String, UserMini>{};
+
+    for (final chunk in chunks) {
+      final snap = await FirebaseFirestore.instance
+          .collection('users')
+          .where('uid', whereIn: chunk)
+          .get();
+
+      for (final d in snap.docs) {
+        final m = UserMini.fromMap(d.data(), d.id);
+        map[m.uid] = m;
+      }
+    }
+
+    yield map;
+  }
+});
 extension _MapCopy on Map<String, String> {
   Map<String, String> copy() => Map<String, String>.from(this);
 }

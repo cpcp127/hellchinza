@@ -94,12 +94,12 @@ class _ChatViewState extends ConsumerState<ChatView>
         .doc(widget.roomId)
         .collection('messages')
         .orderBy('createdAt', descending: true);
-    final isDm = widget.roomType == 'dm';
+
     final otherUid = ref.watch(otherUidProvider(widget.roomId));
     final otherAsync = (otherUid == null)
         ? const AsyncValue<UserMini?>.data(null)
         : ref.watch(userMiniProvider(otherUid));
-
+    final usersMapAsync = ref.watch(chatRoomUsersMapProvider(widget.roomId));
     return Scaffold(
       appBar: AppBar(
         title: Text('채팅', style: AppTextStyle.titleMediumBoldStyle),
@@ -223,63 +223,70 @@ class _ChatViewState extends ConsumerState<ChatView>
                     // - 이전 메시지와 "날짜가 다르면" 표시
                     final showDateDivider = currAt != null &&
                         ( prevAt == null || !controller.isSameDay(currAt, prevAt));
-
-                    return Column(
-                      children: [
-                        if (showDateDivider) _buildDateDivider(currAt!),
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 10),
-                          child: _ChatBubble(
-                            roomId: widget.roomId,
-                            roomType: widget.roomType,
-                            data: data,
-                            otherUser: otherAsync.value,
-                            pendingLocalPath: pendingPath,
-                            // ✅ 추가
-                            onAccept: () async {
-                              try {
-                                await controller.acceptFriendRequest(
-                                  requestMessageId: (data['id'] ?? doc.id)
-                                      .toString(),
-                                  otherUid: widget.otherUid!,
-                                );
-                                SnackbarService.show(
-                                  type: AppSnackType.success,
-                                  message: '수락했어요',
-                                );
-                              } catch (e) {
-                                SnackbarService.show(
-                                  type: AppSnackType.error,
-                                  message: e.toString().replaceAll(
-                                    'Exception: ',
-                                    '',
-                                  ),
-                                );
-                              }
-                            },
-                            onReject: () async {
-                              try {
-                                await controller.rejectFriendRequest(
-                                  requestMessageId: (data['id'] ?? doc.id)
-                                      .toString(),
-                                );
-                                SnackbarService.show(
-                                  type: AppSnackType.success,
-                                  message: '거절했어요',
-                                );
-                              } catch (e) {
-                                SnackbarService.show(
-                                  type: AppSnackType.error,
-                                  message: e.toString().replaceAll(
-                                    'Exception: ',
-                                    '',
-                                  ),
-                                );
-                              }
-                            },
-                          ),
-                        ),
-                      ],
+                    final authorUid = (data['authorUid'] ?? '').toString();
+                    return usersMapAsync.when(
+                      loading: () => const SizedBox.shrink(),
+                      error: (e, _) => Text('유저 로딩 실패: $e'),
+                      data: (usersMap) {
+                        final authorMini = usersMap[authorUid]; // ✅ 보낸 사람 미니
+                        return  Column(
+                          children: [
+                            if (showDateDivider) _buildDateDivider(currAt),
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 10),
+                              child: _ChatBubble(
+                                roomId: widget.roomId,
+                                roomType: widget.roomType,
+                                data: data,
+                                otherUser: authorMini,
+                                pendingLocalPath: pendingPath,
+                                // ✅ 추가
+                                onAccept: () async {
+                                  try {
+                                    await controller.acceptFriendRequest(
+                                      requestMessageId: (data['id'] ?? doc.id)
+                                          .toString(),
+                                      otherUid: widget.otherUid!,
+                                    );
+                                    SnackbarService.show(
+                                      type: AppSnackType.success,
+                                      message: '수락했어요',
+                                    );
+                                  } catch (e) {
+                                    SnackbarService.show(
+                                      type: AppSnackType.error,
+                                      message: e.toString().replaceAll(
+                                        'Exception: ',
+                                        '',
+                                      ),
+                                    );
+                                  }
+                                },
+                                onReject: () async {
+                                  try {
+                                    await controller.rejectFriendRequest(
+                                      requestMessageId: (data['id'] ?? doc.id)
+                                          .toString(),
+                                    );
+                                    SnackbarService.show(
+                                      type: AppSnackType.success,
+                                      message: '거절했어요',
+                                    );
+                                  } catch (e) {
+                                    SnackbarService.show(
+                                      type: AppSnackType.error,
+                                      message: e.toString().replaceAll(
+                                        'Exception: ',
+                                        '',
+                                      ),
+                                    );
+                                  }
+                                },
+                              ),
+                            ),
+                          ],
+                        );
+                      },
                     );
                   },
                 ),
@@ -429,10 +436,10 @@ class _ChatViewState extends ConsumerState<ChatView>
 
     final ok = await DialogService.showConfirm(
       context: context,
-      title: isDm ? '채팅방을 나갈까요?' : '모임에서 나갈까요?',
+      title: '채팅방을 나갈까요?',
       message: isDm
           ? '채팅방을 나가면 친구도 끊어집니다.\n정말 나가시겠어요?'
-          : '모임에서 나가면 단톡방에서도 나가게 됩니다.\n정말 나가시겠어요?',
+          : '단톡방에서 나가면 모임에서도 나가게 됩니다.\n정말 나가시겠어요?',
       confirmText: '나가기',
       isDestructive: true,
     );
@@ -463,11 +470,11 @@ class _ChatBubble extends StatelessWidget {
   });
 
   final String roomId;
-  final String roomType; // ✅ 추가
+  final String roomType; // 'dm' | 'group'
   final Map<String, dynamic> data;
   final Future<void> Function() onAccept;
   final Future<void> Function() onReject;
-  final UserMini? otherUser;
+  final UserMini? otherUser; // ⚠️ DM 기준 상대. 그룹은 senderUid별로 따로 주입하는 게 정답
   final String? pendingLocalPath;
 
   @override
@@ -475,7 +482,6 @@ class _ChatBubble extends StatelessWidget {
     final myUid = FirebaseAuth.instance.currentUser?.uid;
     final senderUid = (data['authorUid'] ?? '').toString();
     final type = (data['type'] ?? 'text').toString();
-
     final isMine = myUid != null && senderUid == myUid;
 
     // 시간
@@ -490,134 +496,126 @@ class _ChatBubble extends StatelessWidget {
 
     // system
     if (type == 'system') {
-      return Center(
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
-            color: AppColors.bgSecondary,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.borderSecondary),
-          ),
-          child: Text(
-            (data['text'] ?? '').toString(),
-            style: AppTextStyle.labelSmallStyle.copyWith(
-              color: AppColors.textSecondary,
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Center(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: AppColors.bgSecondary,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.borderSecondary),
+            ),
+            child: Text(
+              (data['text'] ?? '').toString(),
+              style: AppTextStyle.labelSmallStyle.copyWith(
+                color: AppColors.textSecondary,
+              ),
             ),
           ),
         ),
       );
     }
 
-    // friend_request
+    // ✅ 그룹일 때만 상대 닉네임 노출(카톡 스타일)
+    final showName = !isMine && roomType == 'group';
+    final displayName = (otherUser?.nickname ?? '').trim();
+
+    // ✅ 메시지 본문 위젯 만들기(텍스트/이미지/친구요청)
+    Widget messageWidget;
+
     if (type == 'friend_request') {
       final reqStatus = (data['requestStatus'] ?? 'pending').toString();
       final text = (data['text'] ?? '').toString();
-
-      // ✅ 요청을 받은 사람에게만 버튼 노출(= 내가 sender가 아닐 때)
       final showAction = !isMine && reqStatus == 'pending';
 
-      return Align(
-        alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
-        child: Container(
-          width: 280,
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: isMine
-                ? AppColors.btnPrimary.withOpacity(0.10)
-                : AppColors.bgWhite,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.borderSecondary),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '친구 신청',
-                style: AppTextStyle.labelMediumStyle.copyWith(
-                  color: AppColors.textDefault,
-                  fontWeight: FontWeight.w800,
-                ),
+      messageWidget = Container(
+        width: 280,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: isMine ? AppColors.btnPrimary.withOpacity(0.10) : AppColors.bgWhite,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.borderSecondary),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '친구 신청',
+              style: AppTextStyle.labelMediumStyle.copyWith(
+                color: AppColors.textDefault,
+                fontWeight: FontWeight.w800,
               ),
-              const SizedBox(height: 8),
-              Text(
-                text.isEmpty ? '친구 신청 메시지' : text,
-                style: AppTextStyle.bodySmallStyle.copyWith(
-                  color: AppColors.textSecondary,
-                ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              text.isEmpty ? '친구 신청 메시지' : text,
+              style: AppTextStyle.bodySmallStyle.copyWith(
+                color: AppColors.textSecondary,
               ),
-              const SizedBox(height: 10),
-
-              Row(
-                children: [
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Text(
+                  timeText,
+                  style: AppTextStyle.labelSmallStyle.copyWith(
+                    color: AppColors.textTeritary,
+                  ),
+                ),
+                const Spacer(),
+                if (reqStatus == 'accepted')
                   Text(
-                    timeText,
+                    '수락됨',
+                    style: AppTextStyle.labelSmallStyle.copyWith(
+                      color: AppColors.textPrimary,
+                    ),
+                  )
+                else if (reqStatus == 'rejected')
+                  Text(
+                    '거절됨',
                     style: AppTextStyle.labelSmallStyle.copyWith(
                       color: AppColors.textTeritary,
                     ),
                   ),
-                  const Spacer(),
-
-                  if (reqStatus == 'accepted')
-                    Text(
-                      '수락됨',
-                      style: AppTextStyle.labelSmallStyle.copyWith(
-                        color: AppColors.textPrimary,
-                      ),
-                    )
-                  else if (reqStatus == 'rejected')
-                    Text(
-                      '거절됨',
-                      style: AppTextStyle.labelSmallStyle.copyWith(
-                        color: AppColors.textTeritary,
-                      ),
+              ],
+            ),
+            if (showAction) ...[
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: _SmallOutlineButton(
+                      text: '거절',
+                      onTap: () async => await onReject(),
                     ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _SmallPrimaryButton(
+                      text: '수락',
+                      onTap: () async => await onAccept(),
+                    ),
+                  ),
                 ],
               ),
-
-              if (showAction) ...[
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _SmallOutlineButton(
-                        text: '거절',
-                        onTap: () async => await onReject(),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: _SmallPrimaryButton(
-                        text: '수락',
-                        onTap: () async => await onAccept(),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
             ],
-          ),
+          ],
         ),
       );
-    }
-
-    if (type == 'image') {
+    } else if (type == 'image') {
       final uploadStatus = (data['uploadStatus'] ?? 'done').toString();
       final imageUrl = data['imageUrl']?.toString();
-
       final isUploading =
           uploadStatus == 'uploading' && (imageUrl == null || imageUrl.isEmpty);
 
       Widget imageWidget;
 
-      // ✅ 업로드 중이면: 로컬 파일로 즉시 표시(내 메시지에서만 의미 있음)
-      if (isUploading &&
-          pendingLocalPath != null &&
-          pendingLocalPath!.isNotEmpty) {
+      if (isUploading && pendingLocalPath != null && pendingLocalPath!.isNotEmpty) {
         imageWidget = Image.file(File(pendingLocalPath!), fit: BoxFit.cover);
       } else if (imageUrl != null && imageUrl.isNotEmpty) {
-        imageWidget = CommonNetworkImage(imageUrl: imageUrl, fit: BoxFit.cover);
+        imageWidget = CommonNetworkImage(imageUrl: imageUrl, fit: BoxFit.cover, enableViewer: true);
       } else {
-        // 다른 기기에서 업로드 중인데 로컬경로 없을 때(placeholder)
         imageWidget = Container(
           color: AppColors.bgSecondary,
           alignment: Alignment.center,
@@ -625,100 +623,71 @@ class _ChatBubble extends StatelessWidget {
         );
       }
 
-      return Align(
-        alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.end,
+      messageWidget = ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Stack(
           children: [
-            if (isMine)
-              Padding(
-                padding: const EdgeInsets.only(right: 6, bottom: 2),
-                child: Text(
-                  timeText,
-                  style: AppTextStyle.labelSmallStyle.copyWith(
-                    color: AppColors.textTeritary,
-                  ),
+            SizedBox(width: 220, height: 220, child: imageWidget),
+
+            if (isUploading)
+              Positioned.fill(
+                child: Container(
+                  color: AppColors.black.withOpacity(0.28),
+                  alignment: Alignment.center,
+                  child: const CircularProgressIndicator(),
                 ),
               ),
 
-            if (!isMine) ...[
-              CommonProfileAvatar(
-                imageUrl: otherUser?.photoUrl,
-                size: 28,
-                uid: otherUser?.uid ?? '',
-                gender: otherUser?.gender ?? 'unknown',
-              ),
-              const SizedBox(width: 4),
-            ],
-
-            // ✅ 이미지 버블
-            ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: Stack(
-                children: [
-                  SizedBox(width: 220, height: 220, child: imageWidget),
-
-                  // ✅ 업로드 중 오버레이(검은 오파시티 + 스피너)
-                  if (isUploading)
-                    Positioned.fill(
-                      child: Container(
-                        color: AppColors.black.withOpacity(0.28),
-                        alignment: Alignment.center,
-                        child: const CircularProgressIndicator(),
-                      ),
+            if (uploadStatus == 'failed')
+              Positioned.fill(
+                child: Container(
+                  color: AppColors.black.withOpacity(0.35),
+                  alignment: Alignment.center,
+                  child: Text(
+                    '업로드 실패',
+                    style: AppTextStyle.labelMediumStyle.copyWith(
+                      color: AppColors.white,
+                      fontWeight: FontWeight.w800,
                     ),
-
-                  // ✅ 실패 표시(선택)
-                  if (uploadStatus == 'failed')
-                    Positioned.fill(
-                      child: Container(
-                        color: AppColors.black.withOpacity(0.35),
-                        alignment: Alignment.center,
-                        child: Text(
-                          '업로드 실패',
-                          style: AppTextStyle.labelMediumStyle.copyWith(
-                            color: AppColors.white,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-
-            if (!isMine)
-              Padding(
-                padding: const EdgeInsets.only(left: 6, bottom: 2),
-                child: Text(
-                  timeText,
-                  style: AppTextStyle.labelSmallStyle.copyWith(
-                    color: AppColors.textTeritary,
                   ),
                 ),
               ),
           ],
         ),
       );
+    } else {
+      // text 기본
+      final text = (data['text'] ?? '').toString();
+
+      messageWidget = Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: isMine ? AppColors.btnPrimary : AppColors.bgSecondary,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Text(
+          text,
+          softWrap: true,
+          style: AppTextStyle.bodyMediumStyle.copyWith(
+            color: isMine ? AppColors.white : AppColors.textDefault,
+          ),
+        ),
+      );
     }
 
-    // text 기본
-    final text = (data['text'] ?? '').toString();
-
-    return Align(
-      alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          // 카톡처럼 너무 길어지지 않게 (화면의 70~75% 정도)
-          maxWidth: MediaQuery.of(context).size.width * 0.72,
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            // 상대방이면 시간 먼저
-            if (isMine) ...[
+    // ✅ 카톡 스타일 레이아웃
+    // - 내 메시지: (버블) (시간)
+    // - 상대 메시지: (프로필) (닉네임) (버블) (시간)
+    if (isMine) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 2, bottom: 8),
+        child: Align(
+          alignment: Alignment.centerRight,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              // 시간 (카톡은 버블 옆 아래)
               Padding(
                 padding: const EdgeInsets.only(right: 6, bottom: 2),
                 child: Text(
@@ -728,56 +697,88 @@ class _ChatBubble extends StatelessWidget {
                   ),
                 ),
               ),
-            ],
-            if (!isMine) ...[
-              CommonProfileAvatar(
-                imageUrl: otherUser?.photoUrl,
-                size: 28,
-                uid: otherUser?.uid ?? '',
-                gender: otherUser?.gender ?? 'unknown',
+
+              // 버블
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: MediaQuery.of(context).size.width * 0.72,
+                ),
+                child: messageWidget,
               ),
-              const SizedBox(width: 4),
             ],
-            // ✅ 버블은 Flexible로 감싸서 줄바꿈 가능하게
-            Flexible(
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 10,
-                ),
-                decoration: BoxDecoration(
-                  color: isMine ? AppColors.btnPrimary : AppColors.bgSecondary,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Text(
-                  text,
-                  softWrap: true,
-                  style: AppTextStyle.bodyMediumStyle.copyWith(
-                    color: isMine ? AppColors.white : AppColors.textDefault,
+          ),
+        ),
+      );
+    }
+
+    // 상대 메시지
+    return Padding(
+      padding: const EdgeInsets.only(top: 2, bottom: 8),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 프로필
+            CommonProfileAvatar(
+              imageUrl: otherUser?.photoUrl,
+              size: 32,
+              uid: otherUser?.uid ?? senderUid,
+              gender: otherUser?.gender ?? 'unknown',
+            ),
+            const SizedBox(width: 8),
+
+            // 닉네임 + 버블
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (showName && displayName.isNotEmpty) ...[
+                    Padding(
+                      padding: const EdgeInsets.only(left: 2, bottom: 4),
+                      child: Text(
+                        displayName,
+                        style: AppTextStyle.labelSmallStyle.copyWith(
+                          color: AppColors.textTeritary,
+                        ),
+                      ),
+                    ),
+                  ],
+
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Flexible(
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxWidth: MediaQuery.of(context).size.width * 0.72,
+                          ),
+                          child: messageWidget,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      // 시간
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 2),
+                        child: Text(
+                          timeText,
+                          style: AppTextStyle.labelSmallStyle.copyWith(
+                            color: AppColors.textTeritary,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
+                ],
               ),
             ),
-
-            // 내 메시지면 시간 뒤에
-            if (!isMine) ...[
-              Padding(
-                padding: const EdgeInsets.only(left: 6, bottom: 2),
-                child: Text(
-                  timeText,
-                  style: AppTextStyle.labelSmallStyle.copyWith(
-                    color: AppColors.textTeritary,
-                  ),
-                ),
-              ),
-            ],
           ],
         ),
       ),
     );
   }
 }
-
 class _ChatInputBar extends ConsumerWidget {
   const _ChatInputBar({
     required this.enabled,

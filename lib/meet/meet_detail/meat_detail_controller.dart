@@ -82,25 +82,74 @@ class MeetDetailController extends StateNotifier<MeetDetailState> {
     if (meet.status != 'open') throw Exception('종료된 모임이에요');
     if (state.isFull) throw Exception('정원이 마감되었습니다');
     if (meet.needApproval == true) {
-      throw Exception('승인이 필요한 모임이에요'); // 안전장치
+      throw Exception('승인이 필요한 모임이에요');
     }
 
+    final meetRef = _meetRef; // meets/{meetId}
+    final roomRef = _db.collection('chatRooms').doc(meet.id);
+
     await _db.runTransaction((tx) async {
-      final snap = await tx.get(_meetRef);
-      final data = snap.data()!;
-      final current = (data['currentMemberCount'] ?? 0) as int;
-      final max = (data['maxMembers'] ?? 0) as int;
-      final userUids = List<String>.from(data['userUids'] ?? []);
+      final meetSnap = await tx.get(meetRef);
+      final meetData = meetSnap.data()!;
+      final current = (meetData['currentMemberCount'] ?? 0) as int;
+      final max = (meetData['maxMembers'] ?? 0) as int;
+      final userUids = List<String>.from(meetData['userUids'] ?? []);
 
       if (userUids.contains(uid)) return;
       if (current >= max) throw Exception('정원이 마감되었습니다');
 
-      userUids.add(uid);
+      // ✅ 채팅방도 같이 업데이트
+      final roomSnap = await tx.get(roomRef);
+      if (!roomSnap.exists) throw Exception('채팅방이 존재하지 않아요');
 
-      tx.update(_meetRef, {
+      final roomData = roomSnap.data() as Map<String, dynamic>;
+      final roomUserUids = List<String>.from(roomData['userUids'] ?? []);
+      final visibleUids = List<String>.from(roomData['visibleUids'] ?? []);
+
+      final unreadCountMap =
+      Map<String, dynamic>.from(roomData['unreadCountMap'] ?? {});
+      final activeAtMap =
+      Map<String, dynamic>.from(roomData['activeAtMap'] ?? {});
+
+      // meet update
+      userUids.add(uid);
+      tx.update(meetRef, {
         'userUids': userUids,
         'currentMemberCount': current + 1,
         'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      // chatRoom update (group 참여)
+      if (!roomUserUids.contains(uid)) roomUserUids.add(uid);
+      if (!visibleUids.contains(uid)) visibleUids.add(uid);
+
+      // 참여자는 unread 0으로 초기화
+      unreadCountMap[uid] = 0;
+      activeAtMap[uid] = FieldValue.serverTimestamp();
+
+      tx.update(roomRef, {
+        'userUids': roomUserUids,
+        'visibleUids': visibleUids,
+        'unreadCountMap': unreadCountMap,
+        'activeAtMap': activeAtMap,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      // (선택) 시스템 메시지: “OO님이 참가했어요”
+      final msgRef = roomRef.collection('messages').doc();
+      tx.set(msgRef, {
+        'id': msgRef.id,
+        'authorUid': uid, // system이라면 authorUid를 host로 두기도 함. 너 정책대로.
+        'type': 'system',
+        'text': '새 참가자가 들어왔어요 🎉',
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+      // lastMessage 갱신 (너 room 문서에 lastMessage* 있음)
+      tx.update(roomRef, {
+        'lastMessageText': '새 참가자가 들어왔어요 🎉',
+        'lastMessageType': 'system',
+        'lastMessageAt': FieldValue.serverTimestamp(),
       });
     });
 
@@ -116,7 +165,31 @@ class MeetDetailController extends StateNotifier<MeetDetailState> {
     if (state.isOwner) throw Exception('호스트는 나갈 수 없어요');
     if (!state.isMember) return;
 
+    final roomId = meet.id;
+    if (roomId == null || roomId.isEmpty) {
+      // 채팅방이 없는 구형 데이터 대비
+      await _db.runTransaction((tx) async {
+        final snap = await tx.get(_meetRef);
+        final data = snap.data()!;
+        final current = (data['currentMemberCount'] ?? 0) as int;
+        final userUids = List<String>.from(data['userUids'] ?? []);
+        if (!userUids.contains(uid)) return;
+
+        userUids.remove(uid);
+        tx.update(_meetRef, {
+          'userUids': userUids,
+          'currentMemberCount': (current - 1).clamp(0, 999999),
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      });
+      await init();
+      return;
+    }
+
+    final roomRef = _db.collection('chatRooms').doc(roomId);
+
     await _db.runTransaction((tx) async {
+      // 1) meet
       final snap = await tx.get(_meetRef);
       final data = snap.data()!;
       final current = (data['currentMemberCount'] ?? 0) as int;
@@ -131,11 +204,51 @@ class MeetDetailController extends StateNotifier<MeetDetailState> {
         'currentMemberCount': (current - 1).clamp(0, 999999),
         'updatedAt': FieldValue.serverTimestamp(),
       });
+
+      // 2) chatRoom(group)에서도 제거
+      final roomSnap = await tx.get(roomRef);
+      if (roomSnap.exists) {
+        final roomData = roomSnap.data() as Map<String, dynamic>;
+        final roomUserUids = List<String>.from(roomData['userUids'] ?? []);
+        final visibleUids = List<String>.from(roomData['visibleUids'] ?? []);
+
+        final unreadCountMap =
+        Map<String, dynamic>.from(roomData['unreadCountMap'] ?? {});
+        final activeAtMap =
+        Map<String, dynamic>.from(roomData['activeAtMap'] ?? {});
+
+        roomUserUids.remove(uid);
+        visibleUids.remove(uid);
+        unreadCountMap.remove(uid);
+        activeAtMap.remove(uid);
+
+        tx.update(roomRef, {
+          'userUids': roomUserUids,
+          'visibleUids': visibleUids,
+          'unreadCountMap': unreadCountMap,
+          'activeAtMap': activeAtMap,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+
+        // (선택) 시스템 메시지
+        final msgRef = roomRef.collection('messages').doc();
+        tx.set(msgRef, {
+          'id': msgRef.id,
+          'authorUid': uid,
+          'type': 'system',
+          'text': '한 참가자가 모임을 나갔어요 👋',
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+        tx.update(roomRef, {
+          'lastMessageText': '한 참가자가 모임을 나갔어요 👋',
+          'lastMessageType': 'system',
+          'lastMessageAt': FieldValue.serverTimestamp(),
+        });
+      }
     });
 
     await init();
   }
-
 
   Future<void> requestJoin() async {
     final meet = state.meet;
