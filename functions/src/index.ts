@@ -6,6 +6,214 @@ admin.initializeApp();
 const db = admin.firestore();
 const bucket = admin.storage().bucket();
 
+/** 월요일 시작(00:00) 기준으로 주 시작일 구하기 */
+function startOfWeekMonday(date: Date): Date {
+  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const weekday = d.getDay(); // 0=Sun..6=Sat
+  const diff = (weekday + 6) % 7; // Monday 기준 offset (Mon=0)
+  d.setDate(d.getDate() - diff);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+/** weekKey: YYYY-MM-DD (월요일 날짜) */
+function weekKeyFromDate(weekStart: Date): string {
+  const y = weekStart.getFullYear();
+  const m = String(weekStart.getMonth() + 1).padStart(2, "0");
+  const dd = String(weekStart.getDate()).padStart(2, "0");
+  return `${y}-${m}-${dd}`;
+}
+
+function getCreatedAt(data: any): Date | null {
+  const ts = data?.createdAt;
+  if (!ts) return null;
+
+  // Firestore Timestamp
+  if (typeof ts.toDate === "function") return ts.toDate();
+
+  // millis number
+  if (typeof ts === "number") return new Date(ts);
+
+  // ISO string
+  if (typeof ts === "string") {
+    const d = new Date(ts);
+    if (!isNaN(d.getTime())) return d;
+  }
+
+  return null;
+}
+
+/** 오운완 피드 판별 */
+function isOowFeed(data: any): boolean {
+  if (!data) return false;
+  return data.mainType === "오운완";
+  // ✅ "개인 오운완만" 카운트하고 싶으면 아래 주석 해제
+  // return data.mainType === "오운완" && (data.meetId == null);
+}
+
+/** 주간 count 증감 적용 */
+async function applyWeeklyDelta(uid: string, weekStart: Date, delta: number) {
+  const key = weekKeyFromDate(weekStart);
+  const ref = db
+    .collection("stats_users")
+    .doc(uid)
+    .collection("oowWeekly")
+    .doc(key);
+
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const prev = snap.exists ? (snap.data()?.count ?? 0) : 0;
+    const next = Math.max(0, prev + delta);
+
+    // 문서가 없고 next=0이면 굳이 만들지 않음
+    if (!snap.exists && next === 0) return;
+
+    tx.set(
+      ref,
+      {
+        weekStart: admin.firestore.Timestamp.fromDate(weekStart),
+        count: next,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      },
+      { merge: true }
+    );
+  });
+}
+
+/**
+ * feeds/{feedId} 문서가 create/update/delete 될 때
+ * 오운완이면 stats_users/{uid}/oowWeekly/{weekKey} 를 유지
+ */
+export const onFeedWriteUpdateWeeklyOow = functions.firestore
+  .document("feeds/{feedId}")
+  .onWrite(async (change, context) => {
+    const before = change.before.exists ? change.before.data() : null;
+    const after = change.after.exists ? change.after.data() : null;
+
+    const uid = (after?.authorUid ?? before?.authorUid);
+    if (!uid) return;
+
+    function isOow(data: any) {
+      if (!data) return false;
+      if (data.mainType !== "오운완") return false;
+      if (data.meetId !== null && data.meetId !== undefined) return false; // 개인만
+      return true;
+    }
+
+    function getDate(d: any): Date | null {
+      if (!d) return null;
+      if (d.toDate) return d.toDate();
+      if (d instanceof Date) return d;
+      return null;
+    }
+
+    function startOfDay(d: Date) {
+      return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    }
+
+    function pad2(n: number) {
+      return n.toString().padStart(2, "0");
+    }
+
+    function dateKey(d: Date) {
+      return `${d.getFullYear()}${pad2(d.getMonth() + 1)}${pad2(d.getDate())}`;
+    }
+
+    function startOfWeekMonday(d: Date) {
+      const day = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+      const weekday = day.getDay();
+      const diff = (weekday + 6) % 7;
+      day.setDate(day.getDate() - diff);
+      day.setHours(0, 0, 0, 0);
+      return day;
+    }
+
+    async function hasAnyOowOnDay(uid: string, day: Date) {
+      const start = admin.firestore.Timestamp.fromDate(startOfDay(day));
+      const end = admin.firestore.Timestamp.fromDate(
+        new Date(day.getFullYear(), day.getMonth(), day.getDate() + 1)
+      );
+
+      const snap = await db
+        .collection("feeds")
+        .where("authorUid", "==", uid)
+        .where("mainType", "==", "오운완")
+        .where("meetId", "==", null)
+        .where("createdAt", ">=", start)
+        .where("createdAt", "<", end)
+        .limit(1)
+        .get();
+
+      return !snap.empty;
+    }
+
+    const affectedDays: Date[] = [];
+
+    if (before && isOow(before)) {
+      const d = getDate(before.createdAt);
+      if (d) affectedDays.push(startOfDay(d));
+    }
+
+    if (after && isOow(after)) {
+      const d = getDate(after.createdAt);
+      if (d) affectedDays.push(startOfDay(d));
+    }
+
+    const uniqueDays = new Map<string, Date>();
+    for (const d of affectedDays) {
+      uniqueDays.set(dateKey(d), d);
+    }
+
+    for (const day of uniqueDays.values()) {
+      const dayKey = dateKey(day);
+      const weekStart = startOfWeekMonday(day);
+      const weekKey = dateKey(weekStart);
+
+      const dailyRef = db
+        .collection("stats_users")
+        .doc(uid)
+        .collection("oowDaily")
+        .doc(dayKey);
+
+      const weeklyRef = db
+        .collection("stats_users")
+        .doc(uid)
+        .collection("oowWeekly")
+        .doc(weekKey);
+
+      const existsNow = await hasAnyOowOnDay(uid, day);
+
+      await db.runTransaction(async (tx) => {
+        const dailySnap = await tx.get(dailyRef);
+        const prev = dailySnap.exists ? dailySnap.data()?.hasOow === true : false;
+
+        if (prev === existsNow) return;
+
+        tx.set(dailyRef, {
+          dateKey: dayKey,
+          weekKey,
+          weekStart: admin.firestore.Timestamp.fromDate(weekStart),
+          hasOow: existsNow,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        }, { merge: true });
+
+        const weeklySnap = await tx.get(weeklyRef);
+        const prevCount = weeklySnap.exists ? weeklySnap.data()?.count ?? 0 : 0;
+
+        const delta = existsNow ? 1 : -1;
+        const nextCount = Math.max(0, prevCount + delta);
+
+        tx.set(weeklyRef, {
+          weekKey,
+          weekStart: admin.firestore.Timestamp.fromDate(weekStart),
+          count: nextCount, // 🔥 이제 '운동한 날 수'
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        }, { merge: true });
+      });
+    }
+  });
+
+
 /**
  * ✅ 너가 말한 구조 기준:
  * - users/{uid}
@@ -244,4 +452,5 @@ async function deleteStorageFolder(prefix: string) {
     if (!pageToken) break;
   }
 }
+
 

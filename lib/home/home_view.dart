@@ -8,6 +8,7 @@ import 'package:hellchinza/feed/feed_list/feed_list_view.dart';
 import 'package:hellchinza/meet/meet_create/meet_create_view.dart';
 import 'package:hellchinza/meet/meet_list/meet_list_view.dart';
 import 'package:hellchinza/profile/profile_view.dart';
+import 'package:hellchinza/workout_goal/presentation/workout_goal_root_view.dart';
 
 import '../chat/chat_list/chat_list_view.dart';
 import '../constants/app_colors.dart';
@@ -24,7 +25,7 @@ class HomeView extends ConsumerStatefulWidget {
 class _HomeViewState extends ConsumerState<HomeView> {
   int _navIndex = 0; // BottomNavigationBar 선택 인덱스 (0~4)
   int _pageIndex = 0; // 실제 화면 인덱스 (0~3)
-  List<String> title = ['피드', '모임', '채팅', '프로필'];
+  List<String> title = ['오운완', '피드', '모임', '프로필'];
 
   @override
   Widget build(BuildContext context) {
@@ -41,6 +42,23 @@ class _HomeViewState extends ConsumerState<HomeView> {
             title: title[_pageIndex],
 
             actions: [
+              IconButton(
+                icon: const Icon(
+                  Icons.chat_bubble_outline,
+                  size: 24,
+                  color: AppColors.icDefault,
+                ),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) {
+                        return ChatListView();
+                      },
+                    ),
+                  );
+                },
+              ),
               IconButton(
                 icon: const Icon(
                   Icons.settings_outlined,
@@ -113,20 +131,22 @@ class _HomeViewState extends ConsumerState<HomeView> {
               unselectedItemColor: Colors.grey,
               currentIndex: _navIndex,
               items: [
-                BottomNavigationBarItem(icon: Icon(Icons.feed), label: ''),
                 BottomNavigationBarItem(
-                  icon: Icon(Icons.people_rounded),
+                  icon: Icon(Icons.fitness_center),
                   label: '',
                 ),
-
+                BottomNavigationBarItem(icon: Icon(Icons.feed), label: ''),
                 BottomNavigationBarItem(
                   icon: Icon(Icons.add_box_outlined),
                   label: '',
                 ),
                 BottomNavigationBarItem(
-                  icon: Icon(Icons.chat_bubble),
+                  icon: Icon(Icons.people_rounded),
                   label: '',
                 ),
+
+
+
                 BottomNavigationBarItem(icon: Icon(Icons.person), label: ''),
               ],
             ),
@@ -135,9 +155,10 @@ class _HomeViewState extends ConsumerState<HomeView> {
           body: IndexedStack(
             index: _pageIndex,
             children: [
+              WorkoutGoalRootView(),
               FeedListView(),
               MeetListView(),
-              ChatListView(),
+
               FirebaseAuth.instance.currentUser == null
                   ? Container()
                   : ProfileView(

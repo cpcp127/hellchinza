@@ -8,15 +8,13 @@ import 'package:flutter_riverpod/legacy.dart';
 import 'package:flutter_riverpod/misc.dart';
 import 'package:hellchinza/feed/create_feed/create_feed_state.dart';
 import 'package:hellchinza/feed/feed_list/feed_list_controller.dart';
-import 'package:hellchinza/meet/meet_detail/meat_detail_controller.dart';
 import 'package:hellchinza/services/image_service.dart';
 
 import '../../meet/meet_detail/meat_detail_view.dart';
-import '../../services/naver_location_service.dart';
 import '../../services/snackbar_service.dart';
 import '../../services/storage_upload_service.dart';
+import '../../workout_goal/provider/workout_goal_provider.dart';
 import '../domain/feed_model.dart';
-import 'package:proj4dart/proj4dart.dart' as proj4;
 
 final createFeedControllerProvider =
     StateNotifierProvider.autoDispose<CreateFeedController, CreateFeedState>((
@@ -159,6 +157,10 @@ class CreateFeedController extends StateNotifier<CreateFeedState> {
         type: AppSnackType.success,
         message: '업로드가 완료되었습니다!',
       );
+      if (state.selectMainType == '오운완' ) {
+
+        ref.read(workoutGoalControllerProvider.notifier).init();
+      }
       if(meetId==null){
         ref.read(feedListControllerProvider.notifier).refresh();
       }else{
