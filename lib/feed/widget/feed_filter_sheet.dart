@@ -144,35 +144,35 @@ class _FeedFilterSheetState extends State<FeedFilterSheet> {
                         }).toList(),
                       ),
 
-                    const SizedBox(height: 18),
-                    _SectionTitle('친구 피드만 보기'),
-                    const SizedBox(height: 10),
-                    Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: AppColors.bgSecondary,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: AppColors.borderSecondary),
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              '친구의 피드만 보기',
-                              style: AppTextStyle.bodyMediumStyle.copyWith(
-                                color: AppColors.textDefault,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                          CupertinoSwitch(
-                            value: _onlyFriends,
-                            onChanged: (v) => setState(() => _onlyFriends = v),
-                            activeColor: AppColors.btnPrimary,
-                          ),
-                        ],
-                      ),
-                    ),
+                    // const SizedBox(height: 18),
+                    // _SectionTitle('친구 피드만 보기'),
+                    // const SizedBox(height: 10),
+                    // Container(
+                    //   padding: const EdgeInsets.all(14),
+                    //   decoration: BoxDecoration(
+                    //     color: AppColors.bgSecondary,
+                    //     borderRadius: BorderRadius.circular(16),
+                    //     border: Border.all(color: AppColors.borderSecondary),
+                    //   ),
+                    //   child: Row(
+                    //     children: [
+                    //       Expanded(
+                    //         child: Text(
+                    //           '친구의 피드만 보기',
+                    //           style: AppTextStyle.bodyMediumStyle.copyWith(
+                    //             color: AppColors.textDefault,
+                    //             fontWeight: FontWeight.w700,
+                    //           ),
+                    //         ),
+                    //       ),
+                    //       CupertinoSwitch(
+                    //         value: _onlyFriends,
+                    //         onChanged: (v) => setState(() => _onlyFriends = v),
+                    //         activeColor: AppColors.btnPrimary,
+                    //       ),
+                    //     ],
+                    //   ),
+                    // ),
                   ],
                 ),
               ),

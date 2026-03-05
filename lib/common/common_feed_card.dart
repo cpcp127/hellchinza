@@ -20,10 +20,13 @@ import '../feed/create_feed/create_feed_view.dart';
 import '../feed/domain/feed_model.dart';
 import '../feed/domain/poll_model.dart';
 import '../feed/feed_detail/feed_detail_view.dart';
+import '../feed/feed_list/feed_list_controller.dart';
+import '../meet/meet_detail/meat_detail_view.dart';
 import '../profile/widget/feed_type_pill.dart';
 import '../services/dialog_service.dart';
 import '../services/snackbar_service.dart';
 import '../utils/date_time_util.dart';
+import '../workout_goal/provider/workout_goal_provider.dart';
 import 'common_action_sheet.dart';
 import 'common_context_menu.dart';
 import 'common_like_user_sheet.dart';
@@ -203,11 +206,27 @@ class _AuthorSection extends ConsumerWidget {
                           ),
                         );
                         ref.invalidate(feedDocProvider(feed.id));
+                        if (feed.mainType == '오운완') {
+                          ref.read(workoutGoalControllerProvider.notifier).init();
+                        }
+                        if (feed.meetId == null) {
+                          ref.read(feedListControllerProvider.notifier).refresh();
+                        } else {
+                          ref.invalidate(meetPhotoFeedSectionProvider(feed.meetId!));
+                        }
                       }
                     : null,
                 onDelete: isMine
                     ? () async {
                         await FeedService().deleteFeed(feedId: feed.id);
+                        if (feed.mainType == '오운완') {
+                          ref.read(workoutGoalControllerProvider.notifier).init();
+                        }
+                        if (feed.meetId == null) {
+                          ref.read(feedListControllerProvider.notifier).refresh();
+                        } else {
+                          ref.invalidate(meetPhotoFeedSectionProvider(feed.meetId!));
+                        }
                       }
                     : null,
                 onReport: !isMine
