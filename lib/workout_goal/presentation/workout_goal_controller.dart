@@ -42,7 +42,7 @@ class WorkoutGoalController extends StateNotifier<WorkoutGoalState> {
       final todayDay = DateTime(today.year, today.month, today.day);
 
       final defaultSelected =
-      (todayDay.isBefore(weekStart) || !todayDay.isBefore(weekEnd))
+          (todayDay.isBefore(weekStart) || !todayDay.isBefore(weekEnd))
           ? weekStart
           : todayDay;
 
@@ -55,11 +55,9 @@ class WorkoutGoalController extends StateNotifier<WorkoutGoalState> {
         doneDays: doneDays,
         selectedDay: defaultSelected,
       );
+      await loadLast5Weeks();
     } catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        errorMessage: '불러오기에 실패했어요',
-      );
+      state = state.copyWith(isLoading: false, errorMessage: '불러오기에 실패했어요');
     }
   }
 
@@ -86,7 +84,7 @@ class WorkoutGoalController extends StateNotifier<WorkoutGoalState> {
           'weeklyTarget': target,
           'updatedAt': FieldValue.serverTimestamp(),
           'createdAt': FieldValue.serverTimestamp(),
-        }
+        },
       }, SetOptions(merge: true));
 
       // ✅ 1) state에 목표 반영
@@ -133,7 +131,7 @@ class WorkoutGoalController extends StateNotifier<WorkoutGoalState> {
       final snap = await q.get();
 
       final Map<String, Set<String>> weekToDaySet = {};
-
+      final Map<String, int> subTypeCount = {};
       for (final doc in snap.docs) {
         final data = doc.data() as Map<String, dynamic>;
 
@@ -146,7 +144,10 @@ class WorkoutGoalController extends StateNotifier<WorkoutGoalState> {
         } else {
           continue;
         }
-
+        final subType = (data['subType'] ?? '').toString().trim();
+        if (subType.isNotEmpty && subType != '전체') {
+          subTypeCount[subType] = (subTypeCount[subType] ?? 0) + 1;
+        }
         final day = DateTimeUtil.startOfDay(createdAt);
         final dk = DateTimeUtil.dayKey(day);
 
@@ -171,7 +172,11 @@ class WorkoutGoalController extends StateNotifier<WorkoutGoalState> {
         );
       }
 
-      state = state.copyWith(isLoading: false, last5Weeks: weeks);
+      state = state.copyWith(
+        isLoading: false,
+        last5Weeks: weeks,
+        last5WeeksSubTypeCount: subTypeCount,
+      );
     } catch (e) {
       state = state.copyWith(isLoading: false, errorMessage: e.toString());
     }

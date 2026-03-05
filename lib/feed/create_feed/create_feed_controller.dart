@@ -26,6 +26,7 @@ final createFeedControllerProvider =
 class CreateFeedController extends StateNotifier<CreateFeedState> {
   final Ref ref;
   KeepAliveLink? _keepAlive;
+
   CreateFeedController(this.ref) : super(CreateFeedState());
 
   void onChangeMainType(String type) {
@@ -35,7 +36,6 @@ class CreateFeedController extends StateNotifier<CreateFeedState> {
       state = state.copyWith(selectedPlace: null);
     }
   }
-
 
   void onChangeSubType(String type) {
     state = state.copyWith(selectSubType: type);
@@ -54,8 +54,9 @@ class CreateFeedController extends StateNotifier<CreateFeedState> {
     // ✅ 남은 개수만큼만 picker 허용
     final remainCount = 10 - totalCount;
 
-    final List<XFile>? pickedList =
-    await ImageService().showMultiImagePicker(remainCount);
+    final List<XFile>? pickedList = await ImageService().showMultiImagePicker(
+      remainCount,
+    );
 
     if (pickedList == null || pickedList.isEmpty) return;
 
@@ -63,15 +64,9 @@ class CreateFeedController extends StateNotifier<CreateFeedState> {
     final List<XFile> toAdd = pickedList.take(remainCount).toList();
 
     state = state.copyWith(
-      newImageFiles: [
-        ...state.newImageFiles ?? [],
-        ...toAdd,
-      ],
+      newImageFiles: [...state.newImageFiles ?? [], ...toAdd],
     );
   }
-
-
-
 
   void onChangeImageIndex(int index) {
     state = state.copyWith(currentImageIndex: index);
@@ -131,7 +126,7 @@ class CreateFeedController extends StateNotifier<CreateFeedState> {
     state = state.copyWith(pollOptions: list);
   }
 
-  Future<void> submitFeed(BuildContext context,String? meetId) async {
+  Future<void> submitFeed(BuildContext context, String? meetId) async {
     _keepAlive ??= ref.keepAlive();
 
     final progress = ValueNotifier<double>(0);
@@ -148,7 +143,8 @@ class CreateFeedController extends StateNotifier<CreateFeedState> {
 
     try {
       await _submitFeedInternal(
-        onProgress: (p) => progress.value = p,meetId: meetId
+        onProgress: (p) => progress.value = p,
+        meetId: meetId,
       );
 
       SnackbarService.dismiss();
@@ -157,14 +153,12 @@ class CreateFeedController extends StateNotifier<CreateFeedState> {
         type: AppSnackType.success,
         message: '업로드가 완료되었습니다!',
       );
-      if (state.selectMainType == '오운완' ) {
-
+      if (state.selectMainType == '오운완') {
         ref.read(workoutGoalControllerProvider.notifier).init();
       }
-      if(meetId==null){
+      if (meetId == null) {
         ref.read(feedListControllerProvider.notifier).refresh();
-      }else{
-
+      } else {
         ref.invalidate(meetPhotoFeedSectionProvider(meetId));
       }
     } catch (e, st) {
@@ -183,9 +177,9 @@ class CreateFeedController extends StateNotifier<CreateFeedState> {
     }
   }
 
-
   Future<void> _submitFeedInternal({
-    required ValueChanged<double> onProgress,required String? meetId
+    required ValueChanged<double> onProgress,
+    required String? meetId,
   }) async {
     final user = FirebaseAuth.instance.currentUser!;
     final feedRef = FirebaseFirestore.instance.collection('feeds').doc();
@@ -194,7 +188,6 @@ class CreateFeedController extends StateNotifier<CreateFeedState> {
     // 0% 시작
     onProgress(0);
     Map<String, dynamic>? placeJson;
-
 
     // 1) Firestore 먼저 생성 (이미지 없음)
     await feedRef.set({
@@ -212,8 +205,8 @@ class CreateFeedController extends StateNotifier<CreateFeedState> {
 
       'poll': _buildPollMapOrNull(state.pollOptions),
       'place': state.selectedPlace?.toJson(),
-      'commentCount':0,
-      'meetId':meetId,
+      'commentCount': 0,
+      'meetId': meetId,
     });
 
     // 2) 이미지 업로드 (있을 때만)
@@ -221,12 +214,13 @@ class CreateFeedController extends StateNotifier<CreateFeedState> {
     final files = state.newImageFiles;
 
     if (files != null && files.isNotEmpty) {
-      final results = await const StorageUploadService().uploadFeedImagesWithProgress(
-        feedId: feedId,
-        uid: user.uid,
-        files: files,
-        onProgress: onProgress,
-      );
+      final results = await const StorageUploadService()
+          .uploadFeedImagesWithProgress(
+            feedId: feedId,
+            uid: user.uid,
+            files: files,
+            onProgress: onProgress,
+          );
       imageUrls = results.map((e) => e.url).toList();
     } else {
       // 이미지 없으면 진행률 100%로 처리
@@ -243,7 +237,10 @@ class CreateFeedController extends StateNotifier<CreateFeedState> {
   Map<String, dynamic>? _buildPollMapOrNull(List<String>? pollOptions) {
     if (pollOptions == null) return null;
 
-    final cleaned = pollOptions.map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+    final cleaned = pollOptions
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
     if (cleaned.length < 2) return null;
 
     return {
@@ -256,9 +253,11 @@ class CreateFeedController extends StateNotifier<CreateFeedState> {
       }).toList(),
     };
   }
+
   void onSelectPlace(FeedPlace place) {
     state = state.copyWith(selectedPlace: place);
   }
+
   //편집
   void initForEdit(FeedModel feed) {
     state = state.copyWith(
@@ -271,10 +270,9 @@ class CreateFeedController extends StateNotifier<CreateFeedState> {
       newImageFiles: [],
       removedImageUrls: [],
       selectedPlace: feed.place,
+
       // ❗️이미지는 URL → XFile 변환이 어려우므로
       // 수정 시 "기존 이미지 유지 / 새로 추가" 구조로 나중에 분리
-
-
     );
     print(state.existingImageUrls);
   }
@@ -285,13 +283,8 @@ class CreateFeedController extends StateNotifier<CreateFeedState> {
       final removedUrl = state.existingImageUrls![index];
 
       state = state.copyWith(
-        existingImageUrls: [
-          ...state.existingImageUrls!..removeAt(index),
-        ],
-        removedImageUrls: [
-          ...state.removedImageUrls ?? [],
-          removedUrl,
-        ],
+        existingImageUrls: [...state.existingImageUrls!..removeAt(index)],
+        removedImageUrls: [...state.removedImageUrls ?? [], removedUrl],
       );
     }
     // 새로 추가한 이미지 영역
@@ -303,7 +296,10 @@ class CreateFeedController extends StateNotifier<CreateFeedState> {
     }
   }
 
-  Future<void> updateFeed(BuildContext context, {required String feedId}) async {
+  Future<void> updateFeed(
+    BuildContext context, {
+    required String feedId,String? meetId
+  }) async {
     _keepAlive ??= ref.keepAlive();
 
     final progress = ValueNotifier<double>(0);
@@ -325,10 +321,16 @@ class CreateFeedController extends StateNotifier<CreateFeedState> {
       );
 
       SnackbarService.dismiss();
-      SnackbarService.show(
-        type: AppSnackType.success,
-        message: '수정이 완료되었습니다!',
-      );
+      SnackbarService.show(type: AppSnackType.success, message: '수정이 완료되었습니다!');
+      if (state.selectMainType == '오운완') {
+        ref.read(workoutGoalControllerProvider.notifier).init();
+      }
+      if (meetId == null) {
+        ref.read(feedListControllerProvider.notifier).refresh();
+      } else {
+        ref.invalidate(meetPhotoFeedSectionProvider(meetId));
+      }
+
     } catch (e, st) {
       SnackbarService.dismiss();
       SnackbarService.show(
@@ -368,13 +370,13 @@ class CreateFeedController extends StateNotifier<CreateFeedState> {
     List<String> uploadedUrls = [];
 
     if (newFiles.isNotEmpty) {
-      final results =
-      await const StorageUploadService().uploadFeedImagesWithProgress(
-        feedId: feedId,
-        uid: FirebaseAuth.instance.currentUser!.uid,
-        files: newFiles,
-        onProgress: onProgress, // ✅ 진행률 표시
-      );
+      final results = await const StorageUploadService()
+          .uploadFeedImagesWithProgress(
+            feedId: feedId,
+            uid: FirebaseAuth.instance.currentUser!.uid,
+            files: newFiles,
+            onProgress: onProgress, // ✅ 진행률 표시
+          );
       uploadedUrls = results.map((e) => e.url).toList();
     } else {
       // 새 이미지 없으면 진행률 100%로
@@ -383,12 +385,7 @@ class CreateFeedController extends StateNotifier<CreateFeedState> {
 
     // 3) 최종 이미지 URL 리스트 구성
     final keptExisting = state.existingImageUrls ?? const <String>[];
-    final finalImageUrls = <String>[
-      ...keptExisting,
-      ...uploadedUrls,
-    ];
-
-
+    final finalImageUrls = <String>[...keptExisting, ...uploadedUrls];
 
     // 4) Firestore 업데이트 (타입/내용/투표/이미지 반영)
     await feedRef.update({
@@ -401,10 +398,4 @@ class CreateFeedController extends StateNotifier<CreateFeedState> {
       'place': state.selectedPlace?.toJson(),
     });
   }
-
-
-
-
-
-
 }

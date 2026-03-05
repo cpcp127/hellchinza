@@ -20,7 +20,7 @@ class WorkoutGoalState {
   final DateTime selectedDay;
 
   final List<WeekOowStat> last5Weeks;
-
+  final Map<String, int> last5WeeksSubTypeCount; // ✅ 최근 5주 subType 집계
   const WorkoutGoalState({
     required this.isLoading,
     required this.errorMessage,
@@ -30,6 +30,7 @@ class WorkoutGoalState {
     required this.doneDays,
     required this.selectedDay,
     required this.last5Weeks,
+    required this.last5WeeksSubTypeCount,
   });
 
   factory WorkoutGoalState.initial() {
@@ -43,6 +44,7 @@ class WorkoutGoalState {
       doneDays: 0,
       selectedDay: DateTime(now.year, now.month, now.day),
       last5Weeks: [],
+      last5WeeksSubTypeCount: {},
     );
   }
 
@@ -55,6 +57,7 @@ class WorkoutGoalState {
     int? doneDays,
     DateTime? selectedDay,
     List<WeekOowStat>? last5Weeks,
+    Map<String, int>? last5WeeksSubTypeCount,
   }) {
     return WorkoutGoalState(
       isLoading: isLoading ?? this.isLoading,
@@ -65,6 +68,8 @@ class WorkoutGoalState {
       doneDays: doneDays ?? this.doneDays,
       selectedDay: selectedDay ?? this.selectedDay,
       last5Weeks: last5Weeks ?? this.last5Weeks,
+      last5WeeksSubTypeCount:
+          last5WeeksSubTypeCount ?? this.last5WeeksSubTypeCount,
     );
   }
 }

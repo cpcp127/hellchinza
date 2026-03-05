@@ -110,7 +110,7 @@ class _CreateFeedViewState extends ConsumerState<CreateFeedView> {
                               //편집 로직
                               controller.updateFeed(
                                 context,
-                                feedId: widget.feed!.id,
+                                feedId: widget.feed!.id,meetId: widget.meetId
                               );
                             }
                           }
