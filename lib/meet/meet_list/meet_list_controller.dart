@@ -92,7 +92,7 @@ class MeetListController extends StateNotifier<MeetListState> {
   }
 
   Future<void> onChangeSubType(String type) async {
-    state = state.copyWith(selectSubType: type);
+    state = state.copyWith(selectSubType: type,refreshTick: state.refreshTick + 1);
   }
 
   void refresh() {

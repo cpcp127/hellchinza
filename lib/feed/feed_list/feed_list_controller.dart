@@ -64,7 +64,7 @@ class FeedListController extends StateNotifier<FeedListState> {
   void toggleOnlyFriendFeeds(bool on) {
     state = state.copyWith(
       onlyFriendFeeds: on,
-      refreshTick: state.refreshTick + 1, // ✅ FirestorePagination 리셋/새로고침 트리거
+      refreshTick: state.refreshTick + 1,
     );
   }
 

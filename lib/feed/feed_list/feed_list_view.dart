@@ -22,7 +22,7 @@ class FeedListView extends ConsumerStatefulWidget {
 
 class _FeedListViewState extends ConsumerState<FeedListView>
     with SingleTickerProviderStateMixin {
-  // ✅ pagination local state (FirestorePagination 대체)
+
   final ScrollController _feedScrollCtrl = ScrollController();
 
   final List<FeedModel> _feedItems = [];
