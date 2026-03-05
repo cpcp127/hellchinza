@@ -34,10 +34,40 @@ import 'common_network_image.dart';
 import 'common_profile_avatar.dart';
 import 'common_text_field.dart';
 
-class FeedCard extends StatelessWidget {
+class FeedCard extends ConsumerWidget {
+  final String feedId;
+
+  const FeedCard({super.key, required this.feedId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final asyncFeed = ref.watch(feedDocProvider(feedId));
+
+    return asyncFeed.when(
+      loading: () => Container(
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        decoration: BoxDecoration(
+          color: AppColors.bgWhite,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: const SizedBox(
+          height: 140,
+          child: Center(child: CupertinoActivityIndicator()),
+        ),
+      ),
+      error: (e, _) => const SizedBox.shrink(),
+      data: (feed) {
+        if (feed == null) return const SizedBox.shrink();
+        return _FeedCardBody(feed: feed);
+      },
+    );
+  }
+}
+
+class _FeedCardBody extends StatelessWidget {
   final FeedModel feed;
 
-  const FeedCard({super.key, required this.feed});
+  const _FeedCardBody({required this.feed});
 
   @override
   Widget build(BuildContext context) {
@@ -99,8 +129,6 @@ class FeedCard extends StatelessWidget {
               ),
             ),
           ],
-
-
           const SizedBox(height: 12),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -481,7 +509,9 @@ class _FeedActionRow extends ConsumerWidget {
                   feedId: feed.id,
                   myUid: myUid,
                 );
+
                 ref.invalidate(feedDocProvider(feed.id));
+
               },
               child: Icon(
                 isLiked ? Icons.favorite : Icons.favorite_border,
@@ -571,13 +601,149 @@ class FeedCommentBottomSheet extends ConsumerStatefulWidget {
 class _FeedCommentBottomSheetState
     extends ConsumerState<FeedCommentBottomSheet> {
   final TextEditingController _controller = TextEditingController();
+
+  // ✅ FirestorePagination key 대체용
   int valueKey = 0;
+
   bool isEnabled = false;
 
+  // ✅ 수동 페이징 상태
+  static const int _pageSize = 20;
+  final _scrollCtrl = ScrollController();
+
+  final List<DocumentSnapshot<Map<String, dynamic>>> _docs = [];
+  DocumentSnapshot<Map<String, dynamic>>? _lastDoc;
+
+  bool _initialLoading = false;
+  bool _pagingLoading = false;
+  bool _hasMore = true;
+
+  String _queryKey = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollCtrl.addListener(_onScroll);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _queryKey = _makeQueryKey();
+      _resetAndFetch();
+    });
+  }
+
+  @override
+  void dispose() {
+    _scrollCtrl.removeListener(_onScroll);
+    _scrollCtrl.dispose();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  // -------------------------
+  // Query / Key
+  // -------------------------
+  Query<Map<String, dynamic>> _buildQuery() {
+    return FirebaseFirestore.instance
+        .collection('feeds')
+        .doc(widget.feedId)
+        .collection('comments')
+        .orderBy('createdAt', descending: true);
+  }
+
+  String _makeQueryKey() => '${widget.feedId}_$valueKey';
+
+  // -------------------------
+  // Paging
+  // -------------------------
+  void _onScroll() {
+    if (!_scrollCtrl.hasClients) return;
+    if (_pagingLoading || _initialLoading || !_hasMore) return;
+
+    final pos = _scrollCtrl.position;
+    if (pos.pixels >= pos.maxScrollExtent - 250) {
+      _fetchNext();
+    }
+  }
+
+  Future<void> _resetAndFetch() async {
+    if (_initialLoading) return;
+
+    setState(() {
+      _docs.clear();
+      _lastDoc = null;
+      _hasMore = true;
+      _initialLoading = true;
+      _pagingLoading = false;
+    });
+
+    try {
+      final snap = await _buildQuery().limit(_pageSize).get();
+      final newDocs = snap.docs;
+
+      if (!mounted) return;
+      setState(() {
+        _docs.addAll(newDocs);
+        _lastDoc = newDocs.isNotEmpty ? newDocs.last : null;
+        _hasMore = newDocs.length == _pageSize;
+        _initialLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _initialLoading = false);
+    }
+  }
+
+  Future<void> _fetchNext() async {
+    if (!_hasMore) return;
+    if (_lastDoc == null) return;
+    if (_pagingLoading) return;
+
+    setState(() => _pagingLoading = true);
+
+    try {
+      final snap = await _buildQuery()
+          .startAfterDocument(_lastDoc!)
+          .limit(_pageSize)
+          .get();
+
+      final newDocs = snap.docs;
+
+      if (!mounted) return;
+      setState(() {
+        _docs.addAll(newDocs);
+        _lastDoc = newDocs.isNotEmpty ? newDocs.last : _lastDoc;
+        _hasMore = newDocs.length == _pageSize;
+        _pagingLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _pagingLoading = false);
+    }
+  }
+
+  void _triggerRefresh() {
+    setState(() {
+      valueKey++; // ✅ queryKey 변화 유도
+    });
+    // 실제 리셋은 build에서 queryKey 감지로 통일
+  }
+
+  // -------------------------
+  // UI
+  // -------------------------
   @override
   Widget build(BuildContext context) {
+    // ✅ 핵심: valueKey(=queryKey)가 바뀌면 리셋
+    final newKey = _makeQueryKey();
+    if (_queryKey != newKey) {
+      _queryKey = newKey;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _resetAndFetch();
+      });
+    }
+
     return Scaffold(
-      appBar: CommonCloseAppbar(
+      appBar: const CommonCloseAppbar(
         title: '댓글',
         backgroundColor: Colors.transparent,
       ),
@@ -585,11 +751,8 @@ class _FeedCommentBottomSheetState
       body: SafeArea(
         child: Column(
           children: [
-            /// 댓글 리스트
             Expanded(child: feedCommentList()),
             const Divider(height: 1),
-
-            /// 입력 영역
             commentInput(),
           ],
         ),
@@ -598,40 +761,44 @@ class _FeedCommentBottomSheetState
   }
 
   Widget feedCommentList() {
-    final query = FirebaseFirestore.instance
-        .collection('feeds')
-        .doc(widget.feedId)
-        .collection('comments')
-        .orderBy('createdAt', descending: true);
-    return FirestorePagination(
-      key: ValueKey(valueKey),
-      query: query,
-      limit: 20,
-      viewType: ViewType.list,
+    // ✅ 초기 로딩
+    if (_initialLoading) {
+      return const Center(child: CupertinoActivityIndicator());
+    }
 
-      // 아이템 사이 간격
-      separatorBuilder: (_, __) => const SizedBox(height: 12),
-
-      // 비어있을 때
-      onEmpty: Center(
+    // ✅ 비어있을 때
+    if (_docs.isEmpty) {
+      return Center(
         child: Text(
           '첫 댓글을 남겨보세요',
           style: AppTextStyle.bodyMediumStyle.copyWith(
             color: AppColors.textSecondary,
           ),
         ),
-      ),
+      );
+    }
 
-      // 로딩
-      bottomLoader: const Padding(
-        padding: EdgeInsets.all(16),
-        child: Center(child: CupertinoActivityIndicator()),
-      ),
+    // ✅ list + separator(12) + bottom loader
+    return ListView.separated(
+      controller: _scrollCtrl,
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: EdgeInsets.zero,
+      itemCount: _docs.length + 1,
+      separatorBuilder: (_, __) => const SizedBox(height: 12),
+      itemBuilder: (context, index) {
+        if (index == _docs.length) {
+          if (!_hasMore) return const SizedBox(height: 16);
+          if (!_pagingLoading) return const SizedBox(height: 16);
 
-      // 아이템 빌드
-      itemBuilder: (context, docs, index) {
-        final doc = docs[index];
-        final data = doc.data() as Map<String, dynamic>;
+          return const Padding(
+            padding: EdgeInsets.all(16),
+            child: Center(child: CupertinoActivityIndicator()),
+          );
+        }
+
+        final doc = _docs[index];
+        final data = doc.data();
+        if (data == null) return const SizedBox.shrink();
 
         // commentId가 문서 id일 수 있으니 보정(없으면 doc.id 사용)
         data['id'] ??= doc.id;
@@ -647,66 +814,71 @@ class _FeedCommentBottomSheetState
     final isMine = data['authorUid'] == myUid;
     final timeText = DateTimeUtil.from(data['createdAt']);
     final asyncMini = ref.watch(userMiniProvider(data['authorUid']));
+
     return asyncMini.when(
       data: (mini) {
-        if (mini == null) return Container();
+        if (mini == null) return const SizedBox.shrink();
+
         return GestureDetector(
           onTapDown: (d) => _tapPosition = d.globalPosition,
           onLongPress: () {
             if (_tapPosition == null) return;
             HapticFeedback.mediumImpact();
+
             final items = isMine
                 ? [
-                    CommonContextMenuItem(
-                      icon: Icons.delete_outline,
-                      label: '삭제하기',
-                      isDestructive: true,
-                      onTap: () async {
-                        try {
-                          await const FeedService().deleteComment(
-                            feedId: widget.feedId,
-                            commentId: data['id'],
-                            valueKey: valueKey,
-                          );
-                          setState(() {});
-                          SnackbarService.show(
-                            type: AppSnackType.success,
-                            message: '댓글이 삭제되었습니다',
-                          );
-                        } catch (e, st) {
-                          debugPrint('deleteComment error: $e\n$st');
+              CommonContextMenuItem(
+                icon: Icons.delete_outline,
+                label: '삭제하기',
+                isDestructive: true,
+                onTap: () async {
+                  try {
+                    await const FeedService().deleteComment(
+                      feedId: widget.feedId,
+                      commentId: data['id'],
+                      valueKey: valueKey,
+                    );
 
-                          SnackbarService.show(
-                            type: AppSnackType.error,
-                            message: '댓글 삭제에 실패했습니다',
-                          );
-                        }
-                      },
-                    ),
-                  ]
+                    // ✅ 삭제 즉시 반영 (실시간X)
+                    _triggerRefresh();
+
+                    SnackbarService.show(
+                      type: AppSnackType.success,
+                      message: '댓글이 삭제되었습니다',
+                    );
+                  } catch (e, st) {
+                    debugPrint('deleteComment error: $e\n$st');
+                    SnackbarService.show(
+                      type: AppSnackType.error,
+                      message: '댓글 삭제에 실패했습니다',
+                    );
+                  }
+                },
+              ),
+            ]
                 : [
-                    CommonContextMenuItem(
-                      icon: Icons.flag_outlined,
-                      label: '신고하기',
-                      isDestructive: true,
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => ClaimView(
-                              target: ClaimTarget(
-                                type: ClaimTargetType.comment,
-                                targetId: data['id'],
-                                targetOwnerUid: data['authorNickname'],
-                                title: data['content'] ?? '피드',
-                                parentId: data['authorId'],
-                              ),
-                            ),
-                          ),
-                        );
-                      },
+              CommonContextMenuItem(
+                icon: Icons.flag_outlined,
+                label: '신고하기',
+                isDestructive: true,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ClaimView(
+                        target: ClaimTarget(
+                          type: ClaimTargetType.comment,
+                          targetId: data['id'],
+                          targetOwnerUid: data['authorNickname'],
+                          title: data['content'] ?? '피드',
+                          parentId: data['authorId'],
+                        ),
+                      ),
                     ),
-                  ];
+                  );
+                },
+              ),
+            ];
 
             CommonContextMenu.show(
               context: context,
@@ -722,13 +894,12 @@ class _FeedCommentBottomSheetState
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   CommonProfileAvatar(
-                    imageUrl: mini!.photoUrl,
+                    imageUrl: mini.photoUrl,
                     size: 40,
                     uid: data['authorUid'],
                     gender: mini.gender,
                   ),
                   const SizedBox(width: 10),
-
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -762,7 +933,7 @@ class _FeedCommentBottomSheetState
           ),
         );
       },
-      loading: () => Center(child: CupertinoActivityIndicator()),
+      loading: () => const Center(child: CupertinoActivityIndicator()),
       error: (e, _) => Text(
         '작성자 불러오기 실패',
         style: AppTextStyle.bodySmallStyle.copyWith(
@@ -782,7 +953,7 @@ class _FeedCommentBottomSheetState
             Expanded(
               child: CommonTextField(
                 controller: _controller,
-                onChanged: (str) {
+                onChanged: (_) {
                   setState(() {
                     isEnabled = _controller.text.trim().isNotEmpty;
                   });
@@ -795,8 +966,7 @@ class _FeedCommentBottomSheetState
             const SizedBox(width: 8),
             GestureDetector(
               onTap: () {
-                if (isEnabled == false) return;
-
+                if (!isEnabled) return;
                 _submitComment();
               },
               child: Container(
@@ -804,7 +974,6 @@ class _FeedCommentBottomSheetState
                 height: 44,
                 color: Colors.transparent,
                 alignment: Alignment.center,
-
                 child: Icon(
                   Icons.send,
                   size: 20,
@@ -818,7 +987,7 @@ class _FeedCommentBottomSheetState
     );
   }
 
-  void _submitComment() async {
+  Future<void> _submitComment() async {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
 
@@ -827,22 +996,24 @@ class _FeedCommentBottomSheetState
         feedId: widget.feedId,
         content: text,
       );
+
       FocusManager.instance.primaryFocus?.unfocus();
+      _controller.clear();
+
       setState(() {
         isEnabled = false;
       });
 
-      _controller.clear();
-      setState(() {
-        valueKey++;
-      });
-      await FirebaseFirestore.instance.runTransaction((tx) async {
-        final feedRef = FirebaseFirestore.instance
-            .collection('feeds')
-            .doc(widget.feedId);
+      // ✅ 작성 즉시 리스트 갱신 (실시간X, 수동 refresh)
+      _triggerRefresh();
 
+      // commentCount 증가 + feed invalidate는 기존 그대로
+      await FirebaseFirestore.instance.runTransaction((tx) async {
+        final feedRef =
+        FirebaseFirestore.instance.collection('feeds').doc(widget.feedId);
         tx.update(feedRef, {'commentCount': FieldValue.increment(1)});
       });
+
       ref.invalidate(feedDocProvider(widget.feedId));
     } catch (e) {
       debugPrint('addComment error: $e');

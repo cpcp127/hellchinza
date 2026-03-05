@@ -111,7 +111,7 @@ class _WorkoutGoalRootViewState extends ConsumerState<WorkoutGoalRootView> {
                     ...selectedFeeds.map(
                       (f) => Padding(
                         padding: const EdgeInsets.only(bottom: 8),
-                        child: FeedCard(feed: f),
+                        child: FeedCard(feedId: f.id),
                       ),
                     ),
                   Padding(

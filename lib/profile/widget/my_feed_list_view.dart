@@ -64,7 +64,7 @@ class MyFeedsListView extends StatelessWidget {
             final data = doc.data() as Map<String, dynamic>;
 
             final feed = FeedModel.fromJson(data);
-            return FeedCard(feed: feed);
+            return FeedCard(feedId: feed.id);
           }
       ),
     );

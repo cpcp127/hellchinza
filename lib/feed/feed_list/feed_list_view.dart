@@ -254,7 +254,7 @@ class _FeedListViewState extends ConsumerState<FeedListView>
               itemBuilder: (context, index) {
                 if (index < _feedItems.length) {
                   final feed = _feedItems[index];
-                  return FeedCard(feed: feed);
+                  return FeedCard(feedId: feed.id);
                 }
 
                 // ✅ 마지막 줄: 더 불러오는 중/끝

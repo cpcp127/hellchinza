@@ -36,7 +36,7 @@ class FeedDetailView extends ConsumerWidget {
         error: (e, _) => Center(child: Text('error: $e')),
         data: (feed) {
           if (feed == null) return const Center(child: Text('피드가 없어요'));
-          return FeedCard(feed: feed);
+          return FeedCard(feedId: feedId);
         },
       ),
     );
