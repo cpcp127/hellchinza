@@ -29,50 +29,58 @@ class CommonActionSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      top: false,
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(
+        top: Radius.circular(20),
+      ),
       child: Container(
-        padding: const EdgeInsets.fromLTRB(20, 10, 20, 16),
-        decoration: const BoxDecoration(
-          color: AppColors.bgWhite,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // 핸들
-            Container(
-              width: 44,
-              height: 4,
-              decoration: BoxDecoration(
-                color: AppColors.gray200,
-                borderRadius: BorderRadius.circular(99),
-              ),
+        color: Colors.white,
+        child: SafeArea(
+          top: false,
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(20, 10, 20, 16),
+            decoration: const BoxDecoration(
+              color: AppColors.bgWhite,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
             ),
-
-            if (title != null) ...[
-              const SizedBox(height: 14),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  title!,
-                  style: AppTextStyle.titleMediumBoldStyle.copyWith(
-                    color: AppColors.textDefault,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // 핸들
+                Container(
+                  width: 44,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.gray200,
+                    borderRadius: BorderRadius.circular(99),
                   ),
                 ),
-              ),
-            ],
 
-            const SizedBox(height: 12),
+                if (title != null) ...[
+                  const SizedBox(height: 14),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      title!,
+                      style: AppTextStyle.titleMediumBoldStyle.copyWith(
+                        color: AppColors.textDefault,
+                      ),
+                    ),
+                  ),
+                ],
 
-            // 액션 리스트
-            ...items.map((e) => _ActionRow(item: e)),
+                const SizedBox(height: 12),
 
-            const SizedBox(height: 6),
+                // 액션 리스트
+                ...items.map((e) => _ActionRow(item: e)),
 
-            // 취소
-            _CancelButton(onTap: () => Navigator.pop(context)),
-          ],
+                const SizedBox(height: 6),
+
+                // 취소
+                _CancelButton(onTap: () => Navigator.pop(context)),
+              ],
+            ),
+          ),
         ),
       ),
     );
