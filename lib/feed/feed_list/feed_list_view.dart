@@ -136,8 +136,12 @@ class _FeedListViewState extends ConsumerState<FeedListView>
     final controller = ref.read(feedListControllerProvider.notifier);
     return SafeArea(
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildFilterButton(context, ref),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: _buildFilterButton(context, ref),
+          ),
           SizedBox(height: 8),
           Expanded(child: _buildFeedPaginationList()),
         ],
@@ -158,23 +162,37 @@ class _FeedListViewState extends ConsumerState<FeedListView>
     return InkWell(
       borderRadius: BorderRadius.circular(16),
       onTap: () async {
-        await showModalBottomSheet(
+        await showGeneralDialog(
           context: context,
-          isScrollControlled: true,
+          barrierLabel: 'feed_filter',
+          barrierDismissible: true,
+          barrierColor: Colors.black.withOpacity(0.55),
+          transitionDuration: const Duration(milliseconds: 220),
+          pageBuilder: (_, __, ___) {
+            return FeedFilterWheelSheet(
+              initialMainType: state.selectMainType,
+              initialSubType: state.selectSubType,
+              initialOnlyFriends: state.onlyFriendFeeds,
+              onApply: (main, sub, onlyFriends) {
+                controller.applyFilters(
+                  mainType: main,
+                  subType: sub,
+                  onlyFriends: onlyFriends,
+                );
+              },
+            );
+          },
+          transitionBuilder: (context, animation, secondaryAnimation, child) {
+            final curved = CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeOutCubic,
+            );
 
-          backgroundColor: Colors.transparent,
-          builder: (_) => FeedFilterSheet(
-            initialMainType: state.selectMainType,
-            initialSubType: state.selectSubType,
-            initialOnlyFriends: state.onlyFriendFeeds,
-            onApply: (main, sub, onlyFriends) {
-              controller.applyFilters(
-                mainType: main,
-                subType: sub,
-                onlyFriends: onlyFriends,
-              );
-            },
-          ),
+            return FadeTransition(
+              opacity: curved,
+              child: child,
+            );
+          },
         );
       },
       child: Container(

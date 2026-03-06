@@ -11,7 +11,9 @@ import 'package:hellchinza/meet/widget/meet_card.dart';
 import '../../common/common_chip.dart';
 import '../../constants/app_colors.dart';
 import '../../constants/app_constants.dart';
+import '../../constants/app_text_style.dart';
 import '../meet_create/meet_create_view.dart';
+import '../widget/meet_subtype_filter_sheet.dart';
 import 'meet_list_controller.dart';
 import 'meet_list_state.dart';
 
@@ -148,26 +150,63 @@ class _MeetListViewState extends ConsumerState<MeetListView> {
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.only(left: 10),
-          child: SizedBox(
-            height: 40,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              itemCount: workList.length + 1, // ⭐ +1
-              itemBuilder: (context, index) {
-                final String label = index == 0 ? '전체' : workList[index - 1];
-                return Padding(
-                  padding: const EdgeInsets.only(right: 4),
-                  child: CommonChip(
-                    label: label,
-                    selected: label == state.selectSubType,
-                    onTap: () {
-                      // ✅ 여기선 state만 바꾸고, 리셋은 위 queryKey 감지로 통일
-                      controller.onChangeSubType(label);
-                    },
-                  ),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: GestureDetector(
+              onTap: () async {
+                await showGeneralDialog(
+                  context: context,
+                  barrierLabel: 'meet_subtype_filter',
+                  barrierDismissible: true,
+                  barrierColor: Colors.black.withOpacity(0.55),
+                  transitionDuration: const Duration(milliseconds: 220),
+                  pageBuilder: (_, __, ___) {
+                    return MeetSubTypeFilterSheet(
+                      initialValue: state.selectSubType,
+                      items: ['전체', ...workList],
+                      onApply: (value) {
+                        controller.onChangeSubType(value);
+                      },
+                    );
+                  },
+                  transitionBuilder: (context, animation, secondaryAnimation, child) {
+                    final curved = CurvedAnimation(
+                      parent: animation,
+                      curve: Curves.easeOutCubic,
+                    );
+
+                    return FadeTransition(
+                      opacity: curved,
+                      child: child,
+                    );
+                  },
                 );
               },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: AppColors.bgWhite,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.borderSecondary),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.tune, size: 18, color: AppColors.icDefault),
+                    const SizedBox(width: 8),
+                    Text(
+                      state.selectSubType,
+                      style: AppTextStyle.labelMediumStyle.copyWith(
+                        color: AppColors.textDefault,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    const Icon(Icons.expand_more, color: AppColors.icSecondary),
+                  ],
+                ),
+              ),
             ),
           ),
         ),

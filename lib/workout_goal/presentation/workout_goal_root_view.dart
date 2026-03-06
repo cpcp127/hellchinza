@@ -114,6 +114,7 @@ class _WorkoutGoalRootViewState extends ConsumerState<WorkoutGoalRootView> {
                         child: FeedCard(feedId: f.id),
                       ),
                     ),
+                  const SizedBox(height: 12),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: _Last5WeeksChartCard(
@@ -128,6 +129,8 @@ class _WorkoutGoalRootViewState extends ConsumerState<WorkoutGoalRootView> {
                       data: state.last5WeeksSubTypeCount,
                     ),
                   ),
+                  const SizedBox(height: 12),
+
                 ],
               ),
             ),
@@ -687,7 +690,7 @@ class _SubTypeDonutSection extends StatelessWidget {
                           height: 1.25,
                         ),
                         children: [
-                          const TextSpan(text: '가장 많이 한 운동: '),
+                          const TextSpan(text: '가장 많이 한 운동\n'),
                           TextSpan(
                             text: top1.key,
                             style: AppTextStyle.bodyMediumStyle.copyWith(

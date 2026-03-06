@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:hellchinza/common/common_chip.dart';
@@ -6,8 +8,8 @@ import 'package:hellchinza/constants/app_constants.dart';
 import '../../constants/app_colors.dart';
 import '../../constants/app_text_style.dart';
 
-class FeedFilterSheet extends StatefulWidget {
-  const FeedFilterSheet({
+class FeedFilterWheelSheet extends StatefulWidget {
+  const FeedFilterWheelSheet({
     super.key,
     required this.initialMainType,
     required this.initialSubType,
@@ -18,216 +20,297 @@ class FeedFilterSheet extends StatefulWidget {
   final String initialMainType;
   final String initialSubType;
   final bool initialOnlyFriends;
-
   final void Function(String main, String sub, bool onlyFriends) onApply;
 
   @override
-  State<FeedFilterSheet> createState() => _FeedFilterSheetState();
+  State<FeedFilterWheelSheet> createState() => _FeedFilterWheelSheetState();
 }
 
-class _FeedFilterSheetState extends State<FeedFilterSheet> {
+class _FeedFilterWheelSheetState extends State<FeedFilterWheelSheet> {
+  final List<String> mainTypes = ['전체', '오운완', '식단', '질문', '후기'];
+
+  late final Map<String, List<String>> subTypesByMain = {
+    '전체': ['전체', ...workList],
+    '오운완': ['전체', ...workList],
+    '식단': ['전체'],
+    '질문': ['전체', ...workList],
+    '후기': ['전체', ...workList],
+  };
+
   late String _main;
   late String _sub;
   late bool _onlyFriends;
 
-  // ✅ 너 앱의 실제 타입 리스트로 바꿔서 쓰면 됨
-  final List<String> mainTypes = ['전체', '오운완', '식단', '질문', '후기'];
-  final Map<String, List<String>> subTypesByMain = {
-    '전체': ['전체', ...workList],
-    '오운완': ['전체', ...workList],
-    '식단': ['전체'], // 식단은 서브타입 없다고 했던 룰 유지
-    '질문':['전체', ...workList],
-    '후기':['전체', ...workList],
-  };
+  late FixedExtentScrollController _mainCtrl;
+  late FixedExtentScrollController _subCtrl;
+
+  static const double _itemExtent = 72;
 
   @override
   void initState() {
     super.initState();
+
     _main = widget.initialMainType;
-    _sub = widget.initialSubType;
     _onlyFriends = widget.initialOnlyFriends;
+
+    final initialSubList = subTypesByMain[_main] ?? ['전체'];
+    _sub = initialSubList.contains(widget.initialSubType)
+        ? widget.initialSubType
+        : initialSubList.first;
+
+    _mainCtrl = FixedExtentScrollController(
+      initialItem: _safeIndex(mainTypes, _main),
+    );
+    _subCtrl = FixedExtentScrollController(
+      initialItem: _safeIndex(initialSubList, _sub),
+    );
+  }
+
+  @override
+  void dispose() {
+    _mainCtrl.dispose();
+    _subCtrl.dispose();
+    super.dispose();
+  }
+
+  int _safeIndex(List<String> items, String value) {
+    final index = items.indexOf(value);
+    return index < 0 ? 0 : index;
+  }
+
+  List<String> get _currentSubList => subTypesByMain[_main] ?? ['전체'];
+
+  void _onMainChanged(int index) {
+    final nextMain = mainTypes[index];
+    final nextSubList = subTypesByMain[nextMain] ?? ['전체'];
+
+    setState(() {
+      _main = nextMain;
+      if (!nextSubList.contains(_sub)) {
+        _sub = nextSubList.first;
+      }
+    });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _subCtrl.jumpToItem(_safeIndex(nextSubList, _sub));
+    });
+  }
+
+  void _onSubChanged(int index) {
+    final subList = _currentSubList;
+    if (index < 0 || index >= subList.length) return;
+
+    setState(() {
+      _sub = subList[index];
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final subList = subTypesByMain[_main] ?? ['전체'];
+    final subList = _currentSubList;
 
-    // 메인이 식단이면 서브는 강제로 전체
-    if (_main == '식단' && _sub != '전체') {
-      _sub = '전체';
-    }
-    // 메인 바뀌었는데 현재 sub가 목록에 없으면 reset
-    if (!subList.contains(_sub)) _sub = subList.first;
-
-    return DraggableScrollableSheet(
-      initialChildSize: 0.72,
-      minChildSize: 0.45,
-      maxChildSize: 0.92,
-      builder: (context, scrollController) {
-        return Container(
-          decoration: BoxDecoration(
-            color: AppColors.bgWhite,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-            border: Border.all(color: AppColors.borderSecondary),
+    return Material(
+      color: Colors.transparent,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: () => Navigator.pop(context),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                child: Container(color: Colors.black.withOpacity(0.3)),
+              ),
+            ),
           ),
-          child: Column(
-            children: [
-              const SizedBox(height: 10),
-              Container(
-                width: 44,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppColors.borderSecondary,
-                  borderRadius: BorderRadius.circular(999),
-                ),
-              ),
-              const SizedBox(height: 12),
 
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Row(
-                  children: [
-                    Text(
-                      '필터',
-                      style: AppTextStyle.titleMediumBoldStyle.copyWith(
-                        color: AppColors.textDefault,
+          SafeArea(
+            child: Column(
+              children: [
+                const SizedBox(height: 14),
+
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 18),
+                  child: Row(
+                    children: [
+                      GestureDetector(
+                        onTap: () => Navigator.pop(context),
+                        behavior: HitTestBehavior.opaque,
+                        child: const SizedBox(
+                          width: 36,
+                          height: 36,
+                          child: Icon(
+                            CupertinoIcons.chevron_down,
+                            color: AppColors.white,
+                            size: 24,
+                          ),
+                        ),
                       ),
-                    ),
-
-
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-
-              Expanded(
-                child: ListView(
-                  controller: scrollController,
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                  children: [
-                    _SectionTitle('메인 타입'),
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: mainTypes.map((t) {
-                        final selected = _main == t;
-                        return CommonChip(
-                          label: t,
-                          selected: selected,
-                          onTap: () => setState(() => _main = t),
-                        );
-                      }).toList(),
-                    ),
-                    const SizedBox(height: 18),
-
-                    _SectionTitle('서브 타입'),
-                    const SizedBox(height: 10),
-                    if (_main == '식단')
+                      const SizedBox(width: 10),
                       Text(
-                        '식단은 서브 타입이 없어요',
-                        style: AppTextStyle.bodySmallStyle.copyWith(
-                          color: AppColors.textSecondary,
-                        ),
-                      )
-                    else
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: subList.map((t) {
-                          final selected = _sub == t;
-                          return CommonChip(
-                            label: t,
-                            selected: selected,
-                            onTap: () => setState(() => _sub = t),
-                          );
-                        }).toList(),
-                      ),
-
-                    // const SizedBox(height: 18),
-                    // _SectionTitle('친구 피드만 보기'),
-                    // const SizedBox(height: 10),
-                    // Container(
-                    //   padding: const EdgeInsets.all(14),
-                    //   decoration: BoxDecoration(
-                    //     color: AppColors.bgSecondary,
-                    //     borderRadius: BorderRadius.circular(16),
-                    //     border: Border.all(color: AppColors.borderSecondary),
-                    //   ),
-                    //   child: Row(
-                    //     children: [
-                    //       Expanded(
-                    //         child: Text(
-                    //           '친구의 피드만 보기',
-                    //           style: AppTextStyle.bodyMediumStyle.copyWith(
-                    //             color: AppColors.textDefault,
-                    //             fontWeight: FontWeight.w700,
-                    //           ),
-                    //         ),
-                    //       ),
-                    //       CupertinoSwitch(
-                    //         value: _onlyFriends,
-                    //         onChanged: (v) => setState(() => _onlyFriends = v),
-                    //         activeColor: AppColors.btnPrimary,
-                    //       ),
-                    //     ],
-                    //   ),
-                    // ),
-                  ],
-                ),
-              ),
-
-              // ✅ 하단 적용 버튼
-              SafeArea(
-                top: false,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
-                  child: SizedBox(
-                    width: double.infinity,
-                    height: 48,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        widget.onApply(_main, _sub, _onlyFriends);
-                        Navigator.pop(context);
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.btnPrimary,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        elevation: 0,
-                      ),
-                      child: Text(
-                        '적용하기',
-                        style: AppTextStyle.labelLargeStyle.copyWith(
+                        '피드 필터',
+                        style: AppTextStyle.headlineSmallBoldStyle.copyWith(
                           color: AppColors.white,
-                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(height: 20),
+                Expanded(
+                  child: Container(
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: _WheelColumn(
+                            title: '메인',
+                            controller: _mainCtrl,
+                            items: mainTypes,
+                            selectedValue: _main,
+                            onSelectedItemChanged: _onMainChanged,
+                          ),
+                        ),
+                        Container(
+                          width: 1,
+                          height: 260,
+                          color: Colors.white.withOpacity(0.10),
+                        ),
+                        Expanded(
+                          child: _WheelColumn(
+                            title: '서브',
+                            controller: _subCtrl,
+                            items: subList,
+                            selectedValue: _sub,
+                            onSelectedItemChanged: _onSubChanged,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 8),
+
+                SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(22, 0, 22, 18),
+                    child: SizedBox(
+                      width: double.infinity,
+                      height: 56,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          widget.onApply(_main, _sub, _onlyFriends);
+                          Navigator.pop(context);
+                        },
+                        style: ElevatedButton.styleFrom(
+                          elevation: 0,
+                          backgroundColor: AppColors.btnPrimary,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(18),
+                          ),
+                        ),
+                        child: Text(
+                          '적용하기',
+                          style: AppTextStyle.titleMediumBoldStyle.copyWith(
+                            color: AppColors.white,
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        );
-      },
-    );
-  }
-}
-
-class _SectionTitle extends StatelessWidget {
-  const _SectionTitle(this.text);
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(
-      text,
-      style: AppTextStyle.titleSmallBoldStyle.copyWith(
-        color: AppColors.textDefault,
+        ],
       ),
     );
   }
 }
 
+class _WheelColumn extends StatelessWidget {
+  const _WheelColumn({
+    required this.title,
+    required this.controller,
+    required this.items,
+    required this.selectedValue,
+    required this.onSelectedItemChanged,
+  });
+
+  final String title;
+  final FixedExtentScrollController controller;
+  final List<String> items;
+  final String selectedValue;
+  final ValueChanged<int> onSelectedItemChanged;
+
+  static const double _itemExtent = 72;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Text(
+          title,
+          style: AppTextStyle.labelLargeStyle.copyWith(
+            color: Colors.white.withOpacity(0.72),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Expanded(
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Positioned(
+                left: 18,
+                right: 18,
+                child: Container(
+                  height: 64,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: Colors.white.withOpacity(0.10)),
+                  ),
+                ),
+              ),
+              ListWheelScrollView.useDelegate(
+                controller: controller,
+                itemExtent: _itemExtent,
+                diameterRatio: 1.7,
+                perspective: 0.003,
+                squeeze: 0.96,
+                physics: const FixedExtentScrollPhysics(),
+                overAndUnderCenterOpacity: 0.32,
+                onSelectedItemChanged: onSelectedItemChanged,
+                childDelegate: ListWheelChildBuilderDelegate(
+                  childCount: items.length,
+                  builder: (context, index) {
+                    final item = items[index];
+                    final isSelected = item == selectedValue;
+
+                    return Center(
+                      child: AnimatedDefaultTextStyle(
+                        duration: const Duration(milliseconds: 160),
+                        style: AppTextStyle.headlineSmallMediumStyle.copyWith(
+                          color: isSelected
+                              ? AppColors.white
+                              : Colors.white.withOpacity(0.42),
+                        ),
+                        child: Text(
+                          item,
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
