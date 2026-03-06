@@ -5,6 +5,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hellchinza/chat/chat_room/chat_room_view.dart';
+import 'package:hellchinza/common/common_home_app_bar.dart';
 
 import '../../auth/domain/user_mini_provider.dart';
 import '../../common/common_profile_avatar.dart';
@@ -41,110 +42,114 @@ class ChatListView extends ConsumerWidget {
     final query = controller.buildQuery();
 
     return Scaffold(
-
-      body: RefreshIndicator(
-        onRefresh: () async {
-          controller.refresh();
-        },
-        child: FirestorePagination(
-          key: ValueKey('chat_list_${state.refreshTick}'),
-          query: query,
-          limit: 10,
-          isLive: true,
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-          onEmpty: Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  Icons.chat_bubble_outline_rounded,
-                  size: 42,
-                  color: AppColors.icDisabled,
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  '아직 채팅이 없어요',
-                  style: AppTextStyle.titleSmallBoldStyle.copyWith(
-                    color: AppColors.textDefault,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  '친구 신청을 하거나 모임에 참가하면\n채팅이 여기 표시돼요 🙂',
-                  textAlign: TextAlign.center,
-                  style: AppTextStyle.bodySmallStyle.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          itemBuilder: (context, docs, index) {
-            final doc = docs[index];
-
-            final data =
-                (doc.data() as Map?)?.cast<String, dynamic>() ??
-                    <String, dynamic>{};
-
-            final roomId = (data['id'] ?? doc.id).toString();
-            final roomType = (data['type'] ?? 'dm').toString(); // ✅ 추가
-
-            final userUids =
-                (data['userUids'] as List?)
-                    ?.map((e) => e.toString())
-                    .toList() ??
-                    [];
-
-            final meetId = data['meetId']?.toString(); // ✅ group일 때 사용
-
-            final otherUid = roomType == 'dm'
-                ? userUids.firstWhere(
-                  (e) => e != uid,
-              orElse: () => '',
-            )
-                : null;
-
-            final lastMessage = (data['lastMessageText'] ?? '').toString();
-            final lastType = (data['lastMessageType'] ?? 'text').toString();
-            final status = (data['status'] ?? 'pending').toString();
-
-            DateTime? lastAt;
-            final ts = data['lastMessageAt'];
-            if (ts is Timestamp) lastAt = ts.toDate();
-            final unreadMap =
-                (data['unreadCountMap'] as Map?)?.cast<String, dynamic>() ?? {};
-            final myUid = FirebaseAuth.instance.currentUser!.uid;
-
-            final unreadCount = (unreadMap[myUid] ?? 0) as int;
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: _ChatRoomRow(
-                roomId: roomId,
-                roomType: roomType,      // ✅ 추가
-                otherUid: otherUid,      // dm만 사용
-                meetId: meetId,          // group만 사용
-                lastMessage: lastMessage,
-                lastType: lastType,
-                status: status,
-                unreadCount: unreadCount,
-                lastAt: lastAt,
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => ChatView(
-                        roomId: roomId,
-                        roomType: roomType,   // ✅ 추가
-                        otherUid: otherUid,   // dm이면 값 있음, group이면 null
-                        meetId: meetId,       // group이면 넣고, 없으면 null
-                      ),
-                    ),
-                  );
-                },
-              ),
-            );
+      appBar: AppBar(
+        title:Text('채팅'),
+      ),
+      body: SafeArea(
+        child: RefreshIndicator(
+          onRefresh: () async {
+            controller.refresh();
           },
+          child: FirestorePagination(
+            key: ValueKey('chat_list_${state.refreshTick}'),
+            query: query,
+            limit: 10,
+            isLive: true,
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+            onEmpty: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.chat_bubble_outline_rounded,
+                    size: 42,
+                    color: AppColors.icDisabled,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    '아직 채팅이 없어요',
+                    style: AppTextStyle.titleSmallBoldStyle.copyWith(
+                      color: AppColors.textDefault,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    '친구 신청을 하거나 모임에 참가하면\n채팅이 여기 표시돼요 🙂',
+                    textAlign: TextAlign.center,
+                    style: AppTextStyle.bodySmallStyle.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            itemBuilder: (context, docs, index) {
+              final doc = docs[index];
+
+              final data =
+                  (doc.data() as Map?)?.cast<String, dynamic>() ??
+                      <String, dynamic>{};
+
+              final roomId = (data['id'] ?? doc.id).toString();
+              final roomType = (data['type'] ?? 'dm').toString(); // ✅ 추가
+
+              final userUids =
+                  (data['userUids'] as List?)
+                      ?.map((e) => e.toString())
+                      .toList() ??
+                      [];
+
+              final meetId = data['meetId']?.toString(); // ✅ group일 때 사용
+
+              final otherUid = roomType == 'dm'
+                  ? userUids.firstWhere(
+                    (e) => e != uid,
+                orElse: () => '',
+              )
+                  : null;
+
+              final lastMessage = (data['lastMessageText'] ?? '').toString();
+              final lastType = (data['lastMessageType'] ?? 'text').toString();
+              final status = (data['status'] ?? 'pending').toString();
+
+              DateTime? lastAt;
+              final ts = data['lastMessageAt'];
+              if (ts is Timestamp) lastAt = ts.toDate();
+              final unreadMap =
+                  (data['unreadCountMap'] as Map?)?.cast<String, dynamic>() ?? {};
+              final myUid = FirebaseAuth.instance.currentUser!.uid;
+
+              final unreadCount = (unreadMap[myUid] ?? 0) as int;
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: _ChatRoomRow(
+                  roomId: roomId,
+                  roomType: roomType,      // ✅ 추가
+                  otherUid: otherUid,      // dm만 사용
+                  meetId: meetId,          // group만 사용
+                  lastMessage: lastMessage,
+                  lastType: lastType,
+                  status: status,
+                  unreadCount: unreadCount,
+                  lastAt: lastAt,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ChatView(
+                          roomId: roomId,
+                          roomType: roomType,   // ✅ 추가
+                          otherUid: otherUid,   // dm이면 값 있음, group이면 null
+                          meetId: meetId,       // group이면 넣고, 없으면 null
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              );
+            },
+          ),
         ),
       ),
     );
