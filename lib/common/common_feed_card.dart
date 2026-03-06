@@ -235,12 +235,18 @@ class _AuthorSection extends ConsumerWidget {
                         );
                         ref.invalidate(feedDocProvider(feed.id));
                         if (feed.mainType == '오운완') {
-                          ref.read(workoutGoalControllerProvider.notifier).init();
+                          ref
+                              .read(workoutGoalControllerProvider.notifier)
+                              .init();
                         }
                         if (feed.meetId == null) {
-                          ref.read(feedListControllerProvider.notifier).refresh();
+                          ref
+                              .read(feedListControllerProvider.notifier)
+                              .refresh();
                         } else {
-                          ref.invalidate(meetPhotoFeedSectionProvider(feed.meetId!));
+                          ref.invalidate(
+                            meetPhotoFeedSectionProvider(feed.meetId!),
+                          );
                         }
                       }
                     : null,
@@ -248,12 +254,18 @@ class _AuthorSection extends ConsumerWidget {
                     ? () async {
                         await FeedService().deleteFeed(feedId: feed.id);
                         if (feed.mainType == '오운완') {
-                          ref.read(workoutGoalControllerProvider.notifier).init();
+                          ref
+                              .read(workoutGoalControllerProvider.notifier)
+                              .init();
                         }
                         if (feed.meetId == null) {
-                          ref.read(feedListControllerProvider.notifier).refresh();
+                          ref
+                              .read(feedListControllerProvider.notifier)
+                              .refresh();
                         } else {
-                          ref.invalidate(meetPhotoFeedSectionProvider(feed.meetId!));
+                          ref.invalidate(
+                            meetPhotoFeedSectionProvider(feed.meetId!),
+                          );
                         }
                       }
                     : null,
@@ -314,7 +326,6 @@ class _FeedImagePagerState extends State<_FeedImagePager> {
               return CommonNetworkImage(
                 imageUrl: widget.imageUrls[index],
                 fit: BoxFit.cover,
-
               );
             },
           ),
@@ -497,7 +508,7 @@ class _FeedActionRow extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final myUid = FirebaseAuth.instance.currentUser!.uid;
+    final myUid = FirebaseAuth.instance.currentUser?.uid;
     final isLiked = feed.likeUids.contains(myUid);
     return Row(
       children: [
@@ -507,11 +518,10 @@ class _FeedActionRow extends ConsumerWidget {
               onTap: () async {
                 await const FeedService().toggleLike(
                   feedId: feed.id,
-                  myUid: myUid,
+                  myUid: myUid ?? '',
                 );
 
                 ref.invalidate(feedDocProvider(feed.id));
-
               },
               child: Icon(
                 isLiked ? Icons.favorite : Icons.favorite_border,
@@ -827,58 +837,58 @@ class _FeedCommentBottomSheetState
 
             final items = isMine
                 ? [
-              CommonContextMenuItem(
-                icon: Icons.delete_outline,
-                label: '삭제하기',
-                isDestructive: true,
-                onTap: () async {
-                  try {
-                    await const FeedService().deleteComment(
-                      feedId: widget.feedId,
-                      commentId: data['id'],
-                      valueKey: valueKey,
-                    );
+                    CommonContextMenuItem(
+                      icon: Icons.delete_outline,
+                      label: '삭제하기',
+                      isDestructive: true,
+                      onTap: () async {
+                        try {
+                          await const FeedService().deleteComment(
+                            feedId: widget.feedId,
+                            commentId: data['id'],
+                            valueKey: valueKey,
+                          );
 
-                    // ✅ 삭제 즉시 반영 (실시간X)
-                    _triggerRefresh();
+                          // ✅ 삭제 즉시 반영 (실시간X)
+                          _triggerRefresh();
 
-                    SnackbarService.show(
-                      type: AppSnackType.success,
-                      message: '댓글이 삭제되었습니다',
-                    );
-                  } catch (e, st) {
-                    debugPrint('deleteComment error: $e\n$st');
-                    SnackbarService.show(
-                      type: AppSnackType.error,
-                      message: '댓글 삭제에 실패했습니다',
-                    );
-                  }
-                },
-              ),
-            ]
-                : [
-              CommonContextMenuItem(
-                icon: Icons.flag_outlined,
-                label: '신고하기',
-                isDestructive: true,
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => ClaimView(
-                        target: ClaimTarget(
-                          type: ClaimTargetType.comment,
-                          targetId: data['id'],
-                          targetOwnerUid: data['authorNickname'],
-                          title: data['content'] ?? '피드',
-                          parentId: data['authorId'],
-                        ),
-                      ),
+                          SnackbarService.show(
+                            type: AppSnackType.success,
+                            message: '댓글이 삭제되었습니다',
+                          );
+                        } catch (e, st) {
+                          debugPrint('deleteComment error: $e\n$st');
+                          SnackbarService.show(
+                            type: AppSnackType.error,
+                            message: '댓글 삭제에 실패했습니다',
+                          );
+                        }
+                      },
                     ),
-                  );
-                },
-              ),
-            ];
+                  ]
+                : [
+                    CommonContextMenuItem(
+                      icon: Icons.flag_outlined,
+                      label: '신고하기',
+                      isDestructive: true,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => ClaimView(
+                              target: ClaimTarget(
+                                type: ClaimTargetType.comment,
+                                targetId: data['id'],
+                                targetOwnerUid: data['authorNickname'],
+                                title: data['content'] ?? '피드',
+                                parentId: data['authorId'],
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ];
 
             CommonContextMenu.show(
               context: context,
@@ -1009,8 +1019,9 @@ class _FeedCommentBottomSheetState
 
       // commentCount 증가 + feed invalidate는 기존 그대로
       await FirebaseFirestore.instance.runTransaction((tx) async {
-        final feedRef =
-        FirebaseFirestore.instance.collection('feeds').doc(widget.feedId);
+        final feedRef = FirebaseFirestore.instance
+            .collection('feeds')
+            .doc(widget.feedId);
         tx.update(feedRef, {'commentCount': FieldValue.increment(1)});
       });
 

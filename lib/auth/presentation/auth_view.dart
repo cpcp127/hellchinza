@@ -26,7 +26,7 @@ class _AuthViewState extends ConsumerState<AuthView> {
     'assets/images/auth_climing.png',
     'assets/images/auth_running.png',
     'assets/images/auth_badminton.png',
-    'assets/images/auth_bowling.png'
+    'assets/images/auth_bowling.png',
   ];
 
   @override
@@ -40,23 +40,25 @@ class _AuthViewState extends ConsumerState<AuthView> {
             // ===== Brand =====
             Align(alignment: Alignment.centerLeft, child: UnchinLoginHeader()),
             const SizedBox(height: 12),
-            Expanded(child: PageView.builder(
-              controller: pageController,
-              itemCount: imagePath.length,
-              physics: const NeverScrollableScrollPhysics(), // 👈 자동만
-              itemBuilder: (context, index) {
-                return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(20),
-                    child: Image.asset(
-                      imagePath[index],
-                      fit: BoxFit.cover, // 👈 일러스트 느낌 유지
+            Expanded(
+              child: PageView.builder(
+                controller: pageController,
+                itemCount: imagePath.length,
+                physics: const NeverScrollableScrollPhysics(), // 👈 자동만
+                itemBuilder: (context, index) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(20),
+                      child: Image.asset(
+                        imagePath[index],
+                        fit: BoxFit.cover, // 👈 일러스트 느낌 유지
+                      ),
                     ),
-                  ),
-                );
-              },
-            )),
+                  );
+                },
+              ),
+            ),
             const SizedBox(height: 12),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -152,7 +154,7 @@ class UnchinLoginHeader extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '운친',
+            '가보자운동',
             style: AppTextStyle.headlineXLargeStyle.copyWith(
               color: AppColors.textDefault,
             ),
@@ -160,50 +162,9 @@ class UnchinLoginHeader extends StatelessWidget {
 
           const SizedBox(height: 10),
 
-          RichText(
-            text: TextSpan(
-              style: AppTextStyle.titleSmallMediumStyle.copyWith(
-                color: AppColors.textSecondary,
-              ),
-              children: [
-                TextSpan(
-                  text: '운',
-                  style: AppTextStyle.titleSmallBoldStyle.copyWith(
-                    color: AppColors.textDefault,
-                  ),
-                ),
-                const TextSpan(text: '동에 미'),
-                TextSpan(
-                  text: '친',
-                  style: AppTextStyle.titleSmallBoldStyle.copyWith(
-                    color: AppColors.textDefault,
-                  ),
-                ),
-                const TextSpan(text: ', '),
-                TextSpan(
-                  text: '운',
-                  style: AppTextStyle.titleSmallBoldStyle.copyWith(
-                    color: AppColors.textDefault,
-                  ),
-                ),
-                const TextSpan(text: '동 '),
-
-                TextSpan(
-                  text: '친',
-                  style: AppTextStyle.titleSmallBoldStyle.copyWith(
-                    color: AppColors.textDefault,
-                  ),
-                ),
-                const TextSpan(text: '구 만들기'),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 12),
-
           // 보조 문장(2줄까지 자연스럽게)
           Text(
-            '오늘 같이 뛸 사람을\n가볍게 찾아보세요.',
+            '오늘도 오운완\n가~보자',
             style: AppTextStyle.headlineSmallMediumStyle.copyWith(
               color: AppColors.textDefault,
             ),
@@ -243,7 +204,6 @@ class SocialLoginButton extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 18),
             child: Row(
               children: [
-
                 /// SVG 아이콘
                 SvgPicture.asset(
                   style.assetPath,
