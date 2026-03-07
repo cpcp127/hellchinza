@@ -177,7 +177,7 @@ class _ExtraInfoViewState extends ConsumerState<ExtraInfoView> {
           CommonFadeWidget(
             delay: const Duration(milliseconds: 800),
             child: Text(
-              '매칭/추천에 활용돼요',
+              '남성인가요? 여성인가요?',
               style: AppTextStyle.bodyMediumStyle.copyWith(
                 color: AppColors.textSecondary,
               ),

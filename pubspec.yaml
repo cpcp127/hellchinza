@@ -40,6 +40,7 @@ dependencies:
   top_snackbar_flutter: ^3.3.0
   flutter_localization: ^0.3.3
   intl: ^0.20.2
+  crypto: ^3.0.7
 
   # Network
   http: ^1.6.0
@@ -64,6 +65,8 @@ dependencies:
   google_sign_in: ^7.2.0
   kakao_flutter_sdk: ^1.10.0
   kakao_flutter_sdk_user: ^1.10.0
+  sign_in_with_apple: ^7.0.1
+
   # 상태관리
   flutter_riverpod: ^3.1.0
 

@@ -68,6 +68,10 @@ class _AuthViewState extends ConsumerState<AuthView> {
                     type: SocialLoginType.apple,
                     onTap: () {
                       // Apple login
+                      print('apple login');
+                      ref
+                          .read(authControllerProvider.notifier)
+                          .signInWithApple();
                     },
                   ),
                   const SizedBox(height: 12),

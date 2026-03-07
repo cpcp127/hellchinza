@@ -22,6 +22,14 @@
           }
         },
         {
+          "client_id": "653854656096-lv1a0os5ggn3bfv5rpnfftvjdi3j271t.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.cjy.hellchinza",
+            "certificate_hash": "9423ee2a50e068e283bfbcafbce4ec801d47f812"
+          }
+        },
+        {
           "client_id": "653854656096-6c0utr2mks1reius9re1k4bd05tl7gnj.apps.googleusercontent.com",
           "client_type": 3
         }
