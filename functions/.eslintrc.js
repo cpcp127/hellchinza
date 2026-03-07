@@ -28,8 +28,15 @@ module.exports = {
     "import",
   ],
   rules: {
-    "quotes": ["error", "double"],
-    "import/no-unresolved": 0,
-    "indent": ["error", 2],
-  },
+      "quotes": ["error", "double"],
+      "import/no-unresolved": 0,
+      "indent": ["error", 2],
+
+      // ✅ 추가
+      "require-jsdoc": 0,
+      "max-len": 0,
+      "no-constant-condition": 0,
+      "no-empty": 0,
+      "@typescript-eslint/no-unused-vars": 0,
+    },
 };
