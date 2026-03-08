@@ -7,6 +7,7 @@ if (!admin.apps.length) {
 
 const db = admin.firestore();
 const auth = admin.auth();
+const messaging = admin.messaging();
 const bucket = admin.storage().bucket();
 
 type DocRef = FirebaseFirestore.DocumentReference<FirebaseFirestore.DocumentData>;
@@ -320,5 +321,149 @@ export const deleteUserData = functions
         "internal",
         "회원 탈퇴 처리 중 오류가 발생했습니다.",
       );
+    }
+  });
+export const onCommentCreatedSendNotification = functions
+  .region("us-central1")
+  .firestore
+  .document("feeds/{feedId}/comments/{commentId}")
+  .onCreate(async (snap, context) => {
+    const {feedId, commentId} = context.params;
+    const comment = snap.data();
+
+    if (!comment) return;
+
+    const authorUid = comment.authorUid as string | undefined;
+    const content = (comment.content as string | undefined) ?? "";
+
+    if (!authorUid) return;
+
+    const feedRef = db.collection("feeds").doc(feedId);
+    const feedSnap = await feedRef.get();
+    if (!feedSnap.exists) return;
+
+    const feedData = feedSnap.data() ?? {};
+    const targetUid = feedData.authorUid as string | undefined;
+
+    // 피드 작성자가 없으면 중단
+    if (!targetUid) return;
+
+    // 본인 글에 본인이 댓글 단 경우 푸시 안 보냄
+    if (targetUid === authorUid) return;
+
+    // 댓글 작성자 정보 조회
+    const senderUserSnap = await db.collection("users").doc(authorUid).get();
+    const senderUser = senderUserSnap.data() ?? {};
+    const senderNickname =
+      (senderUser.nickname as string | undefined) ?? "누군가";
+
+    // 대상 유저 알림 설정 확인
+    const targetUserSnap = await db.collection("users").doc(targetUid).get();
+    const targetUser = targetUserSnap.data() ?? {};
+    const notificationSettings =
+      (targetUser.notificationSettings as Record<string, unknown> | undefined) ??
+      {};
+
+    // ✅ 키가 없으면 기본 true
+    const allowComment =
+      typeof notificationSettings.comment === "boolean" ?
+        notificationSettings.comment :
+        true;
+
+    const body =
+      `${senderNickname}님이 회원님의 피드에 댓글을 남겼습니다.`;
+
+    // 1) 알림 문서 저장
+    const notificationRef = db
+      .collection("users")
+      .doc(targetUid)
+      .collection("notifications")
+      .doc();
+
+    await notificationRef.set({
+      id: notificationRef.id,
+      type: "comment",
+      isRead: false,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      feedId,
+      commentId,
+      senderUid: authorUid,
+      senderNickname,
+      title: "새 댓글",
+      body,
+      contentPreview: content.length > 60 ? `${content.substring(0, 60)}...` : content,
+    });
+
+    // 푸시 허용 안 하면 문서만 저장하고 끝
+    if (!allowComment) return;
+
+    // 대상 유저의 fcm 토큰 조회
+    const tokenSnap = await db
+      .collection("users")
+      .doc(targetUid)
+      .collection("fcmTokens")
+      .get();
+
+    if (tokenSnap.empty) return;
+
+    const tokens = tokenSnap.docs
+      .map((doc) => ((doc.data().token as string | undefined) ?? "").trim())
+      .filter((token: string) => token.length > 0);
+
+    if (tokens.length === 0) return;
+
+    const message: admin.messaging.MulticastMessage = {
+      tokens,
+      notification: {
+        title: "새 댓글",
+        body,
+      },
+      data: {
+        type: "comment",
+        feedId,
+        commentId,
+        senderUid: authorUid,
+        senderNickname,
+      },
+      android: {
+        notification: {
+          channelId: "social",
+        },
+      },
+      apns: {
+        payload: {
+          aps: {
+            sound: "default",
+          },
+        },
+      },
+    };
+
+    const response = await messaging.sendEachForMulticast(message);
+
+    // invalid token 정리
+    const invalidTokens: string[] = [];
+
+    response.responses.forEach(
+      (r: admin.messaging.SendResponse, index: number) => {
+        if (!r.success) {
+          const code = r.error?.code ?? "";
+          if (
+            code === "messaging/invalid-registration-token" ||
+           code === "messaging/registration-token-not-registered"
+          ) {
+            invalidTokens.push(tokens[index]);
+          }
+        }
+      },
+    );
+
+    for (const token of invalidTokens) {
+      await db
+        .collection("users")
+        .doc(targetUid)
+        .collection("fcmTokens")
+        .doc(token)
+        .delete();
     }
   });

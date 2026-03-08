@@ -24,6 +24,23 @@ final homeInitProvider = FutureProvider.autoDispose<bool>((ref) async {
   return true;
 });
 
+final hasUnreadNotificationProvider =
+StreamProvider.autoDispose<bool>((ref) {
+  final uid = FirebaseAuth.instance.currentUser?.uid;
+  if (uid == null) {
+    return Stream.value(false);
+  }
+
+  return FirebaseFirestore.instance
+      .collection('users')
+      .doc(uid)
+      .collection('notifications')
+      .where('isRead', isEqualTo: false)
+      .limit(1)
+      .snapshots()
+      .map((snap) => snap.docs.isNotEmpty);
+});
+
 class HomeController extends StateNotifier<HomeState> {
   final Ref ref;
 

@@ -12,6 +12,7 @@ import 'package:hellchinza/workout_goal/presentation/workout_goal_root_view.dart
 
 import '../chat/chat_list/chat_list_view.dart';
 import '../constants/app_colors.dart';
+import '../notification/notification_list_view.dart';
 import '../setting/setting_view.dart';
 import 'home_controller.dart';
 
@@ -30,6 +31,7 @@ class _HomeViewState extends ConsumerState<HomeView> {
   @override
   Widget build(BuildContext context) {
     final initAsync = ref.watch(homeInitProvider);
+    final hasUnreadAsync = ref.watch(hasUnreadNotificationProvider);
     final controller = ref.read(homeControllerProvider.notifier);
     return initAsync.when(
       loading: () =>
@@ -42,6 +44,40 @@ class _HomeViewState extends ConsumerState<HomeView> {
             title: title[_pageIndex],
 
             actions: [
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  IconButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const NotificationListView(),
+                        ),
+                      );
+                    },
+                    icon: const Icon(
+                      Icons.notifications_none,
+                      size: 24,
+                      color: AppColors.icDefault,
+                    ),
+                  ),
+                  if (hasUnreadAsync.value == true)
+                    Positioned(
+                      right: 10,
+                      top: 10,
+                      child: Container(
+                        width: 8,
+                        height: 8,
+                        decoration: const BoxDecoration(
+                          color: AppColors.red100,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+
               IconButton(
                 icon: const Icon(
                   Icons.chat_bubble_outline,
@@ -59,23 +95,25 @@ class _HomeViewState extends ConsumerState<HomeView> {
                   );
                 },
               ),
-              IconButton(
-                icon: const Icon(
-                  Icons.settings_outlined,
-                  size: 24,
-                  color: AppColors.icDefault,
-                ),
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) {
-                        return SettingView();
+              _pageIndex != 3
+                  ? Container()
+                  : IconButton(
+                      icon: const Icon(
+                        Icons.settings_outlined,
+                        size: 24,
+                        color: AppColors.icDefault,
+                      ),
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) {
+                              return SettingView();
+                            },
+                          ),
+                        );
                       },
                     ),
-                  );
-                },
-              ),
             ],
           ),
           bottomNavigationBar: Theme(
@@ -144,8 +182,6 @@ class _HomeViewState extends ConsumerState<HomeView> {
                   icon: Icon(Icons.people_rounded),
                   label: '',
                 ),
-
-
 
                 BottomNavigationBarItem(icon: Icon(Icons.person), label: ''),
               ],
