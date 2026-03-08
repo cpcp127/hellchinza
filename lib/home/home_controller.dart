@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:hellchinza/home/home_state.dart';
+import 'package:hellchinza/services/push_token_service.dart';
 
 import '../auth/domain/user_model.dart';
 import '../common/common_action_sheet.dart';
@@ -19,6 +20,7 @@ final homeInitProvider = FutureProvider.autoDispose<bool>((ref) async {
       .read(homeControllerProvider.notifier)
       .fetchUser(FirebaseAuth.instance.currentUser!.uid);
   ref.read(myUserModelProvider.notifier).updateUserModel(userModel!);
+  await PushTokenService.instance.init();
   return true;
 });
 

@@ -11,11 +11,17 @@ import '../notice/notice_list_view.dart';
 import '../services/dialog_service.dart';
 import '../services/snackbar_service.dart';
 
-class SettingView extends ConsumerWidget {
+class SettingView extends ConsumerStatefulWidget {
   const SettingView({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SettingView> createState() => _SettingViewState();
+}
+
+class _SettingViewState extends ConsumerState<SettingView> {
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(settingControllerProvider);
     final controller = ref.read(settingControllerProvider.notifier);
     return Scaffold(
@@ -88,42 +94,38 @@ class SettingView extends ConsumerWidget {
 
             const SizedBox(height: 16),
 
-        // ---------------- 고객센터 ----------------
-        _SettingSection(
-          title: '고객센터',
-          children: [
-            _SettingTile(
-              title: '공지사항',
-              subtitle: '서비스 업데이트 및 공지 확인',
-              isDestructive: false,
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const NoticeListView(),
-                  ),
-                );
-              },
+            // ---------------- 고객센터 ----------------
+            _SettingSection(
+              title: '고객센터',
+              children: [
+                _SettingTile(
+                  title: '공지사항',
+                  subtitle: '서비스 업데이트 및 공지 확인',
+                  isDestructive: false,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const NoticeListView()),
+                    );
+                  },
+                ),
+                _SettingTile(
+                  title: '문의하기',
+                  subtitle: '서비스 관련 문의를 남겨주세요',
+                  isDestructive: false,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const InquiryView()),
+                    );
+                  },
+                ),
+              ],
             ),
-            _SettingTile(
-              title: '문의하기',
-              subtitle: '서비스 관련 문의를 남겨주세요',
-              isDestructive: false,
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const InquiryView(),
-                  ),
-                );
-              },
-            ),
-          ],
-        ),
 
-        const SizedBox(height: 16),
+            const SizedBox(height: 16),
 
-        // ---------------- 앱 정보 ----------------
+            // ---------------- 앱 정보 ----------------
             _SettingSection(
               title: '앱 정보',
               children: [
@@ -165,6 +167,14 @@ class SettingView extends ConsumerWidget {
     );
 
     return result ?? false;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(settingControllerProvider.notifier).init();
+    });
   }
 }
 

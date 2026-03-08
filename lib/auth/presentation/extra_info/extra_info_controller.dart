@@ -69,7 +69,7 @@ class ExtraInfoController extends StateNotifier<ExtraInfoState> {
         'category':state.selectedCategory!,
         'nickname': state.nickname,
         'profileCompleted': true,
-        'gender':state.gender
+        'gender':state.gender,
       });
 
     }catch(e){

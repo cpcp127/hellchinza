@@ -7,6 +7,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:hellchinza/setting/setting_state.dart';
 
+import '../constants/app_constants.dart';
+import '../services/push_token_service.dart';
+
 final settingControllerProvider =
 StateNotifierProvider.autoDispose<SettingController, SettingState>(
       (ref) => SettingController(ref),
@@ -16,12 +19,79 @@ class SettingController extends StateNotifier<SettingState> {
   final Ref ref;
 
   SettingController(this.ref) : super(const SettingState());
+  Future<void> init() async {
+    state = state.copyWith(isLoading: true);
 
+    try {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid == null) {
+        state = state.copyWith(isLoading: false);
+        return;
+      }
+
+      final userRef = FirebaseFirestore.instance.collection('users').doc(uid);
+      final snap = await userRef.get();
+      final data = snap.data() ?? {};
+
+      final rawSettings =
+          (data['notificationSettings'] as Map<String, dynamic>?) ?? {};
+
+      final updates = <String, dynamic>{};
+
+      // ✅ 없는 키만 보정
+      for (final entry in kDefaultNotificationSettings.entries) {
+        if (!rawSettings.containsKey(entry.key)) {
+          updates['notificationSettings.${entry.key}'] = entry.value;
+        }
+      }
+
+      if (updates.isNotEmpty) {
+        updates['updatedAt'] = FieldValue.serverTimestamp();
+        await userRef.update(updates);
+      }
+
+      // ✅ state에는 항상 완성된 형태로 넣기
+      final mergedSettings = <String, bool>{};
+      for (final entry in kDefaultNotificationSettings.entries) {
+        mergedSettings[entry.key] =
+            (rawSettings[entry.key] as bool?) ?? entry.value;
+      }
+
+      state = state.copyWith(
+        isLoading: false,
+        notificationSettings: mergedSettings,
+      );
+    } catch (e) {
+      state = state.copyWith(isLoading: false);
+      debugPrint('SettingController init error: $e');
+    }
+  }
+
+  Future<void> updateNotificationSetting({
+    required String key,
+    required bool value,
+  }) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+
+    final userRef = FirebaseFirestore.instance.collection('users').doc(uid);
+
+    await userRef.update({
+      'notificationSettings.$key': value,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+
+    final next = Map<String, bool>.from(state.notificationSettings);
+    next[key] = value;
+
+    state = state.copyWith(notificationSettings: next);
+  }
   /// ✅ 로그아웃
   Future<void> logout(BuildContext context) async {
     state = state.copyWith(isLoading: true, errorMessage: null);
 
     try {
+      await PushTokenService.instance.deleteCurrentToken();
       await FirebaseAuth.instance.signOut();
       if (context.mounted) {
         Navigator.of(context, rootNavigator: true).popUntil((route) => route.isFirst);

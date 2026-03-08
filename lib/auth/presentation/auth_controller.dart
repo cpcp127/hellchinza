@@ -110,6 +110,12 @@ class AuthController extends StateNotifier<AuthState> {
           'createdAt': FieldValue.serverTimestamp(),
           'updatedAt': FieldValue.serverTimestamp(),
           'provider': 'apple',
+          'notificationSettings': {
+            'like': true,
+            'comment': true,
+            'chat': true,
+            'lightning': true,
+          },
         });
       } else {
         await firebaseRef.update({
@@ -163,6 +169,12 @@ class AuthController extends StateNotifier<AuthState> {
         'profileCompleted': false,
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
+        'notificationSettings': {
+          'like': true,
+          'comment': true,
+          'chat': true,
+          'lightning': true,
+        },
       });
     }
   }
@@ -198,6 +210,12 @@ class AuthController extends StateNotifier<AuthState> {
         'profileCompleted': false,
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
+        'notificationSettings': {
+          'like': true,
+          'comment': true,
+          'chat': true,
+          'lightning': true,
+        },
       });
     }
   }

@@ -1,6 +1,13 @@
 
 import 'package:flutter/material.dart';
 
+const Map<String, bool> kDefaultNotificationSettings = {
+  'like': true,
+  'comment': true,
+  'chat': true,
+  'lightning': true,
+};
+
 const List<String> workList = [
   '헬스',
   '클라이밍',

@@ -268,7 +268,7 @@ class _MeetDetailViewState extends ConsumerState<MeetDetailView> {
       context: context,
       isMember: state.isMember,
       onLeave: () async {
-        Navigator.pop(context);
+
 
         final ok = await _confirm(
           context,
