@@ -52,7 +52,7 @@ class _WriteInquiryTabState extends State<WriteInquiryTab> {
   }
 
   Future<void> _pickImage() async {
-    final x = await ImageService().showImagePicker();
+    final x = await ImageService().showImagePicker(context);
     if (!mounted) return;
     setState(() => _picked = x);
   }

@@ -151,7 +151,7 @@ class _CreateFeedViewState extends ConsumerState<CreateFeedView> {
 
                           GestureDetector(
                             onTap: () async {
-                              await controller.pickMultiImage();
+                              await controller.pickMultiImage(context);
                             },
                             behavior: HitTestBehavior.translucent,
                             child: Container(
@@ -187,7 +187,7 @@ class _CreateFeedViewState extends ConsumerState<CreateFeedView> {
                     showEmptyImage
                         ? GestureDetector(
                             onTap: () async {
-                              await controller.pickMultiImage();
+                              await controller.pickMultiImage(context);
                             },
                             child: AspectRatio(
                               aspectRatio: 1,

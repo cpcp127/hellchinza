@@ -4,28 +4,29 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 class PushTokenService {
   PushTokenService._();
+
   static final PushTokenService instance = PushTokenService._();
 
   final FirebaseMessaging _messaging = FirebaseMessaging.instance;
+  final FlutterLocalNotificationsPlugin _local =
+      FlutterLocalNotificationsPlugin();
 
   Stream<String>? _tokenRefreshStream;
+  bool _localInitialized = false;
 
   Future<void> init() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    // iOS / Android 13+ 권한 요청
-    final settings = await _messaging.requestPermission(
-      alert: true,
-      badge: true,
-      sound: true,
-      provisional: false,
-    );
-
-    debugPrint('FCM permission status: ${settings.authorizationStatus}');
+    await _requestPermission();
+    await _initLocalNotifications();
+    await _setForegroundPresentationOptions();
+    _listenForegroundMessages();
 
     // 현재 토큰 저장
     final token = await _messaging.getToken();
@@ -40,6 +41,141 @@ class PushTokenService {
       if (currentUser == null) return;
       await _saveToken(currentUser.uid, token);
     });
+  }
+
+  Future<void> _requestPermission() async {
+    final settings = await _messaging.requestPermission(
+      alert: true,
+      badge: true,
+      sound: true,
+      provisional: false,
+    );
+
+    debugPrint('FCM permission status: ${settings.authorizationStatus}');
+  }
+
+  Future<void> _initLocalNotifications() async {
+    if (_localInitialized) return;
+
+    const androidInit = AndroidInitializationSettings('@mipmap/launcher_icon');
+
+    const iosInit = DarwinInitializationSettings(
+      requestAlertPermission: false,
+      requestBadgePermission: false,
+      requestSoundPermission: false,
+    );
+
+    const initSettings = InitializationSettings(
+      android: androidInit,
+      iOS: iosInit,
+    );
+
+    await _local.initialize(
+      settings: initSettings,
+      onDidReceiveNotificationResponse: (response) {
+        debugPrint('local notification tapped: ${response.payload}');
+        // TODO: 여기서 payload 파싱해서 화면 이동 처리
+      },
+    );
+
+    const socialChannel = AndroidNotificationChannel(
+      'social',
+      '소셜 알림',
+      description: '좋아요, 댓글 알림',
+      importance: Importance.high,
+    );
+
+    await _local
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >()
+        ?.createNotificationChannel(socialChannel);
+
+    _localInitialized = true;
+  }
+
+  Future<void> _setForegroundPresentationOptions() async {
+    await _messaging.setForegroundNotificationPresentationOptions(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
+  }
+
+  void _listenForegroundMessages() {
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
+      debugPrint('Foreground message: ${message.messageId}');
+      debugPrint('Foreground data: ${message.data}');
+
+      final notification = message.notification;
+      final title = notification?.title ?? message.data['title'] ?? '알림';
+      final body = notification?.body ?? message.data['body'] ?? '';
+      final type = message.data['type'] ?? '';
+
+      // Android는 foreground에서 local notification 직접 띄움
+      if (!kIsWeb && Platform.isAndroid) {
+        final channelId = _channelIdByType(type);
+
+        await _local.show(
+          title: title,
+          body: body,
+          notificationDetails: NotificationDetails(
+            android: AndroidNotificationDetails(
+              channelId,
+              _channelNameByType(type),
+              channelDescription: _channelDescriptionByType(type),
+              importance: Importance.high,
+              priority: Priority.high,
+              icon: '@mipmap/launcher_icon',
+            ),
+          ),
+          payload: message.data.toString(),
+          id: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+        );
+      }
+
+      // iOS는 setForegroundNotificationPresentationOptions로 시스템 표시
+      // 중복 방지 위해 여기서 local.show()는 안 함
+    });
+  }
+
+  String _channelIdByType(String type) {
+    switch (type) {
+      case 'chat':
+        return 'chat';
+      case 'lightning':
+        return 'meet';
+      case 'comment':
+      case 'like':
+      default:
+        return 'social';
+    }
+  }
+
+  String _channelNameByType(String type) {
+    switch (type) {
+      case 'chat':
+        return '채팅 알림';
+      case 'lightning':
+        return '모임 알림';
+      case 'comment':
+      case 'like':
+      default:
+        return '소셜 알림';
+    }
+  }
+
+  String _channelDescriptionByType(String type) {
+    switch (type) {
+      case 'chat':
+        return '채팅 메시지 알림';
+      case 'lightning':
+        return '모임 및 번개 알림';
+      case 'comment':
+      case 'like':
+      default:
+        return '좋아요, 댓글 알림';
+    }
   }
 
   Future<void> _saveToken(String uid, String token) async {

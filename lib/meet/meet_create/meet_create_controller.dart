@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:hellchinza/meet/meet_list/meet_list_controller.dart';
@@ -92,8 +93,8 @@ class MeetCreateController extends StateNotifier<MeetCreateState> {
   void toggleNeedApproval(bool v) => state = state.copyWith(needApproval: v);
 
   // ---- thumbnail ----
-  Future<void> pickThumbnail() async {
-    final file = await ImageService().showImagePicker();
+  Future<void> pickThumbnail(BuildContext context) async {
+    final file = await ImageService().showImagePicker(context);
     if (file == null) return;
 
     // 새로 고르면 기존 삭제 플래그 해제(교체 우선)

@@ -202,7 +202,7 @@ class _ProfileEditViewState extends ConsumerState<ProfileEditView> {
                     context: context,
                     hasImage: true,
                     onCamera: () async {
-                      XFile? imageFile = await ImageService().takePicture();
+                      XFile? imageFile = await ImageService().takePicture(context);
                       if (imageFile == null) return;
                       setState(() {
                         selectImage = imageFile;
@@ -210,7 +210,7 @@ class _ProfileEditViewState extends ConsumerState<ProfileEditView> {
                       });
                     },
                     onGallery: () async {
-                      XFile? imageFile = await ImageService().showImagePicker();
+                      XFile? imageFile = await ImageService().showImagePicker(context);
                       if (imageFile == null) return;
                       setState(() {
                         selectImage = imageFile;

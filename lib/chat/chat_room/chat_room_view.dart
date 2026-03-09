@@ -812,7 +812,7 @@ class _ChatInputBar extends ConsumerWidget {
             // ✅ 이미지 버튼
             IconButton(
               onPressed: state.canSend
-                  ? () => chatController.pickAndSendOneImage()
+                  ? () => chatController.pickAndSendOneImage(context)
                   : null,
               icon: const Icon(
                 Icons.image_outlined,

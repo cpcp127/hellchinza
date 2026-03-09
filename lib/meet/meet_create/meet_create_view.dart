@@ -356,7 +356,9 @@ class _MeetCreateStepperViewState extends ConsumerState<MeetCreateStepperView> {
               thumbnail: state.thumbnail,
               existingUrl: state.existingThumbnailUrl,
               removeExisting: state.removeExistingThumbnail,
-              onPick: controller.pickThumbnail,
+              onPick: (){
+                controller.pickThumbnail(context);
+              },
               onRemove: controller.removeThumbnail,
             ),
           ],

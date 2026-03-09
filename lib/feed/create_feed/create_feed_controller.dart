@@ -17,11 +17,10 @@ import '../../workout_goal/provider/workout_goal_provider.dart';
 import '../domain/feed_model.dart';
 
 final createFeedControllerProvider =
-    StateNotifierProvider.autoDispose<CreateFeedController, CreateFeedState>((
-      ref,
-    ) {
-      return CreateFeedController(ref);
-    });
+StateNotifierProvider.autoDispose<CreateFeedController, CreateFeedState>((
+    ref,) {
+  return CreateFeedController(ref);
+});
 
 class CreateFeedController extends StateNotifier<CreateFeedState> {
   final Ref ref;
@@ -41,7 +40,7 @@ class CreateFeedController extends StateNotifier<CreateFeedState> {
     state = state.copyWith(selectSubType: type);
   }
 
-  Future<void> pickMultiImage() async {
+  Future<void> pickMultiImage(BuildContext context) async {
     final existingCount = state.existingImageUrls?.length ?? 0;
     final newCount = state.newImageFiles?.length ?? 0;
     final totalCount = existingCount + newCount;
@@ -55,6 +54,7 @@ class CreateFeedController extends StateNotifier<CreateFeedState> {
     final remainCount = 10 - totalCount;
 
     final List<XFile>? pickedList = await ImageService().showMultiImagePicker(
+      context,
       remainCount,
     );
 
@@ -216,11 +216,11 @@ class CreateFeedController extends StateNotifier<CreateFeedState> {
     if (files != null && files.isNotEmpty) {
       final results = await const StorageUploadService()
           .uploadFeedImagesWithProgress(
-            feedId: feedId,
-            uid: user.uid,
-            files: files,
-            onProgress: onProgress,
-          );
+        feedId: feedId,
+        uid: user.uid,
+        files: files,
+        onProgress: onProgress,
+      );
       imageUrls = results.map((e) => e.url).toList();
     } else {
       // 이미지 없으면 진행률 100%로 처리
@@ -244,7 +244,10 @@ class CreateFeedController extends StateNotifier<CreateFeedState> {
     if (cleaned.length < 2) return null;
 
     return {
-      'options': cleaned.asMap().entries.map((e) {
+      'options': cleaned
+          .asMap()
+          .entries
+          .map((e) {
         return {
           'id': 'option_${e.key + 1}',
           'text': e.value,
@@ -283,22 +286,25 @@ class CreateFeedController extends StateNotifier<CreateFeedState> {
       final removedUrl = state.existingImageUrls![index];
 
       state = state.copyWith(
-        existingImageUrls: [...state.existingImageUrls!..removeAt(index)],
+        existingImageUrls: [...state.existingImageUrls!
+          ..removeAt(index)
+        ],
         removedImageUrls: [...state.removedImageUrls ?? [], removedUrl],
       );
     }
     // 새로 추가한 이미지 영역
     else {
       final newIndex = index - state.existingImageUrls!.length;
-      final newFiles = [...state.newImageFiles!..removeAt(newIndex)];
+      final newFiles = [...state.newImageFiles!
+        ..removeAt(newIndex)
+      ];
 
       state = state.copyWith(newImageFiles: newFiles);
     }
   }
 
-  Future<void> updateFeed(
-    BuildContext context, {
-    required String feedId,String? meetId
+  Future<void> updateFeed(BuildContext context, {
+    required String feedId, String? meetId
   }) async {
     _keepAlive ??= ref.keepAlive();
 
@@ -330,7 +336,6 @@ class CreateFeedController extends StateNotifier<CreateFeedState> {
       } else {
         ref.invalidate(meetPhotoFeedSectionProvider(meetId));
       }
-
     } catch (e, st) {
       SnackbarService.dismiss();
       SnackbarService.show(
@@ -372,11 +377,11 @@ class CreateFeedController extends StateNotifier<CreateFeedState> {
     if (newFiles.isNotEmpty) {
       final results = await const StorageUploadService()
           .uploadFeedImagesWithProgress(
-            feedId: feedId,
-            uid: FirebaseAuth.instance.currentUser!.uid,
-            files: newFiles,
-            onProgress: onProgress, // ✅ 진행률 표시
-          );
+        feedId: feedId,
+        uid: FirebaseAuth.instance.currentUser!.uid,
+        files: newFiles,
+        onProgress: onProgress, // ✅ 진행률 표시
+      );
       uploadedUrls = results.map((e) => e.url).toList();
     } else {
       // 새 이미지 없으면 진행률 100%로

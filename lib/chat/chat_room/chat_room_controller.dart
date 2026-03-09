@@ -452,14 +452,14 @@ class ChatController extends StateNotifier<ChatState> {
   }
 
   /// ✅ 갤러리/카메라 선택 후 1장 전송
-  Future<void> pickAndSendOneImage() async {
-    final file = await _imageService.showImagePicker(); // webp 변환 포함
+  Future<void> pickAndSendOneImage(BuildContext context) async {
+    final file = await _imageService.showImagePicker(context); // webp 변환 포함
     if (file == null) return;
     await sendImage(file: file);
   }
 
-  Future<void> takeAndSendOneImage() async {
-    final file = await _imageService.takePicture(); // webp 변환 포함
+  Future<void> takeAndSendOneImage(BuildContext context) async {
+    final file = await _imageService.takePicture(context); // webp 변환 포함
     if (file == null) return;
     await sendImage(file: file);
   }
@@ -471,14 +471,14 @@ class ChatController extends StateNotifier<ChatState> {
         icon: Icons.photo_camera,
         title: '카메라로 촬영하기',
         onTap: () async {
-          await takeAndSendOneImage();
+          await takeAndSendOneImage(context);
         },
       ),
       CommonActionSheetItem(
         icon: Icons.photo_library,
         title: '앨범에서 선택하기',
         onTap: () async {
-          await pickAndSendOneImage();
+          await pickAndSendOneImage(context);
         },
       ),
 
