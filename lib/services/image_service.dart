@@ -1,11 +1,14 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'package:hellchinza/services/snackbar_service.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../common/common_action_sheet.dart';
+import 'dialog_service.dart';
 
 class ImageService {
   ImageService();
@@ -91,55 +94,56 @@ class ImageService {
       }
 
       if (status.isPermanentlyDenied || status.isRestricted) {
-        await _showOpenSettingsDialog(
-          context,
-          title: '사진 접근 권한이 필요해요',
+        await _showPermissionSettingDialog(
+          context: context,
+          title: '사진 권한이 필요해요',
           message: '앨범에서 이미지를 선택하려면 사진 접근 권한을 허용해주세요.',
         );
         return false;
       }
 
-      _showPermissionDeniedSnackBar(context, '사진 접근 권한이 필요해요.');
+      SnackbarService.show(
+        type: AppSnackType.error,
+        message: '사진 접근 권한이 필요해요.',
+      );
       return false;
     }
 
     if (Platform.isAndroid) {
-      // Android 13+ 는 photos, 구버전은 storage 케이스가 섞일 수 있어 둘 다 안전하게 처리
-      PermissionStatus status = await Permission.photos.request();
+      final photoStatus = await Permission.photos.request();
 
-      if (status.isGranted || status.isLimited) {
+      if (photoStatus.isGranted || photoStatus.isLimited) {
         return true;
       }
 
-      if (status.isDenied) {
-        final storageStatus = await Permission.storage.request();
-        if (storageStatus.isGranted) {
-          return true;
-        }
-
-        if (storageStatus.isPermanentlyDenied || storageStatus.isRestricted) {
-          await _showOpenSettingsDialog(
-            context,
-            title: '사진 접근 권한이 필요해요',
-            message: '앨범에서 이미지를 선택하려면 사진 접근 권한을 허용해주세요.',
-          );
-          return false;
-        }
-
-        _showPermissionDeniedSnackBar(context, '사진 접근 권한이 필요해요.');
-        return false;
-      }
-
-      if (status.isPermanentlyDenied || status.isRestricted) {
-        await _showOpenSettingsDialog(
-          context,
-          title: '사진 접근 권한이 필요해요',
+      if (photoStatus.isPermanentlyDenied || photoStatus.isRestricted) {
+        await _showPermissionSettingDialog(
+          context: context,
+          title: '사진 권한이 필요해요',
           message: '앨범에서 이미지를 선택하려면 사진 접근 권한을 허용해주세요.',
         );
         return false;
       }
 
-      _showPermissionDeniedSnackBar(context, '사진 접근 권한이 필요해요.');
+      final storageStatus = await Permission.storage.request();
+
+      if (storageStatus.isGranted) {
+        return true;
+      }
+
+      if (storageStatus.isPermanentlyDenied || storageStatus.isRestricted) {
+        await _showPermissionSettingDialog(
+          context: context,
+          title: '사진 권한이 필요해요',
+          message: '앨범에서 이미지를 선택하려면 사진 접근 권한을 허용해주세요.',
+        );
+        return false;
+      }
+
+      SnackbarService.show(
+        type: AppSnackType.error,
+        message: '사진 접근 권한이 필요해요.',
+      );
       return false;
     }
 
@@ -154,52 +158,37 @@ class ImageService {
     }
 
     if (status.isPermanentlyDenied || status.isRestricted) {
-      await _showOpenSettingsDialog(
-        context,
+      await _showPermissionSettingDialog(
+        context: context,
         title: '카메라 권한이 필요해요',
         message: '사진을 촬영하려면 카메라 권한을 허용해주세요.',
       );
       return false;
     }
 
-    _showPermissionDeniedSnackBar(context, '카메라 권한이 필요해요.');
+    SnackbarService.show(
+      type: AppSnackType.error,
+      message: '카메라 권한이 필요해요.',
+    );
     return false;
   }
 
-  Future<void> _showOpenSettingsDialog(
-      BuildContext context, {
-        required String title,
-        required String message,
-      }) async {
-    final result = await showDialog<bool>(
+  Future<void> _showPermissionSettingDialog({
+    required BuildContext context,
+    required String title,
+    required String message,
+  }) async {
+    final moveToSetting = await DialogService.showConfirm(
       context: context,
-      builder: (_) {
-        return AlertDialog(
-          title: Text(title),
-          content: Text(message),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('취소'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('설정으로 이동'),
-            ),
-          ],
-        );
-      },
+      title: title,
+      message: message,
+      cancelText: '취소',
+      confirmText: '설정으로 이동',
     );
 
-    if (result == true) {
+    if (moveToSetting == true) {
       await openAppSettings();
     }
-  }
-
-  void _showPermissionDeniedSnackBar(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
   }
 
   Future<void> showProfileImageActionSheet({
