@@ -309,7 +309,7 @@ class ChatController extends StateNotifier<ChatState> {
 
         final cur = (unreadMap[otherUid] ?? 0);
         final curInt = (cur is num) ? cur.toInt() : 0;
-        updates['unreadCountMap.$otherUid'] = curInt + 1;
+        //updates['unreadCountMap.$otherUid'] = curInt + 1;
       }
 
       tx.update(_roomRef, updates);
@@ -630,43 +630,58 @@ class ChatController extends StateNotifier<ChatState> {
     return '${d.year}. ${d.month}. ${d.day} ($w)';
   }
 
-  Future<void> toggleRoomPush({
-    required BuildContext context,
+  Future<bool> getRoomPushEnabled({
     required String roomId,
+    required String uid,
   }) async {
-    final uid = FirebaseAuth.instance.currentUser!.uid;
-
     final doc = await FirebaseFirestore.instance
         .collection('chatRooms')
         .doc(roomId)
         .get();
 
-    final data = doc.data()!;
-    final map = (data['chatPushOffMap'] ?? {}) as Map<String, dynamic>;
+    final data = doc.data() ?? {};
+    final map = (data['chatPushOffMap'] as Map<String, dynamic>?) ?? {};
 
-    final current = map[uid];
+    final value = map[uid];
 
-    // 규칙
-    // null / true → 허용
-    // false → 차단
+    // 규칙:
+    // 없음/null -> 허용
+    // true -> 허용
+    // false -> 차단
+    return value != false;
+  }
 
-    final bool nextValue = current == false;
-
+  Future<void> setRoomPushEnabled({
+    required String roomId,
+    required String uid,
+    required bool enabled,
+  }) async {
     await FirebaseFirestore.instance
         .collection('chatRooms')
         .doc(roomId)
-        .update({
-      'chatPushOffMap.$uid': nextValue,
-    });
+        .set({
+      'chatPushOffMap': {
+        uid: enabled ? true : false,
+      },
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
 
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            nextValue ? '채팅 알림을 켰습니다.' : '채팅 알림을 껐습니다.',
-          ),
-        ),
-      );
-    }
+
+
+  Future<void> toggleRoomPush({
+    required String roomId,
+    required String uid,
+  }) async {
+    final enabled = await getRoomPushEnabled(
+      roomId: roomId,
+      uid: uid,
+    );
+
+    await setRoomPushEnabled(
+      roomId: roomId,
+      uid: uid,
+      enabled: !enabled,
+    );
   }
 }

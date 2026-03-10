@@ -109,7 +109,8 @@ class _ChatViewState extends ConsumerState<ChatView>
             data: (doc) {
               final data = doc.data() as Map<String, dynamic>;
               final map = data['chatPushOffMap'] ?? {};
-              final muted = map[FirebaseAuth.instance.currentUser!.uid] == false;
+              final muted =
+                  map[FirebaseAuth.instance.currentUser!.uid] == false;
 
               return IconButton(
                 icon: Icon(
@@ -118,8 +119,8 @@ class _ChatViewState extends ConsumerState<ChatView>
                 ),
                 onPressed: () {
                   controller.toggleRoomPush(
-                    context: context,
                     roomId: widget.roomId,
+                    uid: FirebaseAuth.instance.currentUser!.uid,
                   );
                 },
               );
@@ -237,21 +238,25 @@ class _ChatViewState extends ConsumerState<ChatView>
                     DateTime? prevAt;
 
                     if (index + 1 < docs.length) {
-                      final nextData = (docs[index + 1].data() as Map<String, dynamic>? ?? {});
+                      final nextData =
+                          (docs[index + 1].data() as Map<String, dynamic>? ??
+                          {});
                       prevAt = controller.createdAtFrom(nextData);
                     }
 
                     // ✅ 날짜 구분선 조건:
                     // - 이전 메시지와 "날짜가 다르면" 표시
-                    final showDateDivider = currAt != null &&
-                        ( prevAt == null || !controller.isSameDay(currAt, prevAt));
+                    final showDateDivider =
+                        currAt != null &&
+                        (prevAt == null ||
+                            !controller.isSameDay(currAt, prevAt));
                     final authorUid = (data['authorUid'] ?? '').toString();
                     return usersMapAsync.when(
                       loading: () => const SizedBox.shrink(),
                       error: (e, _) => Text('유저 로딩 실패: $e'),
                       data: (usersMap) {
                         final authorMini = usersMap[authorUid]; // ✅ 보낸 사람 미니
-                        return  Column(
+                        return Column(
                           children: [
                             if (showDateDivider) _buildDateDivider(currAt),
                             Padding(
@@ -555,7 +560,9 @@ class _ChatBubble extends StatelessWidget {
         width: 280,
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: isMine ? AppColors.btnPrimary.withOpacity(0.10) : AppColors.bgWhite,
+          color: isMine
+              ? AppColors.btnPrimary.withOpacity(0.10)
+              : AppColors.bgWhite,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: AppColors.borderSecondary),
         ),
@@ -633,10 +640,16 @@ class _ChatBubble extends StatelessWidget {
 
       Widget imageWidget;
 
-      if (isUploading && pendingLocalPath != null && pendingLocalPath!.isNotEmpty) {
+      if (isUploading &&
+          pendingLocalPath != null &&
+          pendingLocalPath!.isNotEmpty) {
         imageWidget = Image.file(File(pendingLocalPath!), fit: BoxFit.cover);
       } else if (imageUrl != null && imageUrl.isNotEmpty) {
-        imageWidget = CommonNetworkImage(imageUrl: imageUrl, fit: BoxFit.cover, enableViewer: true);
+        imageWidget = CommonNetworkImage(
+          imageUrl: imageUrl,
+          fit: BoxFit.cover,
+          enableViewer: true,
+        );
       } else {
         imageWidget = Container(
           color: AppColors.bgSecondary,
@@ -801,6 +814,7 @@ class _ChatBubble extends StatelessWidget {
     );
   }
 }
+
 class _ChatInputBar extends ConsumerWidget {
   const _ChatInputBar({
     required this.enabled,
