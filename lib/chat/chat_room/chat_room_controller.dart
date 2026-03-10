@@ -629,4 +629,44 @@ class ChatController extends StateNotifier<ChatState> {
     final w = week[(d.weekday - 1).clamp(0, 6)];
     return '${d.year}. ${d.month}. ${d.day} ($w)';
   }
+
+  Future<void> toggleRoomPush({
+    required BuildContext context,
+    required String roomId,
+  }) async {
+    final uid = FirebaseAuth.instance.currentUser!.uid;
+
+    final doc = await FirebaseFirestore.instance
+        .collection('chatRooms')
+        .doc(roomId)
+        .get();
+
+    final data = doc.data()!;
+    final map = (data['chatPushOffMap'] ?? {}) as Map<String, dynamic>;
+
+    final current = map[uid];
+
+    // 규칙
+    // null / true → 허용
+    // false → 차단
+
+    final bool nextValue = current == false;
+
+    await FirebaseFirestore.instance
+        .collection('chatRooms')
+        .doc(roomId)
+        .update({
+      'chatPushOffMap.$uid': nextValue,
+    });
+
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            nextValue ? '채팅 알림을 켰습니다.' : '채팅 알림을 껐습니다.',
+          ),
+        ),
+      );
+    }
+  }
 }

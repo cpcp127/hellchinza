@@ -112,7 +112,11 @@ async function removeUidFromMapAndArrayInChatRooms(uid: string) {
   let lastDoc: FirebaseFirestore.QueryDocumentSnapshot | null = null;
 
   while (true) {
-    let q = db.collection("chatRooms").orderBy(admin.firestore.FieldPath.documentId()).limit(200);
+    let q = db
+      .collection("chatRooms")
+      .orderBy(admin.firestore.FieldPath.documentId())
+      .limit(200);
+
     if (lastDoc) q = q.startAfter(lastDoc);
 
     const snap = await q.get();
@@ -125,8 +129,12 @@ async function removeUidFromMapAndArrayInChatRooms(uid: string) {
       const updates: Record<string, unknown> = {};
       let changed = false;
 
-      const userUids = Array.isArray(data.userUids) ? data.userUids as string[] : [];
-      const visibleUids = Array.isArray(data.visibleUids) ? data.visibleUids as string[] : [];
+      const userUids = Array.isArray(data.userUids) ?
+        data.userUids as string[] :
+        [];
+      const visibleUids = Array.isArray(data.visibleUids) ?
+        data.visibleUids as string[] :
+        [];
 
       if (userUids.includes(uid)) {
         updates.userUids = admin.firestore.FieldValue.arrayRemove(uid);
@@ -138,13 +146,33 @@ async function removeUidFromMapAndArrayInChatRooms(uid: string) {
         changed = true;
       }
 
-      if (data.unreadCountMap && typeof data.unreadCountMap === "object" && uid in data.unreadCountMap) {
-        updates[`unreadCountMap.${uid}`] = admin.firestore.FieldValue.delete();
+      if (
+        data.unreadCountMap &&
+        typeof data.unreadCountMap === "object" &&
+        uid in data.unreadCountMap
+      ) {
+        updates[`unreadCountMap.${uid}`] =
+          admin.firestore.FieldValue.delete();
         changed = true;
       }
 
-      if (data.activeAtMap && typeof data.activeAtMap === "object" && uid in data.activeAtMap) {
-        updates[`activeAtMap.${uid}`] = admin.firestore.FieldValue.delete();
+      if (
+        data.activeAtMap &&
+        typeof data.activeAtMap === "object" &&
+        uid in data.activeAtMap
+      ) {
+        updates[`activeAtMap.${uid}`] =
+          admin.firestore.FieldValue.delete();
+        changed = true;
+      }
+
+      if (
+        data.chatPushOffMap &&
+        typeof data.chatPushOffMap === "object" &&
+        uid in data.chatPushOffMap
+      ) {
+        updates[`chatPushOffMap.${uid}`] =
+          admin.firestore.FieldValue.delete();
         changed = true;
       }
 
@@ -351,35 +379,29 @@ export const onCommentCreatedSendNotification = functions
     const feedData = feedSnap.data() ?? {};
     const targetUid = feedData.authorUid as string | undefined;
 
-    // 피드 작성자가 없으면 중단
     if (!targetUid) return;
-
-    // 본인 글에 본인이 댓글 단 경우 푸시 안 보냄
     if (targetUid === authorUid) return;
 
-    // 댓글 작성자 정보 조회
     const senderUserSnap = await db.collection("users").doc(authorUid).get();
     const senderUser = senderUserSnap.data() ?? {};
     const senderNickname =
       (senderUser.nickname as string | undefined) ?? "누군가";
 
-    // 대상 유저 알림 설정 확인
     const targetUserSnap = await db.collection("users").doc(targetUid).get();
+    if (!targetUserSnap.exists) return;
+
     const targetUser = targetUserSnap.data() ?? {};
     const notificationSettings =
       (targetUser.notificationSettings as Record<string, unknown> | undefined) ??
       {};
 
-    // ✅ 키가 없으면 기본 true
     const allowComment =
       typeof notificationSettings.comment === "boolean" ?
         notificationSettings.comment :
         true;
 
-    const body =
-      `${senderNickname}님이 회원님의 피드에 댓글을 남겼습니다.`;
+    const body = `${senderNickname}님이 회원님의 피드에 댓글을 남겼습니다.`;
 
-    // 1) 알림 문서 저장
     const notificationRef = db
       .collection("users")
       .doc(targetUid)
@@ -397,24 +419,17 @@ export const onCommentCreatedSendNotification = functions
       senderNickname,
       title: "새 댓글",
       body,
-      contentPreview: content.length > 60 ? `${content.substring(0, 60)}...` : content,
+      contentPreview:
+        content.length > 60 ? `${content.substring(0, 60)}...` : content,
     });
 
-    // 푸시 허용 안 하면 문서만 저장하고 끝
     if (!allowComment) return;
 
-    // 대상 유저의 fcm 토큰 조회
-    const tokenSnap = await db
-      .collection("users")
-      .doc(targetUid)
-      .collection("fcmTokens")
-      .get();
-
-    if (tokenSnap.empty) return;
-
-    const tokens = tokenSnap.docs
-      .map((doc) => ((doc.data().token as string | undefined) ?? "").trim())
-      .filter((token: string) => token.length > 0);
+    const tokens = Array.isArray(targetUser.fcmTokens) ?
+      (targetUser.fcmTokens as string[]).filter(
+        (token: string) => token.trim().length > 0,
+      ) :
+      [];
 
     if (tokens.length === 0) return;
 
@@ -446,8 +461,6 @@ export const onCommentCreatedSendNotification = functions
     };
 
     const response = await messaging.sendEachForMulticast(message);
-
-    // invalid token 정리
     const invalidTokens: string[] = [];
 
     response.responses.forEach(
@@ -456,7 +469,7 @@ export const onCommentCreatedSendNotification = functions
           const code = r.error?.code ?? "";
           if (
             code === "messaging/invalid-registration-token" ||
-           code === "messaging/registration-token-not-registered"
+            code === "messaging/registration-token-not-registered"
           ) {
             invalidTokens.push(tokens[index]);
           }
@@ -464,15 +477,14 @@ export const onCommentCreatedSendNotification = functions
       },
     );
 
-    for (const token of invalidTokens) {
-      await db
-        .collection("users")
-        .doc(targetUid)
-        .collection("fcmTokens")
-        .doc(token)
-        .delete();
+    if (invalidTokens.length > 0) {
+      await db.collection("users").doc(targetUid).update({
+        fcmTokens: admin.firestore.FieldValue.arrayRemove(...invalidTokens),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
     }
   });
+
 export const sendLikeNotification = functions.firestore
   .document("feeds/{feedId}/likes/{uid}")
   .onCreate(async (snap, context) => {
@@ -532,17 +544,17 @@ export const sendLikeNotification = functions.firestore
     if (!allowLike) return;
 
     // 대상 유저의 fcm 토큰 조회
-    const tokenSnap = await db
-      .collection("users")
-      .doc(targetUid)
-      .collection("fcmTokens")
-      .get();
+   const targetUserSnap = await db.collection("users").doc(targetUid).get();
+   if (!targetUserSnap.exists) return;
 
-    const tokens = tokenSnap.docs
-      .map((doc) => ((doc.data().token as string | undefined) ?? "").trim())
-      .filter((token: string) => token.length > 0);
+   const targetUser = targetUserSnap.data() ?? {};
+   const tokens = Array.isArray(targetUser.fcmTokens)
+     ? (targetUser.fcmTokens as string[]).filter(
+         (token: string) => token.trim().length > 0,
+       )
+     : [];
 
-    if (tokens.length === 0) return;
+   if (tokens.length === 0) return;
 
     const message: admin.messaging.MulticastMessage = {
       tokens,
@@ -589,13 +601,221 @@ export const sendLikeNotification = functions.firestore
       },
     );
 
-    for (const token of invalidTokens) {
-      await db
+   if (invalidTokens.length > 0) {
+     await db.collection("users").doc(targetUid).update({
+       fcmTokens: admin.firestore.FieldValue.arrayRemove(...invalidTokens),
+       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+     });
+   }
+  });
+export const sendChatMessageNotification = functions.firestore
+  .document("chatRooms/{roomId}/messages/{messageId}")
+  .onCreate(async (snap, context) => {
+    const roomId = context.params.roomId;
+    const messageId = context.params.messageId;
+    const message = snap.data();
+
+    if (!message) return;
+
+    const authorUid = (message.authorUid as string | undefined) ?? "";
+    const type = (message.type as string | undefined) ?? "text";
+    const text = (message.text as string | undefined) ?? "";
+    const createdAt =
+      (message.createdAt as admin.firestore.Timestamp | undefined) ??
+      admin.firestore.Timestamp.now();
+
+    if (!authorUid) return;
+
+    const roomRef = db.collection("chatRooms").doc(roomId);
+    const roomSnap = await roomRef.get();
+    if (!roomSnap.exists) return;
+
+    const room = roomSnap.data() ?? {};
+
+    const userUids = Array.isArray(room.userUids) ?
+      (room.userUids as string[]) :
+      [];
+
+    const visibleUids = Array.isArray(room.visibleUids) ?
+      (room.visibleUids as string[]) :
+      [];
+
+    const activeAtMap =
+      (room.activeAtMap as Record<string, admin.firestore.Timestamp> | undefined) ??
+      {};
+
+    const chatPushOffMap =
+      (room.chatPushOffMap as Record<string, boolean> | undefined) ?? {};
+
+    if (userUids.length === 0) return;
+
+    const receiverUids = userUids.filter((uid) => uid !== authorUid);
+
+    // 작성자 정보 1회 조회
+    const authorSnap = await db.collection("users").doc(authorUid).get();
+    const author = authorSnap.data() ?? {};
+    const authorNickname =
+      (author.nickname as string | undefined) ?? "누군가";
+
+    let messagePreview = "";
+    if (type === "image") {
+      messagePreview = "사진을 보냈습니다.";
+    } else if (type === "system") {
+      messagePreview = text || "시스템 메시지";
+    } else {
+      messagePreview = text || "메시지를 보냈습니다.";
+    }
+
+    const roomTitle = (() => {
+      const explicitTitle = (room.title as string | undefined) ?? "";
+      if (explicitTitle.trim().length > 0) return explicitTitle;
+      return authorNickname;
+    })();
+
+    // 1) 채팅방 메타 업데이트
+    const roomUpdates: Record<string, unknown> = {
+      lastMessageText: type === "image" ? "사진" : messagePreview,
+      lastMessageType: type,
+      lastMessageAt: createdAt,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    };
+
+    for (const targetUid of receiverUids) {
+      roomUpdates[`unreadCountMap.${targetUid}`] =
+        admin.firestore.FieldValue.increment(1);
+    }
+
+    await roomRef.update(roomUpdates);
+
+    // 2) 수신자 users 문서를 한 번에(10개씩) 읽어서 맵으로 만듦
+    const targetUserMap: Record<string, FirebaseFirestore.DocumentData> = {};
+
+    const chunkSize = 10;
+    for (let i = 0; i < receiverUids.length; i += chunkSize) {
+      const chunk = receiverUids.slice(i, i + chunkSize);
+      if (chunk.length === 0) continue;
+
+      const userSnap = await db
         .collection("users")
-        .doc(targetUid)
-        .collection("fcmTokens")
-        .doc(token)
-        .delete();
+        .where(admin.firestore.FieldPath.documentId(), "in", chunk)
+        .get();
+
+      for (const doc of userSnap.docs) {
+        targetUserMap[doc.id] = doc.data();
+      }
+    }
+
+    // 3) 실제 푸시 대상 추리기
+    const pushTargets: Array<{
+      uid: string;
+      tokens: string[];
+    }> = [];
+
+    for (const targetUid of receiverUids) {
+      if (!visibleUids.includes(targetUid)) continue;
+
+      const targetUser = targetUserMap[targetUid];
+      if (!targetUser) continue;
+
+      const notificationSettings =
+        (targetUser.notificationSettings as Record<string, unknown> | undefined) ??
+        {};
+
+      // 전역 채팅 알림: 없으면 기본 true
+      const allowGlobalChat =
+        typeof notificationSettings.chat === "boolean" ?
+          notificationSettings.chat :
+          true;
+
+      if (!allowGlobalChat) continue;
+
+      // 방별 채팅 알림: 없음/true 허용, false 차단
+      const allowRoomPush = chatPushOffMap[targetUid] !== false;
+      if (!allowRoomPush) continue;
+
+      // 현재 방 보고 있으면 푸시 생략
+      const activeAt = activeAtMap[targetUid];
+      if (activeAt) {
+        const diffMs = createdAt.toMillis() - activeAt.toMillis();
+        if (diffMs <= 60 * 1000) continue;
+      }
+
+      const tokens = Array.isArray(targetUser.fcmTokens) ?
+        (targetUser.fcmTokens as string[]).filter(
+          (token: string) => token.trim().length > 0,
+        ) :
+        [];
+
+      if (tokens.length === 0) continue;
+
+      pushTargets.push({
+        uid: targetUid,
+        tokens,
+      });
+    }
+
+    if (pushTargets.length === 0) return;
+
+    // 4) 푸시 발송 (수신자별)
+    const pushTitle = roomTitle;
+    const pushBody = type === "image" ?
+      `${authorNickname}님이 사진을 보냈습니다.` :
+      `${authorNickname}: ${messagePreview}`;
+
+    for (const target of pushTargets) {
+      const multicastMessage: admin.messaging.MulticastMessage = {
+        tokens: target.tokens,
+        notification: {
+          title: pushTitle,
+          body: pushBody,
+        },
+        data: {
+          type: "chat",
+          roomId,
+          roomType: room.type ?? "dm",
+          otherUid: room.type === "dm" ? authorUid : "",
+          meetId: room.type === "group" ? (room.meetId ?? "") : "",
+          messageId,
+          senderUid: authorUid,
+          senderNickname: authorNickname,
+        },
+        android: {
+          notification: {
+            channelId: "chat",
+          },
+        },
+        apns: {
+          payload: {
+            aps: {
+              sound: "default",
+            },
+          },
+        },
+      };
+
+      const response = await messaging.sendEachForMulticast(multicastMessage);
+
+      const invalidTokens: string[] = [];
+
+      response.responses.forEach(
+        (r: admin.messaging.SendResponse, index: number) => {
+          if (!r.success) {
+            const code = r.error?.code ?? "";
+            if (
+              code === "messaging/invalid-registration-token" ||
+              code === "messaging/registration-token-not-registered"
+            ) {
+              invalidTokens.push(target.tokens[index]);
+            }
+          }
+        },
+      );
+
+      if (invalidTokens.length > 0) {
+        await db.collection("users").doc(target.uid).update({
+          fcmTokens: admin.firestore.FieldValue.arrayRemove(...invalidTokens),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      }
     }
   });
-

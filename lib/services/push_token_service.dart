@@ -7,6 +7,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:hellchinza/chat/chat_room/chat_room_view.dart';
 import 'package:hellchinza/main.dart';
 
 import '../feed/feed_detail/feed_detail_view.dart';
@@ -65,14 +66,34 @@ class PushTokenService {
   }
   void _handleNavigation(Map<String, dynamic> data) {
     final type = data['type'];
-    final feedId = data['feedId'];
-
-    if (feedId == null) return;
 
     if (type == 'comment' || type == 'like') {
+      final feedId = data['feedId'];
+      if (feedId == null) return;
+
       rootNavigatorKey.currentState?.push(
         MaterialPageRoute(
           builder: (_) => FeedDetailView(feedId: feedId),
+        ),
+      );
+    }
+
+    if (type == 'chat') {
+      final roomId = data['roomId'];
+      final roomType = data['roomType'];
+      final otherUid = data['otherUid'];
+      final meetId = data['meetId'];
+
+      if (roomId == null || roomType == null) return;
+
+      rootNavigatorKey.currentState?.push(
+        MaterialPageRoute(
+          builder: (_) => ChatView(
+            roomId: roomId,
+            roomType: roomType,
+            otherUid: roomType == 'dm' ? otherUid : null,
+            meetId: roomType == 'group' ? meetId : null,
+          ),
         ),
       );
     }
@@ -222,14 +243,10 @@ class PushTokenService {
   Future<void> _saveToken(String uid, String token) async {
     final docRef = FirebaseFirestore.instance
         .collection('users')
-        .doc(uid)
-        .collection('fcmTokens')
-        .doc(token);
+        .doc(uid);
 
     await docRef.set({
-      'token': token,
-      'platform': _platformName(),
-      'createdAt': FieldValue.serverTimestamp(),
+      'fcmTokens': FieldValue.arrayUnion([token]),
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
   }
@@ -251,8 +268,9 @@ class PushTokenService {
     await FirebaseFirestore.instance
         .collection('users')
         .doc(user.uid)
-        .collection('fcmTokens')
-        .doc(token)
-        .delete();
+        .update({
+      'fcmTokens': FieldValue.arrayRemove([token]),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
   }
 }

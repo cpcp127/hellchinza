@@ -105,6 +105,28 @@ class _ChatViewState extends ConsumerState<ChatView>
         title: Text('채팅', style: AppTextStyle.titleMediumBoldStyle),
 
         actions: [
+          roomAsync.when(
+            data: (doc) {
+              final data = doc.data() as Map<String, dynamic>;
+              final map = data['chatPushOffMap'] ?? {};
+              final muted = map[FirebaseAuth.instance.currentUser!.uid] == false;
+
+              return IconButton(
+                icon: Icon(
+                  muted ? Icons.notifications_off : Icons.notifications,
+                  color: AppColors.icDefault,
+                ),
+                onPressed: () {
+                  controller.toggleRoomPush(
+                    context: context,
+                    roomId: widget.roomId,
+                  );
+                },
+              );
+            },
+            loading: () => const SizedBox(),
+            error: (_, __) => const SizedBox(),
+          ),
           IconButton(
             icon: const Icon(Icons.more_horiz, color: AppColors.icDefault),
             onPressed: () {
