@@ -201,7 +201,7 @@ class CreateFeedController extends StateNotifier<CreateFeedState> {
       'contents': state.contents,
 
       'imageUrls': null,
-      'likeUids': <String>[],
+
 
       'poll': _buildPollMapOrNull(state.pollOptions),
       'place': state.selectedPlace?.toJson(),

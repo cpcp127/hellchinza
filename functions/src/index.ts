@@ -170,12 +170,18 @@ async function deleteUserCommentsEverywhere(uid: string) {
 }
 
 async function cleanupLikesAndMembership(uid: string) {
-  // feeds.likeUids
-  await removeUidFromArrayFieldAcrossQuery(
-    db.collection("feeds").where("likeUids", "array-contains", uid).orderBy(admin.firestore.FieldPath.documentId()),
-    "likeUids",
-    uid,
-  );
+  const likeSnap = await db
+    .collectionGroup("likes")
+    .where("uid", "==", uid)
+    .get();
+
+  const batch = db.batch();
+
+  likeSnap.docs.forEach((doc) => {
+    batch.delete(doc.ref);
+  });
+
+  await batch.commit();
 
   // meets.memberUids
   await removeUidFromArrayFieldAcrossQuery(
@@ -299,7 +305,7 @@ export const deleteUserData = functions
       await deleteAuthoredLightnings(uid);
       await deleteAuthoredFeeds(uid);
       await deleteAuthoredMeets(uid);
-
+      await deleteSubcollectionByPath(`users/${uid}/notifications`);
       // 4) 유저 하위 데이터 / 역참조 정리
       await cleanupFriendsAndBlocks(uid);
 
@@ -467,3 +473,129 @@ export const onCommentCreatedSendNotification = functions
         .delete();
     }
   });
+export const sendLikeNotification = functions.firestore
+  .document("feeds/{feedId}/likes/{uid}")
+  .onCreate(async (snap, context) => {
+    const feedId = context.params.feedId;
+    const uid = context.params.uid;
+
+    const feedDoc = await db.collection("feeds").doc(feedId).get();
+    if (!feedDoc.exists) return;
+
+    const feed = feedDoc.data();
+    const targetUid = feed?.authorUid as string | undefined;
+
+    // 피드 작성자 없으면 중단
+    if (!targetUid) return;
+
+    // 본인 좋아요는 알림 안 보냄
+    if (targetUid === uid) return;
+
+    // 좋아요 누른 유저 정보
+    const userDoc = await db.collection("users").doc(uid).get();
+    const nickname = (userDoc.data()?.nickname as string | undefined) ?? "누군가";
+
+    // 대상 유저 알림 설정 확인
+    const targetUserDoc = await db.collection("users").doc(targetUid).get();
+    const notificationSettings =
+      (targetUserDoc.data()?.notificationSettings ??
+        {}) as Record<string, unknown>;
+
+    // ✅ 키 없으면 기본 true
+    const allowLike =
+      typeof notificationSettings.like === "boolean" ?
+        notificationSettings.like :
+        true;
+
+    const body = `${nickname}님이 회원님의 피드를 좋아합니다.`;
+
+    // 1) 알림 문서 저장 (댓글과 동일 패턴)
+    const notificationRef = db
+      .collection("users")
+      .doc(targetUid)
+      .collection("notifications")
+      .doc();
+
+    await notificationRef.set({
+      id: notificationRef.id,
+      type: "like",
+      isRead: false,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      feedId,
+      senderUid: uid,
+      senderNickname: nickname,
+      title: "새 좋아요",
+      body,
+    });
+
+    // 푸시 허용 안 하면 문서만 저장하고 종료
+    if (!allowLike) return;
+
+    // 대상 유저의 fcm 토큰 조회
+    const tokenSnap = await db
+      .collection("users")
+      .doc(targetUid)
+      .collection("fcmTokens")
+      .get();
+
+    const tokens = tokenSnap.docs
+      .map((doc) => ((doc.data().token as string | undefined) ?? "").trim())
+      .filter((token: string) => token.length > 0);
+
+    if (tokens.length === 0) return;
+
+    const message: admin.messaging.MulticastMessage = {
+      tokens,
+      notification: {
+        title: "새 좋아요",
+        body,
+      },
+      data: {
+        type: "like",
+        feedId,
+        senderUid: uid,
+        senderNickname: nickname,
+      },
+      android: {
+        notification: {
+          channelId: "social",
+        },
+      },
+      apns: {
+        payload: {
+          aps: {
+            sound: "default",
+          },
+        },
+      },
+    };
+
+    const response = await messaging.sendEachForMulticast(message);
+
+    // invalid token 정리
+    const invalidTokens: string[] = [];
+
+    response.responses.forEach(
+      (r: admin.messaging.SendResponse, index: number) => {
+        if (!r.success) {
+          const code = r.error?.code ?? "";
+          if (
+            code === "messaging/invalid-registration-token" ||
+            code === "messaging/registration-token-not-registered"
+          ) {
+            invalidTokens.push(tokens[index]);
+          }
+        }
+      },
+    );
+
+    for (const token of invalidTokens) {
+      await db
+        .collection("users")
+        .doc(targetUid)
+        .collection("fcmTokens")
+        .doc(token)
+        .delete();
+    }
+  });
+

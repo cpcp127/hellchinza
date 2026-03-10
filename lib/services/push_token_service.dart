@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -6,6 +7,9 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:hellchinza/main.dart';
+
+import '../feed/feed_detail/feed_detail_view.dart';
 
 class PushTokenService {
   PushTokenService._();
@@ -28,19 +32,50 @@ class PushTokenService {
     await _setForegroundPresentationOptions();
     _listenForegroundMessages();
 
-    // 현재 토큰 저장
+    _listenNotificationClick();   // 🔥 추가
+    _checkInitialMessage();       // 🔥 추가
+
     final token = await _messaging.getToken();
     if (token != null && token.isNotEmpty) {
       await _saveToken(user.uid, token);
     }
 
-    // 토큰 갱신 감지 후 재저장
     _tokenRefreshStream ??= _messaging.onTokenRefresh;
     _tokenRefreshStream!.listen((token) async {
       final currentUser = FirebaseAuth.instance.currentUser;
       if (currentUser == null) return;
       await _saveToken(currentUser.uid, token);
     });
+  }
+
+  void _listenNotificationClick() {
+    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+      debugPrint('notification opened from background');
+      _handleNavigation(message.data);
+    });
+  }
+
+  Future<void> _checkInitialMessage() async {
+    final message = await _messaging.getInitialMessage();
+
+    if (message != null) {
+      debugPrint('notification opened from terminated');
+      _handleNavigation(message.data);
+    }
+  }
+  void _handleNavigation(Map<String, dynamic> data) {
+    final type = data['type'];
+    final feedId = data['feedId'];
+
+    if (feedId == null) return;
+
+    if (type == 'comment' || type == 'like') {
+      rootNavigatorKey.currentState?.push(
+        MaterialPageRoute(
+          builder: (_) => FeedDetailView(feedId: feedId),
+        ),
+      );
+    }
   }
 
   Future<void> _requestPermission() async {
@@ -74,7 +109,13 @@ class PushTokenService {
       settings: initSettings,
       onDidReceiveNotificationResponse: (response) {
         debugPrint('local notification tapped: ${response.payload}');
-        // TODO: 여기서 payload 파싱해서 화면 이동 처리
+        if (response.payload == null) return;
+
+        final data = Map<String, dynamic>.from(
+          jsonDecode(response.payload!),
+        );
+
+        _handleNavigation(data);
       },
     );
 
@@ -129,7 +170,7 @@ class PushTokenService {
               icon: '@mipmap/launcher_icon',
             ),
           ),
-          payload: message.data.toString(),
+          payload: jsonEncode(message.data),
           id: DateTime.now().millisecondsSinceEpoch ~/ 1000,
         );
       }

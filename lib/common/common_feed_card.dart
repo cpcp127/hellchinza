@@ -501,6 +501,33 @@ class PollSection extends ConsumerWidget {
   }
 }
 
+final isFeedLikedProvider =
+FutureProvider.autoDispose.family<bool, String>((ref, feedId) async {
+  final uid = FirebaseAuth.instance.currentUser?.uid;
+  if (uid == null) return false;
+
+  final doc = await FirebaseFirestore.instance
+      .collection('feeds')
+      .doc(feedId)
+      .collection('likes')
+      .doc(uid)
+      .get();
+
+  return doc.exists;
+});
+
+final feedLikeCountProvider =
+FutureProvider.autoDispose.family<int, String>((ref, feedId) async {
+  final result = await FirebaseFirestore.instance
+      .collection('feeds')
+      .doc(feedId)
+      .collection('likes')
+      .count()
+      .get();
+
+  return result.count ?? 0;
+});
+
 class _FeedActionRow extends ConsumerWidget {
   final FeedModel feed;
 
@@ -509,7 +536,11 @@ class _FeedActionRow extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final myUid = FirebaseAuth.instance.currentUser?.uid;
-    final isLiked = feed.likeUids.contains(myUid);
+    final isLikedAsync = ref.watch(isFeedLikedProvider(feed.id));
+    final likeCountAsync = ref.watch(feedLikeCountProvider(feed.id));
+
+    final isLiked = isLikedAsync.value ?? false;
+    final likeCount = likeCountAsync.value ?? 0;
     return Row(
       children: [
         Row(
@@ -520,7 +551,8 @@ class _FeedActionRow extends ConsumerWidget {
                   feedId: feed.id,
                   myUid: myUid ?? '',
                 );
-
+                ref.invalidate(isFeedLikedProvider(feed.id));
+                ref.invalidate(feedLikeCountProvider(feed.id));
                 ref.invalidate(feedDocProvider(feed.id));
               },
               child: Icon(
@@ -534,11 +566,11 @@ class _FeedActionRow extends ConsumerWidget {
               onTap: () {
                 LikeUserBottomSheet.show(
                   context: context,
-                  likeUids: feed.likeUids,
+                  feedId: feed.id,
                 );
               },
               child: Text(
-                '${feed.likeUids.length}',
+                '$likeCount',
                 style: AppTextStyle.labelMediumStyle.copyWith(
                   color: AppColors.textSecondary,
                 ),

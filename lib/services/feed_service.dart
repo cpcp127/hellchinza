@@ -14,25 +14,18 @@ class FeedService {
     required String feedId,
     required String myUid,
   }) async {
-    final ref = FirebaseFirestore.instance.collection('feeds').doc(feedId);
+    final feedRef = FirebaseFirestore.instance.collection('feeds').doc(feedId);
+    final likeRef = feedRef.collection('likes').doc(myUid);
 
     await FirebaseFirestore.instance.runTransaction((tx) async {
-      final snapshot = await tx.get(ref);
+      final likeDoc = await tx.get(likeRef);
 
-      if (!snapshot.exists) return;
-
-      final data = snapshot.data()!;
-      final List likeUids = data['likeUids'] ?? [];
-
-      if (likeUids.contains(myUid)) {
-        // 💔 좋아요 취소
-        tx.update(ref, {
-          'likeUids': FieldValue.arrayRemove([myUid]),
-        });
+      if (likeDoc.exists) {
+        tx.delete(likeRef);
       } else {
-        // ❤️ 좋아요
-        tx.update(ref, {
-          'likeUids': FieldValue.arrayUnion([myUid]),
+        tx.set(likeRef, {
+          'uid': myUid,
+          'createdAt': FieldValue.serverTimestamp(),
         });
       }
     });
