@@ -23,6 +23,7 @@ import '../constants/app_colors.dart';
 import '../constants/app_text_style.dart';
 import '../services/dialog_service.dart';
 import '../services/snackbar_service.dart';
+import '../workout_goal/presentation/workout_goal_root_view.dart';
 
 final userByUidProvider = FutureProvider.family<UserModel?, String>((
   ref,
@@ -36,8 +37,10 @@ final userByUidProvider = FutureProvider.family<UserModel?, String>((
   return UserModel.fromFirestore(doc.data()!); // ✅ 너 변환 함수에 맞춰
 });
 
-final friendCountProvider =
-FutureProvider.family<int?, String>((ref, uid) async {
+final friendCountProvider = FutureProvider.family<int?, String>((
+  ref,
+  uid,
+) async {
   final aggregateQuery = FirebaseFirestore.instance
       .collection('users')
       .doc(uid)
@@ -144,7 +147,7 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
                   loading: state.isBusy,
                   onTap: () async {
                     // ✅ View는 메시지 입력만 받고 controller 호출
-                    final msg =  await DialogService.showTextInput(
+                    final msg = await DialogService.showTextInput(
                       context: context,
                       title: '친구 신청',
                       hintText: '신청 메시지를 입력하세요',
@@ -250,17 +253,14 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
     );
   }
 
-
-
   Future<bool> _confirmBlockDialog(BuildContext context) async {
-    final result =  await DialogService.showConfirm(
+    final result = await DialogService.showConfirm(
       context: context,
-      title:  '차단할까요?',
+      title: '차단할까요?',
       message: '차단하면 서로 프로필/피드가 제한되고 친구도 끊어집니다.',
       confirmText: '차단하기',
       isDestructive: true,
     );
-
 
     return result == true;
   }
@@ -532,40 +532,45 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
                     onTap: (str) {},
                   ),
                 const SizedBox(height: 14),
-                Builder(builder: (context){
-                  final asyncCount = ref.watch(friendCountProvider(user.uid));
-                  return asyncCount.when(
-                    loading: () => Text(
-                      '친구 -명',
-                      style: AppTextStyle.labelMediumStyle.copyWith(
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                    error: (_, __) => Text(
-                      '친구 ?명',
-                      style: AppTextStyle.labelMediumStyle.copyWith(
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                    data: (count) => GestureDetector(
-                      onTap: (){
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => FriendListView(targetUid: user.uid),
-                          ),
-                        );
-                      },
-                      child: Text(
-                        '친구 $count명',
+                Builder(
+                  builder: (context) {
+                    final asyncCount = ref.watch(friendCountProvider(user.uid));
+                    return asyncCount.when(
+                      loading: () => Text(
+                        '친구 -명',
                         style: AppTextStyle.labelMediumStyle.copyWith(
                           color: AppColors.textSecondary,
-                          fontWeight: FontWeight.w700,
                         ),
                       ),
-                    ),
-                  );
-                })
+                      error: (_, __) => Text(
+                        '친구 ?명',
+                        style: AppTextStyle.labelMediumStyle.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      data: (count) => GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  FriendListView(targetUid: user.uid),
+                            ),
+                          );
+                        },
+                        child: Text(
+                          '친구 $count명',
+                          style: AppTextStyle.labelMediumStyle.copyWith(
+                            color: AppColors.textSecondary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                SizedBox(height: 12),
+                if (user.workoutGoal != null) _WorkoutGoalButton(uid: user.uid),
               ],
             ),
           ),
@@ -595,6 +600,64 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
                 color: AppColors.textSecondary,
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _WorkoutGoalButton extends StatelessWidget {
+  const _WorkoutGoalButton({required this.uid});
+
+  final String uid;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => WorkoutGoalRootView(uid: uid, isHomeWidget: false),
+          ),
+        );
+      },
+      child: Container(
+
+
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: AppColors.bgWhite,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.borderSecondary),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: AppColors.sky50,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              alignment: Alignment.center,
+              child: const Icon(
+                Icons.fitness_center,
+                size: 18,
+                color: AppColors.sky400,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                '오운완 기록 보기',
+                style: AppTextStyle.titleSmallBoldStyle.copyWith(
+                  color: AppColors.textDefault,
+                ),
+              ),
+            ),
+            const Icon(Icons.chevron_right, color: AppColors.icSecondary),
           ],
         ),
       ),

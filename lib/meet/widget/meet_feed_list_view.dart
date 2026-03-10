@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_pagination/firebase_pagination.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -217,7 +218,9 @@ class _MeetFeedListViewState extends ConsumerState<MeetFeedListView> {
                   ),
                 );
                 ref.invalidate(meetPhotoFeedSectionProvider(widget.meetId));
-                ref.read(workoutGoalControllerProvider.notifier).init();
+                ref
+                    .read(workoutGoalControllerProvider.notifier)
+                    .init(uid: FirebaseAuth.instance.currentUser!.uid);
                 _triggerRefresh();
               },
               style: ElevatedButton.styleFrom(

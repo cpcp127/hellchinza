@@ -67,25 +67,7 @@ class SettingController extends StateNotifier<SettingState> {
     }
   }
 
-  Future<void> updateNotificationSetting({
-    required String key,
-    required bool value,
-  }) async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return;
 
-    final userRef = FirebaseFirestore.instance.collection('users').doc(uid);
-
-    await userRef.update({
-      'notificationSettings.$key': value,
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
-
-    final next = Map<String, bool>.from(state.notificationSettings);
-    next[key] = value;
-
-    state = state.copyWith(notificationSettings: next);
-  }
   /// ✅ 로그아웃
   Future<void> logout(BuildContext context) async {
     state = state.copyWith(isLoading: true, errorMessage: null);
@@ -135,5 +117,24 @@ class SettingController extends StateNotifier<SettingState> {
       state = state.copyWith(isLoading: false, errorMessage: '회원탈퇴 실패');
       rethrow;
     }
+  }
+
+  Future<void> updateNotificationSetting(String key, bool value) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+
+    final ref = FirebaseFirestore.instance.collection('users').doc(uid);
+
+    await ref.set({
+      'notificationSettings.$key': value,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+
+    state = state.copyWith(
+      notificationSettings: {
+        ...state.notificationSettings,
+        key: value,
+      },
+    );
   }
 }

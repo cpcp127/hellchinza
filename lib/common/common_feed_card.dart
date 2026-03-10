@@ -237,7 +237,7 @@ class _AuthorSection extends ConsumerWidget {
                         if (feed.mainType == '오운완') {
                           ref
                               .read(workoutGoalControllerProvider.notifier)
-                              .init();
+                              .init(uid: feed.authorUid);
                         }
                         if (feed.meetId == null) {
                           ref
@@ -256,7 +256,7 @@ class _AuthorSection extends ConsumerWidget {
                         if (feed.mainType == '오운완') {
                           ref
                               .read(workoutGoalControllerProvider.notifier)
-                              .init();
+                              .init(uid: feed.authorUid);
                         }
                         if (feed.meetId == null) {
                           ref

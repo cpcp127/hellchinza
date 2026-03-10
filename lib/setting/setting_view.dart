@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hellchinza/setting/setting_controller.dart';
@@ -123,6 +124,40 @@ class _SettingViewState extends ConsumerState<SettingView> {
               ],
             ),
 
+            const SizedBox(height: 16),
+
+// ---------------- 알림 설정 ----------------
+            _SettingSection(
+              title: '알림 설정',
+              children: [
+                _SettingSwitchTile(
+                  title: '채팅 알림',
+                  subtitle: '새 채팅 메시지 알림을 받습니다',
+                  value: state.notificationSettings['chat'] ?? true,
+                  onChanged: (v) {
+                    controller.updateNotificationSetting('chat', v);
+                  },
+                ),
+
+                _SettingSwitchTile(
+                  title: '댓글 알림',
+                  subtitle: '내 피드에 댓글이 달리면 알림을 받습니다',
+                  value: state.notificationSettings['comment'] ?? true,
+                  onChanged: (v) {
+                    controller.updateNotificationSetting('comment', v);
+                  },
+                ),
+
+                _SettingSwitchTile(
+                  title: '좋아요 알림',
+                  subtitle: '내 피드에 좋아요가 눌리면 알림을 받습니다',
+                  value: state.notificationSettings['like'] ?? true,
+                  onChanged: (v) {
+                    controller.updateNotificationSetting('like', v);
+                  },
+                ),
+              ],
+            ),
             const SizedBox(height: 16),
 
             // ---------------- 앱 정보 ----------------
@@ -261,6 +296,57 @@ class _SettingTile extends StatelessWidget {
             Icon(Icons.chevron_right, color: AppColors.icSecondary),
           ],
         ),
+      ),
+    );
+  }
+}
+class _SettingSwitchTile extends StatelessWidget {
+  final String title;
+  final String? subtitle;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  const _SettingSwitchTile({
+    required this.title,
+    this.subtitle,
+    required this.value,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: AppTextStyle.titleSmallBoldStyle.copyWith(
+                    color: AppColors.textDefault,
+                  ),
+                ),
+                if (subtitle != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle!,
+                    style: AppTextStyle.bodySmallStyle.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          CupertinoSwitch(
+            value: value,
+            activeColor: AppColors.btnPrimary,
+            onChanged: onChanged,
+          ),
+        ],
       ),
     );
   }

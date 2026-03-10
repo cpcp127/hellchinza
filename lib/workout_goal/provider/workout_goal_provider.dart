@@ -9,11 +9,11 @@ import '../presentation/workout_goal_controller.dart';
 import '../presentation/workout_goal_state.dart';
 
 /// ✅ user 목표(주 n회)
-final workoutGoalProvider = FutureProvider<int?>((ref) async {
-  final uid = FirebaseAuth.instance.currentUser?.uid;
-  if (uid == null) return null;
+final workoutGoalProvider =
+FutureProvider.family<int?, String>((ref, uid) async {
+  final snap =
+  await FirebaseFirestore.instance.collection('users').doc(uid).get();
 
-  final snap = await FirebaseFirestore.instance.collection('users').doc(uid).get();
   final data = snap.data();
   if (data == null) return null;
 
@@ -27,32 +27,38 @@ final workoutGoalProvider = FutureProvider<int?>((ref) async {
 });
 
 /// ✅ 이번 주 내 오운완 피드(개인) 전부 가져오기
-final myWeeklyOowFeedsProvider =
-FutureProvider.family<List<FeedModel>, DateTime>((ref, anyDayInWeek) async {
-  final uid = FirebaseAuth.instance.currentUser?.uid;
-  if (uid == null) return [];
+final userWeeklyOowFeedsProvider =
+FutureProvider.family<List<FeedModel>, ({String uid, DateTime anyDayInWeek})>(
+      (ref, param) async {
+    final uid = param.uid;
+    final anyDayInWeek = param.anyDayInWeek;
 
-  // ✅ weekStart/End는 00:00 기준이 되도록(너 util이 이미 그러면 문제 없음)
-  final weekStart = DateTimeUtil.startOfWeekMonday(anyDayInWeek);
-  final weekEnd = weekStart.add(const Duration(days: 7));
+    final weekStart = DateTimeUtil.startOfWeekMonday(anyDayInWeek);
+    final weekEnd = weekStart.add(const Duration(days: 7));
 
-  try {
-    final q = FirebaseFirestore.instance
-        .collection('feeds')
-        .where('authorUid', isEqualTo: uid)
-        .where('mainType', isEqualTo: '오운완')
-        .where('meetId', isNull: true)
-        .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(weekStart))
-        .where('createdAt', isLessThan: Timestamp.fromDate(weekEnd))
-        .orderBy('createdAt', descending: true);
+    try {
+      final q = FirebaseFirestore.instance
+          .collection('feeds')
+          .where('authorUid', isEqualTo: uid)
+          .where('mainType', isEqualTo: '오운완')
+          .where('meetId', isNull: true)
+          .where(
+        'createdAt',
+        isGreaterThanOrEqualTo: Timestamp.fromDate(weekStart),
+      )
+          .where(
+        'createdAt',
+        isLessThan: Timestamp.fromDate(weekEnd),
+      )
+          .orderBy('createdAt', descending: true);
 
-    final snap = await q.get();
-    return snap.docs.map((d) => FeedModel.fromJson(d.data())).toList();
-  } catch (e) {
-    // ✅ 인덱스 미생성/권한 등 에러가 떠도 앱이 죽지 않게
-    return [];
-  }
-});
+      final snap = await q.get();
+      return snap.docs.map((d) => FeedModel.fromJson(d.data())).toList();
+    } catch (e) {
+      return [];
+    }
+  },
+);
 
 final workoutGoalControllerProvider =
 StateNotifierProvider.autoDispose<WorkoutGoalController, WorkoutGoalState>(

@@ -212,7 +212,7 @@ class _MyFeedsListViewState extends ConsumerState<MyFeedsListView> {
     return ListView.separated(
       controller: _scrollCtrl,
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+
       itemCount: _docs.length + 1,
       separatorBuilder: (_, __) => const SizedBox(height: 12),
       itemBuilder: (context, index) {

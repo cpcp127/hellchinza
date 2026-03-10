@@ -1,20 +1,19 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:hellchinza/auth/domain/user_model.dart';
-
 import 'package:hellchinza/utils/date_time_util.dart';
 
 import '../../common/common_feed_card.dart';
 import '../../constants/app_colors.dart';
 import '../../constants/app_text_style.dart';
-import '../presentation/workout_goal_controller.dart';
-import '../presentation/workout_goal_state.dart';
-import '../provider/workout_goal_provider.dart'; // workoutGoalControllerProvider
 import '../domain/week_oow_stat_model.dart';
+import '../provider/workout_goal_provider.dart';
 
 class WorkoutGoalRootView extends ConsumerStatefulWidget {
-  const WorkoutGoalRootView({super.key});
+  const WorkoutGoalRootView({super.key, required this.uid, this.isHomeWidget});
+
+  final String uid;
+  final bool? isHomeWidget;
 
   @override
   ConsumerState<WorkoutGoalRootView> createState() =>
@@ -27,7 +26,7 @@ class _WorkoutGoalRootViewState extends ConsumerState<WorkoutGoalRootView> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final controller = ref.read(workoutGoalControllerProvider.notifier);
-      await controller.init();
+      await controller.init(uid: widget.uid);
     });
   }
 
@@ -36,17 +35,21 @@ class _WorkoutGoalRootViewState extends ConsumerState<WorkoutGoalRootView> {
     final state = ref.watch(workoutGoalControllerProvider);
     final controller = ref.read(workoutGoalControllerProvider.notifier);
 
-    final weekStart = DateTimeUtil.startOfWeekMonday(state.selectedDay);
+    final selectedDay = state.selectedDay ?? DateTime.now();
+    final weekStart = DateTimeUtil.startOfWeekMonday(selectedDay);
     final days = List.generate(7, (i) => weekStart.add(Duration(days: i)));
 
     final goal = state.goalPerWeek ?? 0;
     final done = state.doneDays;
     final progress = (goal <= 0) ? 0.0 : (done / goal).clamp(0.0, 1.0);
 
-    final selectedKey = DateTimeUtil.dateKey(state.selectedDay);
+    final selectedKey = DateTimeUtil.dateKey(selectedDay);
     final selectedFeeds = state.weekMap[selectedKey] ?? const [];
 
     return Scaffold(
+      appBar: widget.isHomeWidget == null || widget.isHomeWidget == true
+          ? null
+          : AppBar(),
       backgroundColor: AppColors.bgWhite,
       body: state.isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -55,13 +58,12 @@ class _WorkoutGoalRootViewState extends ConsumerState<WorkoutGoalRootView> {
               backgroundColor: AppColors.bgWhite,
               onRefresh: () async {
                 await controller.refresh();
-                await controller.loadLast5Weeks();
+                await controller.loadLast5Weeks(uid: widget.uid);
               },
               child: ListView(
                 children: [
-
                   const SizedBox(height: 12),
-                  // ✅ 이번주 목표(날짜 기준)
+
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: _WeeklyGoalCard(
@@ -72,12 +74,11 @@ class _WorkoutGoalRootViewState extends ConsumerState<WorkoutGoalRootView> {
                   ),
                   const SizedBox(height: 12),
 
-                  // ✅ 달력(파란점 = 그날 오운완 존재)
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: _WeekCalendarRow(
                       days: days,
-                      selectedDay: state.selectedDay,
+                      selectedDay: selectedDay,
                       hasOowByDay: (day) =>
                           (state
                               .weekMap[DateTimeUtil.dateKey(day)]
@@ -88,13 +89,10 @@ class _WorkoutGoalRootViewState extends ConsumerState<WorkoutGoalRootView> {
                   ),
                   const SizedBox(height: 12),
 
-                  // ✅ 최근 5주 차트 섹션 (여기 추가)
-
-                  // ✅ 선택 날짜 피드 리스트
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: Text(
-                      '${state.selectedDay.month}월 ${state.selectedDay.day}일 오운완',
+                      '${selectedDay.month}월 ${selectedDay.day}일 오운완',
                       style: AppTextStyle.titleSmallBoldStyle.copyWith(
                         color: AppColors.textDefault,
                       ),
@@ -114,7 +112,9 @@ class _WorkoutGoalRootViewState extends ConsumerState<WorkoutGoalRootView> {
                         child: FeedCard(feedId: f.id),
                       ),
                     ),
+
                   const SizedBox(height: 12),
+
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: _Last5WeeksChartCard(
@@ -123,6 +123,7 @@ class _WorkoutGoalRootViewState extends ConsumerState<WorkoutGoalRootView> {
                     ),
                   ),
                   const SizedBox(height: 12),
+
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: _SubTypeDonutSection(
@@ -130,7 +131,6 @@ class _WorkoutGoalRootViewState extends ConsumerState<WorkoutGoalRootView> {
                     ),
                   ),
                   const SizedBox(height: 12),
-
                 ],
               ),
             ),
@@ -351,7 +351,6 @@ class _Last5WeeksChartCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-
           if (!hasData)
             _Last5WeeksEmpty()
           else
@@ -386,8 +385,9 @@ class _Last5WeeksChartCard extends StatelessWidget {
                         reservedSize: 28,
                         interval: 1,
                         getTitlesWidget: (value, meta) {
-                          // 0,1,2...만 표시
-                          if (value % 1 != 0) return const SizedBox.shrink();
+                          if (value % 1 != 0) {
+                            return const SizedBox.shrink();
+                          }
                           return Padding(
                             padding: const EdgeInsets.only(right: 6),
                             child: Text(
@@ -406,8 +406,9 @@ class _Last5WeeksChartCard extends StatelessWidget {
                         reservedSize: 28,
                         getTitlesWidget: (value, meta) {
                           final i = value.toInt();
-                          if (i < 0 || i >= weeks.length)
+                          if (i < 0 || i >= weeks.length) {
                             return const SizedBox.shrink();
+                          }
                           final w = weeks[i];
                           return Padding(
                             padding: const EdgeInsets.only(top: 6),
@@ -455,7 +456,7 @@ class _Last5WeeksChartCard extends StatelessWidget {
                           borderRadius: BorderRadius.circular(6),
                           color: achieved
                               ? AppColors.sky400
-                              : AppColors.gray200, // ✅ 목표 미달은 연하게
+                              : AppColors.gray200,
                         ),
                       ],
                     );
@@ -483,7 +484,6 @@ class _Last5WeeksChartCard extends StatelessWidget {
                 ),
               ),
             ),
-
           const SizedBox(height: 8),
           Text(
             '※ “오운완 피드가 1개라도 있던 날짜”를 1일로 계산해요',
@@ -501,7 +501,6 @@ class _Last5WeeksChartCard extends StatelessWidget {
         .map((e) => e.doneDays)
         .fold<int>(0, (p, c) => c > p ? c : p);
     final base = (maxDone > target ? maxDone : target);
-    // 조금 여유
     return (base + 1).toDouble().clamp(3, 14);
   }
 
@@ -605,23 +604,30 @@ class _SubTypeDonutSection extends StatelessWidget {
         ),
         child: Column(
           children: [
-            const Icon(Icons.pie_chart_outline, size: 40, color: AppColors.icDisabled),
+            const Icon(
+              Icons.pie_chart_outline,
+              size: 40,
+              color: AppColors.icDisabled,
+            ),
             const SizedBox(height: 8),
             Text(
               '최근 5주 운동 데이터가 없어요',
-              style: AppTextStyle.titleSmallBoldStyle.copyWith(color: AppColors.textDefault),
+              style: AppTextStyle.titleSmallBoldStyle.copyWith(
+                color: AppColors.textDefault,
+              ),
             ),
             const SizedBox(height: 4),
             Text(
               '오운완을 올리면 운동 비율이 표시돼요 🙂',
-              style: AppTextStyle.bodySmallStyle.copyWith(color: AppColors.textSecondary),
+              style: AppTextStyle.bodySmallStyle.copyWith(
+                color: AppColors.textSecondary,
+              ),
             ),
           ],
         ),
       );
     }
 
-    // ✅ 상위 N개만 + 나머지 “기타”
     final entries = data.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
 
@@ -643,10 +649,11 @@ class _SubTypeDonutSection extends StatelessWidget {
       children: [
         Text(
           '최근 5주 운동 비율',
-          style: AppTextStyle.titleSmallBoldStyle.copyWith(color: AppColors.textDefault),
+          style: AppTextStyle.titleSmallBoldStyle.copyWith(
+            color: AppColors.textDefault,
+          ),
         ),
         const SizedBox(height: 10),
-
         Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
@@ -663,7 +670,7 @@ class _SubTypeDonutSection extends StatelessWidget {
                 child: PieChart(
                   PieChartData(
                     sectionsSpace: 2,
-                    centerSpaceRadius: 44, // ✅ 도넛 느낌 핵심
+                    centerSpaceRadius: 44,
                     sections: [
                       for (int i = 0; i < items.length; i++)
                         PieChartSectionData(
@@ -677,12 +684,10 @@ class _SubTypeDonutSection extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 30),
-
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // ✅ 한줄 요약(텍스트만)
                     RichText(
                       text: TextSpan(
                         style: AppTextStyle.bodyMediumStyle.copyWith(
@@ -710,8 +715,6 @@ class _SubTypeDonutSection extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 10),
-
-                    // ✅ 범례(상위만)
                     for (int i = 0; i < items.length; i++)
                       Padding(
                         padding: const EdgeInsets.only(bottom: 8),
@@ -735,7 +738,6 @@ class _SubTypeDonutSection extends StatelessWidget {
   int _pct(int v, int total) => total <= 0 ? 0 : ((v / total) * 100).round();
 
   Color _subTypeColor(String key, int index) {
-    // ✅ AppColors 기반 팔레트(너 디자인 시스템)
     const palette = [
       AppColors.sky400,
       AppColors.green400,
@@ -745,7 +747,6 @@ class _SubTypeDonutSection extends StatelessWidget {
       AppColors.sky900,
       AppColors.red100,
     ];
-    // “기타”는 중립색
     if (key == '기타') return AppColors.gray300;
     return palette[index % palette.length];
   }
@@ -781,12 +782,16 @@ class _LegendRow extends StatelessWidget {
             label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: AppTextStyle.bodySmallStyle.copyWith(color: AppColors.textDefault),
+            style: AppTextStyle.bodySmallStyle.copyWith(
+              color: AppColors.textDefault,
+            ),
           ),
         ),
         Text(
           '$pct%',
-          style: AppTextStyle.labelSmallStyle.copyWith(color: AppColors.textSecondary),
+          style: AppTextStyle.labelSmallStyle.copyWith(
+            color: AppColors.textSecondary,
+          ),
         ),
       ],
     );

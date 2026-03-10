@@ -191,7 +191,7 @@ class _HomeViewState extends ConsumerState<HomeView> {
           body: IndexedStack(
             index: _pageIndex,
             children: [
-              WorkoutGoalRootView(),
+              WorkoutGoalRootView(uid: FirebaseAuth.instance.currentUser!.uid,),
               FeedListView(),
               MeetListView(),
 

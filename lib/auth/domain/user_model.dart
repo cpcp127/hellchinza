@@ -40,6 +40,9 @@ class UserModel {
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
+  // ✅ 추가
+  final int? workoutGoal;
+
   const UserModel({
     required this.uid,
     required this.email,
@@ -50,6 +53,9 @@ class UserModel {
     required this.profileCompleted,
     this.createdAt,
     this.updatedAt,
+
+    // ✅ 추가
+    this.workoutGoal,
   });
 
   factory UserModel.fromFirestore(Map<String, dynamic> json) {
@@ -60,6 +66,15 @@ class UserModel {
       return null;
     }
 
+    // ✅ workoutGoal 파싱
+    int? _parseGoal(dynamic goal) {
+      if (goal is int) return goal;
+      if (goal is num) return goal.toInt();
+      return null;
+    }
+
+    final goalMap = json['workoutGoal'] as Map?;
+
     return UserModel(
       uid: (json['uid'] ?? '') as String,
       email: (json['email'] ?? '') as String,
@@ -67,11 +82,14 @@ class UserModel {
       photoUrl: json['photoUrl'] as String?,
       description: json['description'] as String?,
       category:
-          (json['category'] as List?)?.map((e) => e.toString()).toList() ??
+      (json['category'] as List?)?.map((e) => e.toString()).toList() ??
           const [],
       profileCompleted: (json['profileCompleted'] as bool?) ?? false,
       createdAt: _toDate(json['createdAt']),
       updatedAt: _toDate(json['updatedAt']),
+
+      // ✅ 여기
+      workoutGoal: _parseGoal(goalMap?['weeklyTarget']),
     );
   }
 

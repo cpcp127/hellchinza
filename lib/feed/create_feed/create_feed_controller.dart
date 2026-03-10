@@ -154,7 +154,7 @@ class CreateFeedController extends StateNotifier<CreateFeedState> {
         message: '업로드가 완료되었습니다!',
       );
       if (state.selectMainType == '오운완') {
-        ref.read(workoutGoalControllerProvider.notifier).init();
+        ref.read(workoutGoalControllerProvider.notifier).init(uid: FirebaseAuth.instance.currentUser!.uid);
       }
       if (meetId == null) {
         ref.read(feedListControllerProvider.notifier).refresh();
@@ -329,7 +329,7 @@ class CreateFeedController extends StateNotifier<CreateFeedState> {
       SnackbarService.dismiss();
       SnackbarService.show(type: AppSnackType.success, message: '수정이 완료되었습니다!');
       if (state.selectMainType == '오운완') {
-        ref.read(workoutGoalControllerProvider.notifier).init();
+        ref.read(workoutGoalControllerProvider.notifier).init(uid: FirebaseAuth.instance.currentUser!.uid);
       }
       if (meetId == null) {
         ref.read(feedListControllerProvider.notifier).refresh();
