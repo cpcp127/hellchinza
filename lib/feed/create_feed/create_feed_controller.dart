@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -62,9 +64,13 @@ class CreateFeedController extends StateNotifier<CreateFeedState> {
 
     // 혹시 picker에서 더 많이 넘어와도 방어
     final List<XFile> toAdd = pickedList.take(remainCount).toList();
-
+    final List<XFile> result = [];
+    for (final img in toAdd) {
+      final webp = await ImageService().convertToWebp(File(img.path));
+      result.add(webp);
+    }
     state = state.copyWith(
-      newImageFiles: [...state.newImageFiles ?? [], ...toAdd],
+      newImageFiles: [...state.newImageFiles ?? [], ...result],
     );
   }
 

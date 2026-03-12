@@ -12,6 +12,8 @@ class AppNotificationModel {
   final String? body;
   final String? contentPreview;
   final DateTime? createdAt;
+  final String? action;
+  final String? meetId;
 
   AppNotificationModel({
     required this.id,
@@ -25,11 +27,13 @@ class AppNotificationModel {
     this.body,
     this.contentPreview,
     this.createdAt,
+    this.action,
+    this.meetId,
   });
 
   factory AppNotificationModel.fromDoc(
-      DocumentSnapshot<Map<String, dynamic>> doc,
-      ) {
+    DocumentSnapshot<Map<String, dynamic>> doc,
+  ) {
     final data = doc.data() ?? {};
     return AppNotificationModel(
       id: doc.id,
@@ -43,6 +47,8 @@ class AppNotificationModel {
       body: data['body']?.toString(),
       contentPreview: data['contentPreview']?.toString(),
       createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
+      action: (data['action'] ?? '').toString(),
+      meetId: (data['meetId'] ?? '').toString(),
     );
   }
 }

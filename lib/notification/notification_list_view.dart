@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_text_style.dart';
 import '../feed/feed_detail/feed_detail_view.dart';
+import '../meet/meet_detail/meat_detail_view.dart';
 import '../utils/date_time_util.dart';
 import 'app_notification_model.dart';
 
@@ -29,10 +30,7 @@ class NotificationListView extends StatelessWidget {
       return Scaffold(
         backgroundColor: AppColors.bgWhite,
         appBar: AppBar(
-          title: Text(
-            '알림',
-            style: AppTextStyle.titleMediumBoldStyle,
-          ),
+          title: Text('알림', style: AppTextStyle.titleMediumBoldStyle),
           backgroundColor: AppColors.bgWhite,
         ),
         body: Center(
@@ -49,10 +47,7 @@ class NotificationListView extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppColors.bgWhite,
       appBar: AppBar(
-        title: Text(
-          '알림',
-          style: AppTextStyle.titleMediumBoldStyle,
-        ),
+        title: Text('알림', style: AppTextStyle.titleMediumBoldStyle),
         backgroundColor: AppColors.bgWhite,
       ),
       body: FirestorePagination(
@@ -106,9 +101,7 @@ class _NotificationTile extends StatelessWidget {
         .doc(uid)
         .collection('notifications')
         .doc(model.id)
-        .update({
-      'isRead': true,
-    });
+        .update({'isRead': true});
   }
 
   Future<void> _onTap(BuildContext context) async {
@@ -131,9 +124,33 @@ class _NotificationTile extends StatelessWidget {
       return;
     }
 
-    if (model.type == 'lightning') {
+    if (model.type == 'meet') {
       // TODO: 번개/모임 상세 이동
-      return;
+      switch (model.action) {
+        case 'requestCreated':
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => MeetDetailView(meetId: model.meetId!),
+            ),
+          );
+          return;
+
+        case 'requestApproved':
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => MeetDetailView(meetId: model.meetId!),
+            ),
+          );
+          return;
+
+        case 'requestRejected':
+          return;
+
+        default:
+          return;
+      }
     }
   }
 
@@ -237,16 +254,16 @@ class _NotificationTile extends StatelessWidget {
         break;
       case 'like':
         icon = Icons.favorite_border;
-        bgColor = AppColors.red100;
-        iconColor = AppColors.red100;
+        bgColor = AppColors.sky50;
+        iconColor = AppColors.sky400;
         break;
       case 'chat':
         icon = Icons.forum_outlined;
-        bgColor = AppColors.gray100;
-        iconColor = AppColors.icDefault;
+        bgColor = AppColors.sky50;
+        iconColor = AppColors.sky400;
         break;
-      case 'lightning':
-        icon = Icons.flash_on_rounded;
+      case 'meet':
+        icon = Icons.people_rounded;
         bgColor = AppColors.sky50;
         iconColor = AppColors.sky400;
         break;
@@ -259,16 +276,9 @@ class _NotificationTile extends StatelessWidget {
     return Container(
       width: 40,
       height: 40,
-      decoration: BoxDecoration(
-        color: bgColor,
-        shape: BoxShape.circle,
-      ),
+      decoration: BoxDecoration(color: bgColor, shape: BoxShape.circle),
       alignment: Alignment.center,
-      child: Icon(
-        icon,
-        size: 20,
-        color: iconColor,
-      ),
+      child: Icon(icon, size: 20, color: iconColor),
     );
   }
 

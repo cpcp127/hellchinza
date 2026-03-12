@@ -37,6 +37,7 @@ class _ProfileEditViewState extends ConsumerState<ProfileEditView> {
   bool _saving = false;
   XFile? selectImage;
   bool deletePhoto = false;
+
   @override
   void initState() {
     super.initState();
@@ -63,7 +64,8 @@ class _ProfileEditViewState extends ConsumerState<ProfileEditView> {
         selectedImage: selectImage,
         nickname: _nickCtrl.text.trim(),
         description: _descCtrl.text.trim(),
-        category: _selected,deletePhoto: deletePhoto
+        category: _selected,
+        deletePhoto: deletePhoto,
       );
       UserModel? userModel = await ref
           .read(homeControllerProvider.notifier)
@@ -127,7 +129,8 @@ class _ProfileEditViewState extends ConsumerState<ProfileEditView> {
         await FirebaseStorage.instance.ref(prevPath).delete();
       } catch (_) {
         // 삭제 실패해도 앱 흐름은 유지
-      }}
+      }
+    }
   }
 
   void _toggleCategory(String c) {
@@ -147,12 +150,14 @@ class _ProfileEditViewState extends ConsumerState<ProfileEditView> {
         _selected.isNotEmpty && // ⭐ 관심 카테고리 1개 이상
         !_saving;
   }
+
   String? networkUrlToShow(UserModel my) {
     if (selectImage != null) return null;
     if (deletePhoto) return null;
     final url = (my.photoUrl ?? '').trim();
     return url.isEmpty ? null : url;
   }
+
   @override
   Widget build(BuildContext context) {
     final my = ref.watch(myUserModelProvider);
@@ -202,25 +207,34 @@ class _ProfileEditViewState extends ConsumerState<ProfileEditView> {
                     context: context,
                     hasImage: true,
                     onCamera: () async {
-                      XFile? imageFile = await ImageService().takePicture(context);
+                      XFile? imageFile = await ImageService().takePicture(
+                        context,
+                      );
                       if (imageFile == null) return;
+                      final webpImage = await ImageService().convertToWebp(File(imageFile.path));
+
                       setState(() {
-                        selectImage = imageFile;
+                        selectImage = webpImage;
                         deletePhoto = false; // 새 이미지 선택하면 삭제 예약 해제
                       });
                     },
                     onGallery: () async {
-                      XFile? imageFile = await ImageService().showImagePicker(context);
+                      XFile? imageFile = await ImageService().showImagePicker(
+                        context,
+                      );
                       if (imageFile == null) return;
+                      final webpImage = await ImageService().convertToWebp(
+                        File(imageFile.path),
+                      );
                       setState(() {
-                        selectImage = imageFile;
+                        selectImage = webpImage;
                         deletePhoto = false; // 새 이미지 선택하면 삭제 예약 해제
                       });
                     },
                     onDelete: () {
                       setState(() {
                         selectImage = null;
-                        deletePhoto = true;   // 기존 네트워크 이미지도 삭제 예약
+                        deletePhoto = true; // 기존 네트워크 이미지도 삭제 예약
                       });
                     },
                   );

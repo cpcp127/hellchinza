@@ -41,5 +41,30 @@
     "location": "asia-northeast3",
     "rules": "firestore.rules",
     "indexes": "firestore.indexes.json"
+  },
+  "hosting": {
+    "public": "public",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "redirects": [
+      {
+        "source": "/privacy",
+        "destination": "/privacy.html",
+        "type": 301
+      },
+      {
+        "source": "/terms",
+        "destination": "/terms.html",
+        "type": 301
+      },
+      {
+        "source": "/support",
+        "destination": "/support.html",
+        "type": 301
+      }
+    ]
   }
 }

@@ -16,49 +16,51 @@ import '../../services/snackbar_service.dart';
 import 'chat_room_state.dart';
 
 final chatRoomUsersMapProvider =
-StreamProvider.family<Map<String, UserMini>, String>((ref, roomId) async* {
-  final roomRef = FirebaseFirestore.instance.collection('chatRooms').doc(roomId);
+    StreamProvider.family<Map<String, UserMini>, String>((ref, roomId) async* {
+      final roomRef = FirebaseFirestore.instance
+          .collection('chatRooms')
+          .doc(roomId);
 
-  await for (final roomSnap in roomRef.snapshots()) {
-    final data = roomSnap.data();
-    if (data == null) {
-      yield <String, UserMini>{};
-      continue;
-    }
+      await for (final roomSnap in roomRef.snapshots()) {
+        final data = roomSnap.data();
+        if (data == null) {
+          yield <String, UserMini>{};
+          continue;
+        }
 
-    final uids = (data['userUids'] as List?)
-        ?.map((e) => e.toString())
-        .toList() ??
-        [];
+        final uids =
+            (data['userUids'] as List?)?.map((e) => e.toString()).toList() ??
+            [];
 
-    if (uids.isEmpty) {
-      yield <String, UserMini>{};
-      continue;
-    }
+        if (uids.isEmpty) {
+          yield <String, UserMini>{};
+          continue;
+        }
 
-    // ✅ whereIn 10개 제한 → 10개씩 나눠서 조회
-    final chunks = <List<String>>[];
-    for (int i = 0; i < uids.length; i += 10) {
-      chunks.add(uids.sublist(i, (i + 10).clamp(0, uids.length)));
-    }
+        // ✅ whereIn 10개 제한 → 10개씩 나눠서 조회
+        final chunks = <List<String>>[];
+        for (int i = 0; i < uids.length; i += 10) {
+          chunks.add(uids.sublist(i, (i + 10).clamp(0, uids.length)));
+        }
 
-    final map = <String, UserMini>{};
+        final map = <String, UserMini>{};
 
-    for (final chunk in chunks) {
-      final snap = await FirebaseFirestore.instance
-          .collection('users')
-          .where('uid', whereIn: chunk)
-          .get();
+        for (final chunk in chunks) {
+          final snap = await FirebaseFirestore.instance
+              .collection('users')
+              .where('uid', whereIn: chunk)
+              .get();
 
-      for (final d in snap.docs) {
-        final m = UserMini.fromMap(d.data(), d.id);
-        map[m.uid] = m;
+          for (final d in snap.docs) {
+            final m = UserMini.fromMap(d.data(), d.id);
+            map[m.uid] = m;
+          }
+        }
+
+        yield map;
       }
-    }
+    });
 
-    yield map;
-  }
-});
 extension _MapCopy on Map<String, String> {
   Map<String, String> copy() => Map<String, String>.from(this);
 }
@@ -83,21 +85,25 @@ final otherUidProvider = Provider.family<String?, String>((ref, roomId) {
     error: (_, __) => null,
   );
 });
-final chatControllerProvider =
-StateNotifierProvider.family.autoDispose<ChatController, ChatState, String>(
+final chatControllerProvider = StateNotifierProvider.family
+    .autoDispose<ChatController, ChatState, String>(
       (ref, roomId) => ChatController(ref: ref, roomId: roomId)..init(),
-);
+    );
 
-final chatRoomProvider = StreamProvider.family<
-    DocumentSnapshot<Map<String, dynamic>>, String>((ref, roomId) {
-  return FirebaseFirestore.instance.collection('chatRooms').doc(roomId).snapshots();
-});
-
-
+final chatRoomProvider =
+    StreamProvider.family<DocumentSnapshot<Map<String, dynamic>>, String>((
+      ref,
+      roomId,
+    ) {
+      return FirebaseFirestore.instance
+          .collection('chatRooms')
+          .doc(roomId)
+          .snapshots();
+    });
 
 class ChatController extends StateNotifier<ChatState> {
   ChatController({required this.ref, required this.roomId})
-      : super(ChatState.initial(roomId: roomId)) {
+    : super(ChatState.initial(roomId: roomId)) {
     // ✅ provider가 dispose될 때 자동 호출
     ref.onDispose(() {
       // async라 await 못하니 fire-and-forget
@@ -141,7 +147,6 @@ class ChatController extends StateNotifier<ChatState> {
     }
   }
 
-
   /// ✅ friend_request 수락
   Future<void> acceptFriendRequest({
     required String requestMessageId,
@@ -152,10 +157,16 @@ class ChatController extends StateNotifier<ChatState> {
     final msgRef = roomRef.collection('messages').doc(requestMessageId);
 
     // friends 저장: users/{uid}/friends/{otherUid}
-    final myFriendRef =
-    _db.collection('users').doc(myUid).collection('friends').doc(otherUid);
-    final otherFriendRef =
-    _db.collection('users').doc(otherUid).collection('friends').doc(myUid);
+    final myFriendRef = _db
+        .collection('users')
+        .doc(myUid)
+        .collection('friends')
+        .doc(otherUid);
+    final otherFriendRef = _db
+        .collection('users')
+        .doc(otherUid)
+        .collection('friends')
+        .doc(myUid);
 
     await _db.runTransaction((tx) async {
       // ✅ READ 먼저
@@ -200,7 +211,7 @@ class ChatController extends StateNotifier<ChatState> {
       tx.update(roomRef, {
         'lastMessageText': '친구 요청을 수락했어요 🎉',
         'lastMessageAt': FieldValue.serverTimestamp(),
-        'lastMessageType':'accept_friend_request'
+        'lastMessageType': 'accept_friend_request',
       });
     });
 
@@ -209,9 +220,7 @@ class ChatController extends StateNotifier<ChatState> {
   }
 
   /// ✅ friend_request 거절
-  Future<void> rejectFriendRequest({
-    required String requestMessageId,
-  }) async {
+  Future<void> rejectFriendRequest({required String requestMessageId}) async {
     final myUid = _myUid;
     final roomRef = _roomRef;
     final msgRef = roomRef.collection('messages').doc(requestMessageId);
@@ -249,7 +258,7 @@ class ChatController extends StateNotifier<ChatState> {
       tx.update(roomRef, {
         'lastMessageText': '친구 요청을 거절했어요.',
         'lastMessageAt': FieldValue.serverTimestamp(),
-        'lastMessageType':'reject_friend_request'
+        'lastMessageType': 'reject_friend_request',
       });
     });
 
@@ -335,11 +344,10 @@ class ChatController extends StateNotifier<ChatState> {
         .get();
     if (!userSnap.exists) return null;
 
-    return UserMini.fromMap(userSnap.data()!,otherUid);
+    return UserMini.fromMap(userSnap.data()!, otherUid);
   }
 
   FirebaseStorage get _st => FirebaseStorage.instance;
-
 
   Future<void> leaveRoomAndUnfriend({String? otherUid}) async {
     final myUid = _myUid;
@@ -383,8 +391,16 @@ class ChatController extends StateNotifier<ChatState> {
 
       // 4) dm이면 친구끊기까지
       if (type == 'dm' && otherUid != null && otherUid.isNotEmpty) {
-        final myFriendRef = _db.collection('users').doc(myUid).collection('friends').doc(otherUid);
-        final otherFriendRef = _db.collection('users').doc(otherUid).collection('friends').doc(myUid);
+        final myFriendRef = _db
+            .collection('users')
+            .doc(myUid)
+            .collection('friends')
+            .doc(otherUid);
+        final otherFriendRef = _db
+            .collection('users')
+            .doc(otherUid)
+            .collection('friends')
+            .doc(myUid);
 
         tx.delete(myFriendRef);
         tx.delete(otherFriendRef);
@@ -400,7 +416,6 @@ class ChatController extends StateNotifier<ChatState> {
     ref.invalidate(chatRoomProvider(roomId));
   }
 
-
   /// ✅ 방 들어올 때: unread 0 처리 + activeAt 갱신
   Future<void> enterRoom() async {
     final myUid = _myUid;
@@ -415,9 +430,7 @@ class ChatController extends StateNotifier<ChatState> {
   /// ✅ 화면이 살아있는 동안 주기적으로 activeAt 업데이트
   Future<void> heartbeat() async {
     final myUid = _myUid;
-    await _roomRef.update({
-      'activeAtMap.$myUid': FieldValue.serverTimestamp(),
-    });
+    await _roomRef.update({'activeAtMap.$myUid': FieldValue.serverTimestamp()});
   }
 
   /// ✅ heartbeat 시작/중지
@@ -455,13 +468,15 @@ class ChatController extends StateNotifier<ChatState> {
   Future<void> pickAndSendOneImage(BuildContext context) async {
     final file = await _imageService.showImagePicker(context); // webp 변환 포함
     if (file == null) return;
-    await sendImage(file: file);
+    final webpImage = await _imageService.convertToWebp(File(file.path));
+    await sendImage(file: webpImage);
   }
 
   Future<void> takeAndSendOneImage(BuildContext context) async {
-    final file = await _imageService.takePicture(context); // webp 변환 포함
+    final file = await _imageService.takePicture(context);
     if (file == null) return;
-    await sendImage(file: file);
+    final webpImage = await ImageService().convertToWebp(File(file.path));
+    await sendImage(file: webpImage);
   }
 
   /// ✅ 채팅용 액션시트(너 공통 바텀시트 그대로 재사용)
@@ -481,20 +496,16 @@ class ChatController extends StateNotifier<ChatState> {
           await pickAndSendOneImage(context);
         },
       ),
-
     ];
 
     await showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (_) => CommonActionSheet(
-        title: '사진 전송',
-        items: items,
-      ),
+      builder: (_) => CommonActionSheet(title: '사진 전송', items: items),
     );
-
   }
+
   /// ✅ 카톡 스타일: 메시지 먼저 만들고, 업로드 완료되면 message 업데이트
   Future<void> sendImage({required XFile file}) async {
     final myUid = _myUid;
@@ -522,8 +533,8 @@ class ChatController extends StateNotifier<ChatState> {
     await msgRef.set({
       'id': msgId,
       'type': 'image',
-      'authorUid': myUid,        // ✅ 너 규칙
-      'imageUrl': null,          // 업로드 후 채움
+      'authorUid': myUid, // ✅ 너 규칙
+      'imageUrl': null, // 업로드 후 채움
       'uploadStatus': 'uploading',
       'createdAt': FieldValue.serverTimestamp(),
     });
@@ -551,21 +562,15 @@ class ChatController extends StateNotifier<ChatState> {
       final url = await snap.ref.getDownloadURL();
 
       // 5) ✅ 업로드 완료 → 메시지 업데이트(overlay 사라짐)
-      await msgRef.update({
-        'imageUrl': url,
-        'uploadStatus': 'done',
-      });
+      await msgRef.update({'imageUrl': url, 'uploadStatus': 'done'});
 
       // 6) ✅ state pending 제거(이제 네트워크 이미지로 보여주면 됨)
       final pending2 = state.pendingImageLocalPathByMsgId.copy();
       pending2.remove(msgId);
       state = state.copyWith(pendingImageLocalPathByMsgId: pending2);
-
     } catch (e) {
       // 실패 표시
-      await msgRef.update({
-        'uploadStatus': 'failed',
-      });
+      await msgRef.update({'uploadStatus': 'failed'});
 
       // pending은 남겨두면 "재시도" 같은 UX도 만들 수 있음
       // 일단은 제거해도 됨(너 취향). 나는 남겨두는 걸 추천.
@@ -576,6 +581,7 @@ class ChatController extends StateNotifier<ChatState> {
       );
     }
   }
+
   Future<void> leaveGroupRoomAndMeet() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) throw Exception('로그인이 필요해요');
@@ -656,32 +662,18 @@ class ChatController extends StateNotifier<ChatState> {
     required String uid,
     required bool enabled,
   }) async {
-    await FirebaseFirestore.instance
-        .collection('chatRooms')
-        .doc(roomId)
-        .set({
-      'chatPushOffMap': {
-        uid: enabled ? true : false,
-      },
+    await FirebaseFirestore.instance.collection('chatRooms').doc(roomId).set({
+      'chatPushOffMap': {uid: enabled ? true : false},
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
   }
-
-
 
   Future<void> toggleRoomPush({
     required String roomId,
     required String uid,
   }) async {
-    final enabled = await getRoomPushEnabled(
-      roomId: roomId,
-      uid: uid,
-    );
+    final enabled = await getRoomPushEnabled(roomId: roomId, uid: uid);
 
-    await setRoomPushEnabled(
-      roomId: roomId,
-      uid: uid,
-      enabled: !enabled,
-    );
+    await setRoomPushEnabled(roomId: roomId, uid: uid, enabled: !enabled);
   }
 }

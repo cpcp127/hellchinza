@@ -96,10 +96,11 @@ class MeetCreateController extends StateNotifier<MeetCreateState> {
   Future<void> pickThumbnail(BuildContext context) async {
     final file = await ImageService().showImagePicker(context);
     if (file == null) return;
+    final webpImage = await ImageService().convertToWebp(File(file.path));
 
     // 새로 고르면 기존 삭제 플래그 해제(교체 우선)
     state = state.copyWith(
-      thumbnail: file,
+      thumbnail: webpImage,
       removeExistingThumbnail: false,
       errorMessage: null,
     );

@@ -29,14 +29,14 @@ class ImageService {
       imageQuality: 100,
     );
     if (picked == null) return null;
-
-    return await _convertToWebp(File(picked.path));
+    return picked;
+    //return await convertToWebp(File(picked.path));
   }
 
   Future<List<XFile>?> showMultiImagePicker(
-      BuildContext context,
-      int? limit,
-      ) async {
+    BuildContext context,
+    int? limit,
+  ) async {
     final ok = await _ensureGalleryPermission(context);
     if (!ok) return null;
 
@@ -46,14 +46,14 @@ class ImageService {
     );
 
     if (picks.isEmpty) return null;
-
-    final List<XFile> result = [];
-    for (final img in picks) {
-      final webp = await _convertToWebp(File(img.path));
-      result.add(webp);
-    }
-
-    return result;
+    return picks;
+    // final List<XFile> result = [];
+    // for (final img in picks) {
+    //   final webp = await convertToWebp(File(img.path));
+    //   result.add(webp);
+    // }
+    //
+    // return result;
   }
 
   /// 카메라에서 이미지 촬영
@@ -66,11 +66,11 @@ class ImageService {
       imageQuality: 100,
     );
     if (picked == null) return null;
-
-    return await _convertToWebp(File(picked.path));
+    return picked;
+    //return await convertToWebp(File(picked.path));
   }
 
-  Future<XFile> _convertToWebp(File file) async {
+  Future<XFile> convertToWebp(File file) async {
     final targetPath = '${file.path}_webp.webp';
 
     final result = await FlutterImageCompress.compressAndGetFile(
@@ -166,10 +166,7 @@ class ImageService {
       return false;
     }
 
-    SnackbarService.show(
-      type: AppSnackType.error,
-      message: '카메라 권한이 필요해요.',
-    );
+    SnackbarService.show(type: AppSnackType.error, message: '카메라 권한이 필요해요.');
     return false;
   }
 
@@ -222,10 +219,7 @@ class ImageService {
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (_) => CommonActionSheet(
-        title: '프로필 이미지',
-        items: items,
-      ),
+      builder: (_) => CommonActionSheet(title: '프로필 이미지', items: items),
     );
   }
 }

@@ -54,7 +54,8 @@ class _WriteInquiryTabState extends State<WriteInquiryTab> {
   Future<void> _pickImage() async {
     final x = await ImageService().showImagePicker(context);
     if (!mounted) return;
-    setState(() => _picked = x);
+    final webpImage = await ImageService().convertToWebp(File(x!.path));
+    setState(() => _picked = webpImage);
   }
 
   Future<String?> _uploadInquiryImage({

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/gestures.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -31,6 +32,7 @@ class _AuthViewState extends ConsumerState<AuthView> {
 
   @override
   Widget build(BuildContext context) {
+    final controller = ref.refresh(authControllerProvider.notifier);
     return Scaffold(
       body: SafeArea(
         child: Column(
@@ -97,7 +99,17 @@ class _AuthViewState extends ConsumerState<AuthView> {
                 ],
               ),
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
+
+            _AuthAgreementSection(
+              onTapPrivacy: (){
+                controller.openPrivacy(context);
+              },
+              onTapTerms: (){
+                controller.openTerms(context);
+              },
+            ),
+            SizedBox(height: 12),
           ],
         ),
       ),
@@ -147,6 +159,94 @@ class _AuthViewState extends ConsumerState<AuthView> {
   }
 }
 
+class _AuthAgreementSection extends StatefulWidget {
+  const _AuthAgreementSection({
+    required this.onTapPrivacy,
+    required this.onTapTerms,
+  });
+
+  final VoidCallback onTapPrivacy;
+  final VoidCallback onTapTerms;
+
+  @override
+  State<_AuthAgreementSection> createState() => _AuthAgreementSectionState();
+}
+
+class _AuthAgreementSectionState extends State<_AuthAgreementSection> {
+  late final TapGestureRecognizer _privacyRecognizer;
+  late final TapGestureRecognizer _termsRecognizer;
+
+  @override
+  void initState() {
+    super.initState();
+    _privacyRecognizer = TapGestureRecognizer()
+      ..onTap = widget.onTapPrivacy;
+    _termsRecognizer = TapGestureRecognizer()
+      ..onTap = widget.onTapTerms;
+  }
+
+  @override
+  void didUpdateWidget(covariant _AuthAgreementSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _privacyRecognizer.onTap = widget.onTapPrivacy;
+    _termsRecognizer.onTap = widget.onTapTerms;
+  }
+
+  @override
+  void dispose() {
+    _privacyRecognizer.dispose();
+    _termsRecognizer.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final baseStyle = AppTextStyle.bodySmallStyle.copyWith(
+      color: AppColors.textTeritary,
+      height: 18 / 12,
+    );
+
+    final linkStyle = AppTextStyle.bodySmallStyle.copyWith(
+      color: AppColors.textSecondary,
+      decoration: TextDecoration.underline,
+      decorationColor: AppColors.textSecondary,
+      height: 18 / 12,
+    );
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: RichText(
+        textAlign: TextAlign.center,
+        text: TextSpan(
+          style: baseStyle,
+          children: [
+            const TextSpan(
+              text: '계속 진행하면 가보자운동의\n',
+            ),
+            TextSpan(
+              text: '개인정보 처리방침',
+              style: linkStyle,
+              recognizer: _privacyRecognizer,
+            ),
+            const TextSpan(
+              text: ' 및 ',
+            ),
+            TextSpan(
+              text: '이용약관',
+              style: linkStyle,
+              recognizer: _termsRecognizer,
+            ),
+            const TextSpan(
+              text: '에 동의한 것으로 간주됩니다.',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+
 class UnchinLoginHeader extends StatelessWidget {
   const UnchinLoginHeader({super.key});
 
@@ -168,7 +268,7 @@ class UnchinLoginHeader extends StatelessWidget {
 
           // 보조 문장(2줄까지 자연스럽게)
           Text(
-            '오늘도 오운완\n가~보자',
+            '하루 한 번의 운동\n오늘도 기록해볼까요?',
             style: AppTextStyle.headlineSmallMediumStyle.copyWith(
               color: AppColors.textDefault,
             ),

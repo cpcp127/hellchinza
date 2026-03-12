@@ -11,6 +11,7 @@ import 'package:hellchinza/services/shared_prefs_service.dart';
 import 'package:hellchinza/utils/crypto_util.dart';
 import 'package:kakao_flutter_sdk/kakao_flutter_sdk.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../data/user_mini_repo.dart';
 import '../domain/user_mini.dart';
@@ -238,4 +239,26 @@ class AuthController extends StateNotifier<AuthState> {
     // 다음 단계 로직 실행
     // 예: Firestore 저장, 다음 페이지 이동 등
   }
+
+  Future<void> _openUrl(String url,BuildContext context) async {
+    final uri = Uri.parse(url);
+    final ok = await launchUrl(
+      uri,
+      mode: LaunchMode.externalApplication,
+    );
+    if (!ok && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('페이지를 열 수 없어요')),
+      );
+    }
+  }
+
+  Future<void> openPrivacy(BuildContext context) async {
+    await _openUrl('https://hellchinza.web.app/privacy',context);
+  }
+
+  Future<void> openTerms(BuildContext context) async {
+    await _openUrl('https://hellchinza.web.app/terms',context);
+  }
+
 }

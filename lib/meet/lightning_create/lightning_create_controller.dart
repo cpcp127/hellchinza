@@ -57,13 +57,15 @@ class LightningCreateController extends StateNotifier<LightningCreateState> {
 
     final file = await ImageService().showImagePicker(contex);
     if (file == null) return;
-    state = state.copyWith(thumbnail: file, clearError: true);
+    final webpImage = await ImageService().convertToWebp(File(file.path));
+    state = state.copyWith(thumbnail: webpImage, clearError: true);
   }
   Future<void> pickThumbnailToAlbumToCamera(BuildContext context) async {
 
     final file = await ImageService().takePicture(context);
     if (file == null) return;
-    state = state.copyWith(thumbnail: file, clearError: true);
+    final webpImage = await ImageService().convertToWebp(File(file.path));
+    state = state.copyWith(thumbnail: webpImage, clearError: true);
   }
   void removeThumbnail() {
     state = state.copyWith(clearThumbnail: true, clearError: true);
