@@ -16,6 +16,30 @@ import '../../meet/domain/meet_summary_model.dart';
 import '../../utils/date_time_util.dart';
 import 'chat_list_controller.dart';
 
+final unreadChatCountProvider = StreamProvider<int>((ref) {
+  final uid = FirebaseAuth.instance.currentUser!.uid;
+
+  final q = FirebaseFirestore.instance
+      .collection('chatRooms')
+      .where('userUids', arrayContains: uid);
+
+  return q.snapshots().map((snap) {
+    int total = 0;
+
+    for (final doc in snap.docs) {
+      final data = doc.data();
+
+      final map = Map<String, dynamic>.from(
+        data['unreadCountMap'] ?? {},
+      );
+
+      total += (map[uid] ?? 0) as int;
+    }
+
+    return total;
+  });
+});
+
 class ChatListView extends ConsumerWidget {
   const ChatListView({super.key});
 

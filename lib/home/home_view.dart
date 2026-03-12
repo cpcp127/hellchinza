@@ -12,6 +12,7 @@ import 'package:hellchinza/workout_goal/presentation/workout_goal_root_view.dart
 
 import '../chat/chat_list/chat_list_view.dart';
 import '../constants/app_colors.dart';
+import '../constants/app_text_style.dart';
 import '../notification/notification_list_view.dart';
 import '../setting/setting_view.dart';
 import 'home_controller.dart';
@@ -33,6 +34,8 @@ class _HomeViewState extends ConsumerState<HomeView> {
     final initAsync = ref.watch(homeInitProvider);
     final hasUnreadAsync = ref.watch(hasUnreadNotificationProvider);
     final controller = ref.read(homeControllerProvider.notifier);
+    final unreadAsync = ref.watch(unreadChatCountProvider);
+
     return initAsync.when(
       loading: () =>
           const Scaffold(body: Center(child: CircularProgressIndicator())),
@@ -79,21 +82,38 @@ class _HomeViewState extends ConsumerState<HomeView> {
               ),
 
               IconButton(
-                icon: const Icon(
-                  Icons.chat_bubble_outline,
-                  size: 24,
-                  color: AppColors.icDefault,
-                ),
                 onPressed: () {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) {
-                        return ChatListView();
-                      },
+                      builder: (context) => const ChatListView(),
                     ),
                   );
                 },
+                icon: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    const Icon(
+                      Icons.chat_bubble_outline,
+                      size: 24,
+                      color: AppColors.icDefault,
+                    ),
+
+                    unreadAsync.when(
+                      data: (count) {
+                        if (count == 0) return const SizedBox();
+
+                        return Positioned(
+                          right: -4,
+                          top: -4,
+                          child: ChatBadge(count: count),
+                        );
+                      },
+                      loading: () => const SizedBox(),
+                      error: (_, __) => const SizedBox(),
+                    ),
+                  ],
+                ),
               ),
               _pageIndex != 3
                   ? Container()
@@ -211,5 +231,42 @@ class _HomeViewState extends ConsumerState<HomeView> {
   @override
   void initState() {
     super.initState();
+  }
+}
+class ChatBadge extends StatelessWidget {
+  final int count;
+
+  const ChatBadge({
+    super.key,
+    required this.count,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final text = count > 99 ? '99+' : '$count';
+
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 4,
+        vertical: 1,
+      ),
+      constraints: const BoxConstraints(
+        minWidth: 16,
+        minHeight: 16,
+      ),
+      decoration: const BoxDecoration(
+        color: AppColors.red100,
+        borderRadius: BorderRadius.all(Radius.circular(8)),
+      ),
+      child: Center(
+        child: Text(
+          text,
+          style: AppTextStyle.labelXSmallStyle.copyWith(
+            color: AppColors.white,
+            height: 1,
+          ),
+        ),
+      ),
+    );
   }
 }
