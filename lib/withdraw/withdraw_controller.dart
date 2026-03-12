@@ -72,9 +72,8 @@ class WithdrawController extends StateNotifier<WithdrawState> {
 
     try {
       // ✅ 1) callable 호출 (배포한 함수명)
-      final callable = FirebaseFunctions.instance.httpsCallable(
-        'deleteUserData',
-      );
+      final functions = FirebaseFunctions.instanceFor(region: 'asia-northeast3');
+      final callable = functions.httpsCallable('deleteUserData');
 
       // 필요하면 타임아웃/리트라이를 여기서 관리할 수도 있음
       final res = await callable.call();

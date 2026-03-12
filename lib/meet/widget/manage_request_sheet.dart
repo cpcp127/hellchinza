@@ -11,7 +11,7 @@ import '../../constants/app_colors.dart';
 import '../../constants/app_text_style.dart';
 import '../../services/snackbar_service.dart';
 
-final meetRequestUidsProvider = FutureProvider.family<List<String>, String>((
+final meetRequestUidsProvider = FutureProvider.autoDispose.family<List<String>, String>((
   ref,
   meetId,
 ) async {
@@ -236,7 +236,9 @@ class _RequestRowState extends State<_RequestRow> {
       });
 
       SnackbarService.show(type: AppSnackType.success, message: '승인했어요');
-      await FirebaseFunctions.instance
+      final functions = FirebaseFunctions.instanceFor(region: 'asia-northeast3');
+
+      await functions
           .httpsCallable('sendMeetRequestApprovedNotification')
           .call({
         'meetId': widget.meetId,
@@ -258,7 +260,9 @@ class _RequestRowState extends State<_RequestRow> {
       SnackbarService.show(type: AppSnackType.success, message: '거절했어요');
 
 
-      await FirebaseFunctions.instance
+      final functions = FirebaseFunctions.instanceFor(region: 'asia-northeast3');
+
+      await functions
           .httpsCallable('sendMeetRequestRejectedNotification')
           .call({
         'meetId': widget.meetId,
@@ -369,41 +373,44 @@ class _RequestRowState extends State<_RequestRow> {
                 : '';
             final photoUrl = mini?.photoUrl;
 
-            return Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: AppColors.bgWhite,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.borderSecondary),
-              ),
-              child: Row(
-                children: [
-                  CommonProfileAvatar(
-                    imageUrl: photoUrl,
-                    size: 40,
-                    uid: mini!.uid,
-                    gender: mini.gender,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      nickname,
-                      style: AppTextStyle.titleSmallBoldStyle.copyWith(
-                        color: AppColors.textDefault,
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppColors.bgWhite,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.borderSecondary),
+                ),
+                child: Row(
+                  children: [
+                    CommonProfileAvatar(
+                      imageUrl: photoUrl,
+                      size: 40,
+                      uid: mini!.uid,
+                      gender: mini.gender,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        nickname,
+                        style: AppTextStyle.titleSmallBoldStyle.copyWith(
+                          color: AppColors.textDefault,
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  _SmallOutlineButton(
-                    text: '거절',
-                    onTap: _busy ? null : _reject,
-                  ),
-                  const SizedBox(width: 8),
-                  _SmallPrimaryButton(
-                    text: _busy ? '처리중' : '승인',
-                    onTap: _busy ? null : _approve,
-                  ),
-                ],
+                    const SizedBox(width: 10),
+                    _SmallOutlineButton(
+                      text: '거절',
+                      onTap: _busy ? null : _reject,
+                    ),
+                    const SizedBox(width: 8),
+                    _SmallPrimaryButton(
+                      text: _busy ? '처리중' : '승인',
+                      onTap: _busy ? null : _approve,
+                    ),
+                  ],
+                ),
               ),
             );
           },
