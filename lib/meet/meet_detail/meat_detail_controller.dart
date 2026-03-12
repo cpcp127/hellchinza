@@ -4,7 +4,9 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
+import 'package:hellchinza/auth/domain/user_model.dart';
 import 'package:hellchinza/meet/meet_create/meet_create_view.dart';
+import 'package:hellchinza/meet/meet_list/meet_list_controller.dart';
 
 import '../../services/snackbar_service.dart';
 import '../domain/meet_model.dart';
@@ -154,100 +156,120 @@ class MeetDetailController extends StateNotifier<MeetDetailState> {
     });
 
     await init();
+    ref.read(meetListControllerProvider.notifier).refresh();
   }
 
   /// ✅ 남의 모임: 나가기
   Future<void> leaveMeet() async {
     final meet = state.meet;
     final uid = state.myUid;
-    if (meet == null || uid == null) throw Exception('로그인이 필요해요');
+    final myNickname = ref.read(myUserModelProvider).nickname;
 
-    if (state.isOwner) throw Exception('호스트는 나갈 수 없어요');
-    if (!state.isMember) return;
-
-    final roomId = meet.id;
-    if (roomId == null || roomId.isEmpty) {
-      // 채팅방이 없는 구형 데이터 대비
-      await _db.runTransaction((tx) async {
-        final snap = await tx.get(_meetRef);
-        final data = snap.data()!;
-        final current = (data['currentMemberCount'] ?? 0) as int;
-        final userUids = List<String>.from(data['userUids'] ?? []);
-        if (!userUids.contains(uid)) return;
-
-        userUids.remove(uid);
-        tx.update(_meetRef, {
-          'userUids': userUids,
-          'currentMemberCount': (current - 1).clamp(0, 999999),
-          'updatedAt': FieldValue.serverTimestamp(),
-        });
-      });
-      await init();
-      return;
+    if (meet == null || uid == null) {
+      throw Exception('로그인이 필요해요');
     }
 
-    final roomRef = _db.collection('chatRooms').doc(roomId);
+    final roomId = meet.id;
+    final isHost = state.isOwner;
+
+    final roomRef = roomId != null && roomId.isNotEmpty
+        ? _db.collection('chatRooms').doc(roomId)
+        : null;
 
     await _db.runTransaction((tx) async {
-      // 1) meet
-      final snap = await tx.get(_meetRef);
-      final data = snap.data()!;
-      final current = (data['currentMemberCount'] ?? 0) as int;
-      final userUids = List<String>.from(data['userUids'] ?? []);
+
+      /// 1️⃣ 먼저 모든 read
+      final meetSnap = await tx.get(_meetRef);
+      if (!meetSnap.exists) return;
+
+      final meetData = meetSnap.data()!;
+      final current = (meetData['currentMemberCount'] ?? 0) as int;
+      final userUids = List<String>.from(meetData['userUids'] ?? []);
+
+      DocumentSnapshot? roomSnap;
+      if (roomRef != null) {
+        roomSnap = await tx.get(roomRef);
+      }
 
       if (!userUids.contains(uid)) return;
 
-      userUids.remove(uid);
+      final nextUserUids = List<String>.from(userUids)..remove(uid);
 
-      tx.update(_meetRef, {
-        'userUids': userUids,
+      /// 2️⃣ 호스트 혼자였으면 모임 + 채팅방 삭제
+      if (isHost && nextUserUids.isEmpty) {
+        tx.delete(_meetRef);
+
+        if (roomRef != null && roomSnap!.exists) {
+          tx.delete(roomRef);
+        }
+
+        return;
+      }
+
+      /// 3️⃣ meet 업데이트
+      final meetUpdates = {
+        'userUids': nextUserUids,
         'currentMemberCount': (current - 1).clamp(0, 999999),
         'updatedAt': FieldValue.serverTimestamp(),
-      });
+      };
 
-      // 2) chatRoom(group)에서도 제거
-      final roomSnap = await tx.get(roomRef);
-      if (roomSnap.exists) {
+      if (isHost) {
+        meetUpdates['authorUid'] = nextUserUids.first;
+      }
+
+      tx.update(_meetRef, meetUpdates);
+
+      /// 4️⃣ chatRoom 업데이트
+      if (roomRef != null && roomSnap!.exists) {
         final roomData = roomSnap.data() as Map<String, dynamic>;
+
         final roomUserUids = List<String>.from(roomData['userUids'] ?? []);
         final visibleUids = List<String>.from(roomData['visibleUids'] ?? []);
-
         final unreadCountMap =
         Map<String, dynamic>.from(roomData['unreadCountMap'] ?? {});
         final activeAtMap =
         Map<String, dynamic>.from(roomData['activeAtMap'] ?? {});
+        final chatPushOffMap =
+        Map<String, dynamic>.from(roomData['chatPushOffMap'] ?? {});
 
         roomUserUids.remove(uid);
         visibleUids.remove(uid);
         unreadCountMap.remove(uid);
         activeAtMap.remove(uid);
+        chatPushOffMap.remove(uid);
 
         tx.update(roomRef, {
           'userUids': roomUserUids,
           'visibleUids': visibleUids,
           'unreadCountMap': unreadCountMap,
           'activeAtMap': activeAtMap,
+          'chatPushOffMap': chatPushOffMap,
           'updatedAt': FieldValue.serverTimestamp(),
         });
 
-        // (선택) 시스템 메시지
+        /// 5️⃣ 시스템 메시지
         final msgRef = roomRef.collection('messages').doc();
+        final text = '$myNickname님이 모임을 나갔어요';
+
         tx.set(msgRef, {
           'id': msgRef.id,
-          'authorUid': uid,
+          'authorUid': 'system',
           'type': 'system',
-          'text': '한 참가자가 모임을 나갔어요 👋',
+          'text': text,
           'createdAt': FieldValue.serverTimestamp(),
         });
+
         tx.update(roomRef, {
-          'lastMessageText': '한 참가자가 모임을 나갔어요 👋',
+          'lastMessageText': text,
           'lastMessageType': 'system',
           'lastMessageAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
         });
       }
     });
 
     await init();
+    ref.read(meetListControllerProvider.notifier).refresh();
   }
 
   Future<void> requestJoin() async {

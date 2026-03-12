@@ -160,6 +160,14 @@ class _SettingViewState extends ConsumerState<SettingView> {
                     controller.updateNotificationSetting('like', v);
                   },
                 ),
+                _SettingSwitchTile(
+                  title: '모임 알림',
+                  subtitle: '모임 관련 알림을 받습니다',
+                  value: state.notificationSettings['meet'] ?? true,
+                  onChanged: (v) {
+                    controller.updateNotificationSetting('meet', v);
+                  },
+                ),
               ],
             ),
             const SizedBox(height: 16),

@@ -114,7 +114,7 @@ class AuthController extends StateNotifier<AuthState> {
             'like': true,
             'comment': true,
             'chat': true,
-            'lightning': true,
+            'meet': true,
           },
         });
       } else {
@@ -173,7 +173,7 @@ class AuthController extends StateNotifier<AuthState> {
           'like': true,
           'comment': true,
           'chat': true,
-          'lightning': true,
+          'meet': true,
         },
       });
     }
@@ -214,7 +214,7 @@ class AuthController extends StateNotifier<AuthState> {
           'like': true,
           'comment': true,
           'chat': true,
-          'lightning': true,
+          'meet': true,
         },
       });
     }

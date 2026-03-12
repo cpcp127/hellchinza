@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -235,6 +236,12 @@ class _RequestRowState extends State<_RequestRow> {
       });
 
       SnackbarService.show(type: AppSnackType.success, message: '승인했어요');
+      await FirebaseFunctions.instance
+          .httpsCallable('sendMeetRequestApprovedNotification')
+          .call({
+        'meetId': widget.meetId,
+        'targetUid': uidToApprove,
+      });
       await widget.onChanged();
     } catch (e) {
       SnackbarService.show(type: AppSnackType.error, message: e.toString());
@@ -249,6 +256,14 @@ class _RequestRowState extends State<_RequestRow> {
     try {
       await _meetRef.collection('requests').doc(widget.uid).delete();
       SnackbarService.show(type: AppSnackType.success, message: '거절했어요');
+
+
+      await FirebaseFunctions.instance
+          .httpsCallable('sendMeetRequestRejectedNotification')
+          .call({
+        'meetId': widget.meetId,
+        'targetUid': widget.uid,
+      });
       await widget.onChanged(); // ✅ 부모 init 호출
     } catch (e) {
       SnackbarService.show(type: AppSnackType.error, message: e.toString());

@@ -483,7 +483,7 @@ async function cleanupUserNotifications(uid: string): Promise<void> {
 }
 
 export const deleteUserData = functions
-  .region("us-central1")
+  .region("asia-northeast3")
   .https
   .onCall(async (data, context) => {
     if (!context.auth?.uid) {
@@ -566,7 +566,7 @@ export const deleteUserData = functions
   });
 
 export const onCommentCreatedSendNotification = functions
-  .region("us-central1")
+  .region("asia-northeast3")
   .firestore
   .document("feeds/{feedId}/comments/{commentId}")
   .onCreate(async (snap, context) => {
@@ -1027,3 +1027,283 @@ export const sendChatMessageNotification = functions.firestore
       }
     }
   });
+
+export const sendMeetJoinRequestNotification = functions
+  .region("asia-northeast3")
+  .firestore
+  .document("meets/{meetId}/requests/{requestUid}")
+  .onCreate(async (snap, context) => {
+
+    const data = snap.data();
+    const meetId = context.params.meetId;
+    const requesterUid = data.uid;
+
+    try {
+
+      /// 1️⃣ meet 정보
+      const meetSnap = await db.collection("meets").doc(meetId).get();
+      if (!meetSnap.exists) return;
+
+      const meet = meetSnap.data()!;
+      const hostUid = meet.authorUid;
+      const meetTitle = meet.title ?? "모임";
+
+      /// 2️⃣ 신청자 정보
+      const requesterSnap = await db.collection("users").doc(requesterUid).get();
+      const requester = requesterSnap.data();
+      const nickname = requester?.nickname ?? "누군가";
+
+      /// 3️⃣ 알림 내용
+      const title = "모임 참가 신청";
+      const body = `${nickname}님이 '${meetTitle}' 모임에 참가 신청했어요`;
+
+      /// 4️⃣ notifications 저장
+      const notificationRef = db
+        .collection("users")
+        .doc(hostUid)
+        .collection("notifications")
+        .doc();
+
+      await notificationRef.set({
+        id: notificationRef.id,
+        type: "meet",
+        meetId: meetId,
+        title: title,
+        body: body,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        isRead: false,
+      });
+
+      /// 5️⃣ host FCM 토큰 조회
+      const hostSnap = await db.collection("users").doc(hostUid).get();
+      const host = hostSnap.data();
+
+      const tokens: string[] = host?.fcmTokens ?? [];
+
+      if (!tokens.length) return;
+
+      /// 6️⃣ FCM 전송
+      await messaging.sendEachForMulticast({
+        tokens: tokens,
+        notification: {
+          title: title,
+          body: body,
+        },
+        data: {
+          type: "meet",
+          meetId: meetId,
+        },
+        android: {
+          priority: "high",
+        },
+        apns: {
+          payload: {
+            aps: {
+              sound: "default",
+            },
+          },
+        },
+      });
+
+      functions.logger.info("meet join request push sent", {
+        meetId,
+        hostUid,
+        requesterUid,
+      });
+
+    } catch (e) {
+      functions.logger.error("meet join request push failed", {
+        error: String(e),
+        meetId,
+      });
+    }
+  });
+
+export const sendMeetRequestApprovedNotification = functions
+  .region("asia-northeast3")
+  .https
+  .onCall(async (data, context) => {
+    if (!context.auth?.uid) {
+      throw new functions.https.HttpsError(
+        "unauthenticated",
+        "로그인이 필요합니다.",
+      );
+    }
+
+    const hostUid = context.auth.uid;
+    const meetId = data.meetId as string | undefined;
+    const targetUid = data.targetUid as string | undefined;
+
+    if (!meetId || !targetUid) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "meetId, targetUid가 필요합니다.",
+      );
+    }
+
+    try {
+      const meetSnap = await db.collection("meets").doc(meetId).get();
+      if (!meetSnap.exists) {
+        throw new functions.https.HttpsError("not-found", "모임이 없어요.");
+      }
+
+      const meet = meetSnap.data()!;
+      if (meet.authorUid != hostUid) {
+        throw new functions.https.HttpsError(
+          "permission-denied",
+          "호스트만 승인 알림을 보낼 수 있어요.",
+        );
+      }
+
+      const meetTitle = meet.title ?? "모임";
+
+      const targetSnap = await db.collection("users").doc(targetUid).get();
+      if (!targetSnap.exists) return;
+
+      const target = targetSnap.data()!;
+      const tokens: string[] = Array.isArray(target.fcmTokens)
+        ? target.fcmTokens.filter(
+            (e: unknown) => typeof e === "string" && e.trim().length > 0,
+          )
+        : [];
+
+      const title = "모임 참가 승인";
+      const body = `'${meetTitle}' 모임 참가가 승인되었어요`;
+
+      const notiRef = db
+        .collection("users")
+        .doc(targetUid)
+        .collection("notifications")
+        .doc();
+
+      await notiRef.set({
+        id: notiRef.id,
+        type: "meet",
+        action: "requestApproved",
+        meetId,
+        title,
+        body,
+        isRead: false,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      if (tokens.length > 0) {
+        await messaging.sendEachForMulticast({
+          tokens,
+          notification: {title, body},
+          data: {
+            type: "meet",
+            action: "requestApproved",
+            meetId,
+          },
+        });
+      }
+
+      return {ok: true};
+    } catch (e) {
+      functions.logger.error("sendMeetRequestApprovedNotification failed", {
+        meetId,
+        targetUid,
+        error: String(e),
+      });
+      throw new functions.https.HttpsError(
+        "internal",
+        "승인 알림 전송에 실패했어요.",
+      );
+    }
+  });
+
+export const sendMeetRequestRejectedNotification = functions
+  .region("asia-northeast3")
+  .https
+  .onCall(async (data, context) => {
+    if (!context.auth?.uid) {
+      throw new functions.https.HttpsError(
+        "unauthenticated",
+        "로그인이 필요합니다.",
+      );
+    }
+
+    const hostUid = context.auth.uid;
+    const meetId = data.meetId as string | undefined;
+    const targetUid = data.targetUid as string | undefined;
+
+    if (!meetId || !targetUid) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "meetId, targetUid가 필요합니다.",
+      );
+    }
+
+    try {
+      const meetSnap = await db.collection("meets").doc(meetId).get();
+      if (!meetSnap.exists) {
+        throw new functions.https.HttpsError("not-found", "모임이 없어요.");
+      }
+
+      const meet = meetSnap.data()!;
+      if (meet.authorUid != hostUid) {
+        throw new functions.https.HttpsError(
+          "permission-denied",
+          "호스트만 거절 알림을 보낼 수 있어요.",
+        );
+      }
+
+      const meetTitle = meet.title ?? "모임";
+
+      const targetSnap = await db.collection("users").doc(targetUid).get();
+      if (!targetSnap.exists) return;
+
+      const target = targetSnap.data()!;
+      const tokens: string[] = Array.isArray(target.fcmTokens)
+        ? target.fcmTokens.filter(
+            (e: unknown) => typeof e === "string" && e.trim().length > 0,
+          )
+        : [];
+
+      const title = "모임 참가 거절";
+      const body = `'${meetTitle}' 모임 참가 요청이 거절되었어요`;
+
+      const notiRef = db
+        .collection("users")
+        .doc(targetUid)
+        .collection("notifications")
+        .doc();
+
+      await notiRef.set({
+        id: notiRef.id,
+        type: "meet",
+        action: "requestRejected",
+        meetId,
+        title,
+        body,
+        isRead: false,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      if (tokens.length > 0) {
+        await messaging.sendEachForMulticast({
+          tokens,
+          notification: {title, body},
+          data: {
+            type: "meet",
+            action: "requestRejected",
+            meetId,
+          },
+        });
+      }
+
+      return {ok: true};
+    } catch (e) {
+      functions.logger.error("sendMeetRequestRejectedNotification failed", {
+        meetId,
+        targetUid,
+        error: String(e),
+      });
+      throw new functions.https.HttpsError(
+        "internal",
+        "거절 알림 전송에 실패했어요.",
+      );
+    }
+  });
+

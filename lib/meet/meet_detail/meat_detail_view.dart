@@ -241,28 +241,28 @@ class _MeetDetailViewState extends ConsumerState<MeetDetailView> {
   }) async {
     if (state.meet == null) return;
 
-    if (state.isOwner) {
-      await _showMeetOwnerActionSheet(
-        context: context,
-        onDelete: () async {
-          final ok = await _confirm(
-            context,
-            title: '모임을 삭제할까요?',
-            message: '삭제 후 되돌릴 수 없습니다.',
-            destructive: true,
-          );
-          if (!ok) return;
-
-          await controller.deleteMeet();
-          if (context.mounted) Navigator.pop(context);
-          SnackbarService.show(
-            type: AppSnackType.success,
-            message: '모임을 삭제했습니다.',
-          );
-        },
-      );
-      return;
-    }
+    // if (state.isOwner) {
+    //   await _showMeetOwnerActionSheet(
+    //     context: context,
+    //     onDelete: () async {
+    //       final ok = await _confirm(
+    //         context,
+    //         title: '모임을 삭제할까요?',
+    //         message: '삭제 후 되돌릴 수 없습니다.',
+    //         destructive: true,
+    //       );
+    //       if (!ok) return;
+    //
+    //       await controller.deleteMeet();
+    //       if (context.mounted) Navigator.pop(context);
+    //       SnackbarService.show(
+    //         type: AppSnackType.success,
+    //         message: '모임을 삭제했습니다.',
+    //       );
+    //     },
+    //   );
+    //   return;
+    // }
 
     await _showMeetGuestActionSheet(
       context: context,
@@ -353,6 +353,7 @@ class _MeetDetailViewState extends ConsumerState<MeetDetailView> {
     required VoidCallback onReport,
     VoidCallback? onLeave,
   }) async {
+    final state = ref.watch(meetDetailControllerProvider(widget.meetId));
     final items = <CommonActionSheetItem>[
       if (isMember && onLeave != null)
         CommonActionSheetItem(
@@ -361,6 +362,7 @@ class _MeetDetailViewState extends ConsumerState<MeetDetailView> {
           onTap: onLeave,
           isDestructive: true,
         ),
+      if(!state.isOwner)
       CommonActionSheetItem(
         icon: Icons.report_outlined,
         title: '신고하기',

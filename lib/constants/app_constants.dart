@@ -5,7 +5,7 @@ const Map<String, bool> kDefaultNotificationSettings = {
   'like': true,
   'comment': true,
   'chat': true,
-  'lightning': true,
+  'meet': true,
 };
 
 const List<String> workList = [
