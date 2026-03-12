@@ -21,8 +21,8 @@ class CommonBackAppbar extends StatelessWidget implements PreferredSizeWidget {
         onTap: onBack ?? () => Navigator.pop(context),
         child: const Center(
           child: Icon(
-            Icons.arrow_back_ios_new,
-            size: 20,
+            Icons.arrow_back,
+            // size: 20,
             color: AppColors.icDefault, // gray900
           ),
         ),
@@ -53,7 +53,7 @@ class CommonCloseAppbar extends StatelessWidget implements PreferredSizeWidget {
         child: const Center(
           child: Icon(
             Icons.close,
-            size: 20,
+            // size: 20,
             color: AppColors.icDefault, // gray900
           ),
         ),

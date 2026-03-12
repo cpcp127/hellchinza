@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hellchinza/setting/setting_controller.dart';
+import 'package:hellchinza/withdraw/withdraw_view.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import '../auth/presentation/auth_controller.dart';
@@ -20,7 +21,6 @@ class SettingView extends ConsumerStatefulWidget {
 }
 
 class _SettingViewState extends ConsumerState<SettingView> {
-
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(settingControllerProvider);
@@ -68,26 +68,30 @@ class _SettingViewState extends ConsumerState<SettingView> {
                   subtitle: '계정과 관련 데이터를 삭제합니다',
                   isDestructive: true,
                   onTap: () async {
-                    final ok = await _confirm(
+                    // final ok = await _confirm(
+                    //   context,
+                    //   title: '회원탈퇴할까요?',
+                    //   message: '탈퇴 후에는 되돌릴 수 없습니다.',
+                    //   destructive: true,
+                    // );
+                    // if (!ok) return;
+                    // try {
+                    //   await controller.deleteAccount();
+                    //   SnackbarService.show(
+                    //     type: AppSnackType.success,
+                    //     message: '회원탈퇴가 완료되었습니다',
+                    //   );
+                    //   // 필요하면 로그인 화면으로 이동
+                    // } catch (_) {
+                    //   SnackbarService.show(
+                    //     type: AppSnackType.error,
+                    //     message: '회원탈퇴 실패',
+                    //   );
+                    // }
+                    Navigator.push(
                       context,
-                      title: '회원탈퇴할까요?',
-                      message: '탈퇴 후에는 되돌릴 수 없습니다.',
-                      destructive: true,
+                      MaterialPageRoute(builder: (_) => WithdrawView()),
                     );
-                    if (!ok) return;
-                    try {
-                      await controller.deleteAccount();
-                      SnackbarService.show(
-                        type: AppSnackType.success,
-                        message: '회원탈퇴가 완료되었습니다',
-                      );
-                      // 필요하면 로그인 화면으로 이동
-                    } catch (_) {
-                      SnackbarService.show(
-                        type: AppSnackType.error,
-                        message: '회원탈퇴 실패',
-                      );
-                    }
                   },
                 ),
               ],
@@ -126,7 +130,7 @@ class _SettingViewState extends ConsumerState<SettingView> {
 
             const SizedBox(height: 16),
 
-// ---------------- 알림 설정 ----------------
+            // ---------------- 알림 설정 ----------------
             _SettingSection(
               title: '알림 설정',
               children: [
@@ -300,6 +304,7 @@ class _SettingTile extends StatelessWidget {
     );
   }
 }
+
 class _SettingSwitchTile extends StatelessWidget {
   final String title;
   final String? subtitle;
