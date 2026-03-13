@@ -17,8 +17,7 @@ class FeedModel {
   /// 이미지 없으면 null
   final List<String>? imageUrls;
 
-  /// 좋아요 누른 유저 uid 목록
-  final List<String> likeUids;
+
 
   /// 투표 (없으면 null)
   final PollModel? poll;
@@ -43,7 +42,7 @@ class FeedModel {
     this.subType,
     this.contents,
     this.imageUrls,
-    required this.likeUids,
+
     this.poll,
     required this.createdAt,
     required this.updatedAt,

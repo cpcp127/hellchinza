@@ -141,7 +141,7 @@ class MeetDetailController extends StateNotifier<MeetDetailState> {
       final msgRef = roomRef.collection('messages').doc();
       tx.set(msgRef, {
         'id': msgRef.id,
-        'authorUid': uid, // system이라면 authorUid를 host로 두기도 함. 너 정책대로.
+        'authorUid': 'system', // system이라면 authorUid를 host로 두기도 함. 너 정책대로.
         'type': 'system',
         'text': '새 참가자가 들어왔어요 🎉',
         'createdAt': FieldValue.serverTimestamp(),

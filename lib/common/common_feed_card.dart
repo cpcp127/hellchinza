@@ -252,6 +252,13 @@ class _AuthorSection extends ConsumerWidget {
                     : null,
                 onDelete: isMine
                     ? () async {
+                        final ok = await _confirm(
+                          context,
+                          title: '피드 삭제',
+                          message: '피드를 삭제하시겠어요?',
+                          destructive: true,
+                        );
+                        if (!ok) return;
                         await FeedService().deleteFeed(feedId: feed.id);
                         if (feed.mainType == '오운완') {
                           ref
@@ -295,6 +302,23 @@ class _AuthorSection extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  Future<bool> _confirm(
+    BuildContext context, {
+    required String title,
+    required String message,
+    required bool destructive,
+  }) async {
+    final result = await DialogService.showConfirm(
+      context: context,
+      title: title,
+      message: message,
+      confirmText: '확인',
+      isDestructive: destructive,
+    );
+
+    return result ?? false;
   }
 }
 
@@ -501,8 +525,10 @@ class PollSection extends ConsumerWidget {
   }
 }
 
-final isFeedLikedProvider =
-FutureProvider.autoDispose.family<bool, String>((ref, feedId) async {
+final isFeedLikedProvider = FutureProvider.autoDispose.family<bool, String>((
+  ref,
+  feedId,
+) async {
   final uid = FirebaseAuth.instance.currentUser?.uid;
   if (uid == null) return false;
 
@@ -516,8 +542,10 @@ FutureProvider.autoDispose.family<bool, String>((ref, feedId) async {
   return doc.exists;
 });
 
-final feedLikeCountProvider =
-FutureProvider.autoDispose.family<int, String>((ref, feedId) async {
+final feedLikeCountProvider = FutureProvider.autoDispose.family<int, String>((
+  ref,
+  feedId,
+) async {
   final result = await FirebaseFirestore.instance
       .collection('feeds')
       .doc(feedId)
@@ -564,10 +592,7 @@ class _FeedActionRow extends ConsumerWidget {
             const SizedBox(width: 6),
             GestureDetector(
               onTap: () {
-                LikeUserBottomSheet.show(
-                  context: context,
-                  feedId: feed.id,
-                );
+                LikeUserBottomSheet.show(context: context, feedId: feed.id);
               },
               child: Text(
                 '$likeCount',
@@ -881,7 +906,6 @@ class _FeedCommentBottomSheetState
                             valueKey: valueKey,
                           );
 
-                          // ✅ 삭제 즉시 반영 (실시간X)
                           _triggerRefresh();
 
                           SnackbarService.show(

@@ -90,23 +90,7 @@ class _MeetSubTypeFilterSheetState extends State<MeetSubTypeFilterSheet> {
                           color: AppColors.white,
                         ),
                       ),
-                      const Spacer(),
-                      GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            _selected = '전체';
-                          });
-                          _scrollCtrl.jumpToItem(
-                            widget.items.indexOf('전체'),
-                          );
-                        },
-                        child: Text(
-                          '초기화',
-                          style: AppTextStyle.bodyMediumStyle.copyWith(
-                            color: Colors.white.withOpacity(0.82),
-                          ),
-                        ),
-                      ),
+
                     ],
                   ),
                 ),

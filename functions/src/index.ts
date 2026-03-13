@@ -965,10 +965,17 @@ export const sendChatMessageNotification = functions.firestore
     if (pushTargets.length === 0) return;
 
     // 4) 푸시 발송 (수신자별)
-    const pushTitle = roomTitle;
-    const pushBody = type === "image" ?
-      `${authorNickname}님이 사진을 보냈습니다.` :
-      `${authorNickname}: ${messagePreview}`;
+   const pushTitle = roomTitle;
+
+   let pushBody = "";
+
+   if (type === "system" || authorUid === "system") {
+     pushBody = messagePreview;
+   } else if (type === "image") {
+     pushBody = `${authorNickname}님이 사진을 보냈습니다.`;
+   } else {
+     pushBody = `${authorNickname}: ${messagePreview}`;
+   }
 
     for (const target of pushTargets) {
       const multicastMessage: admin.messaging.MulticastMessage = {
