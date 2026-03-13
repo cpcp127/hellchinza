@@ -8,6 +8,7 @@ import 'package:hellchinza/auth/domain/user_model.dart';
 import 'package:hellchinza/common/common_chip.dart';
 import 'package:hellchinza/profile/profile_controller.dart';
 import 'package:hellchinza/profile/profile_edit_view.dart';
+import 'package:hellchinza/profile/profile_state.dart';
 import 'package:hellchinza/profile/widget/feed_preview_section.dart';
 import 'package:hellchinza/profile/widget/friend_list_view.dart';
 import 'package:hellchinza/profile/widget/meet_preview_section.dart';
@@ -69,113 +70,92 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
     final controller = ref.read(profileControllerProvider(widget.uid).notifier);
 
     final myUid = FirebaseAuth.instance.currentUser?.uid;
+    final uidToShow = widget.uid ?? myUid;
+    final isMe = uidToShow != null && uidToShow == myUid;
+
+    AsyncValue<UserModel?>? otherUserAsync;
+    if (uidToShow != null && !isMe) {
+      otherUserAsync = ref.watch(userByUidProvider(uidToShow));
+    }
+
     return Scaffold(
       appBar: widget.fromHomeTab == null || widget.fromHomeTab == false
           ? AppBar(
-              actions: [
-                if (widget.uid != myUid) ...[
-                  IconButton(
-                    icon: const Icon(
-                      Icons.more_horiz,
-                      color: AppColors.icDefault,
-                    ),
-                    onPressed: () {
-                      _showUserMoreSheet(
-                        context: context,
-                        onReport: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => ClaimView(
-                                target: ClaimTarget(
-                                  type: ClaimTargetType.user,
-                                  // ✅ 없으면 추가
-                                  targetId: widget.uid,
-                                  targetOwnerUid: widget.uid,
-                                  // 상대 uid
-                                  title: '유저 신고',
-                                  parentId: null,
-                                ),
+        actions: [
+          if (!isMe && otherUserAsync != null)
+            otherUserAsync.when(
+              loading: () => const SizedBox(),
+              error: (_, __) => const SizedBox(),
+              data: (user) {
+                if (user == null) return const SizedBox();
+
+                return IconButton(
+                  icon: const Icon(
+                    Icons.more_horiz,
+                    color: AppColors.icDefault,
+                  ),
+                  onPressed: () {
+                    _showUserMoreSheet(
+                      context: context,
+                      onReport: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => ClaimView(
+                              target: ClaimTarget(
+                                type: ClaimTargetType.user,
+                                targetId: widget.uid!,
+                                targetOwnerUid: widget.uid!,
+                                title: '유저 신고',
+                                parentId: null,
                               ),
                             ),
+                          ),
+                        );
+                      },
+                      onBlock: () async {
+                        final ok = await _confirmBlockDialog(context);
+                        if (!ok) return;
+
+                        try {
+                          await ref
+                              .read(
+                            profileControllerProvider(widget.uid).notifier,
+                          )
+                              .blockUser(targetUid: widget.uid!);
+
+                          SnackbarService.show(
+                            type: AppSnackType.success,
+                            message: '차단했어요',
                           );
-                        },
-                        onBlock: () async {
-                          final ok = await _confirmBlockDialog(context);
-                          if (!ok) return;
 
-                          try {
-                            await ref
-                                .read(
-                                  profileControllerProvider(
-                                    widget.uid,
-                                  ).notifier,
-                                )
-                                .blockUser(targetUid: widget.uid); // ✅ 아래 3) 참고
-
-                            SnackbarService.show(
-                              type: AppSnackType.success,
-                              message: '차단했어요',
-                            );
-
-                            Navigator.pop(context); // ✅ 차단 후 프로필 화면 닫고 싶으면
-                          } catch (e) {
-                            SnackbarService.show(
-                              type: AppSnackType.error,
-                              message: e.toString().replaceAll(
-                                'Exception: ',
-                                '',
-                              ),
-                            );
-                          }
-                        },
-                      );
-                    },
-                  ),
-                ],
-              ],
-            )
-          : null,
-      bottomNavigationBar: state.showFriendButton
-          ? SafeArea(
-              top: false,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
-                child: CommonBottomButton(
-                  title: state.friendButtonTitle,
-                  enabled: state.friendButtonEnabled,
-                  loading: state.isBusy,
-                  onTap: () async {
-                    // ✅ View는 메시지 입력만 받고 controller 호출
-                    final msg = await DialogService.showTextInput(
-                      context: context,
-                      title: '친구 신청',
-                      hintText: '신청 메시지를 입력하세요',
-                      confirmText: '보내기',
+                          Navigator.pop(context);
+                        } catch (e) {
+                          SnackbarService.show(
+                            type: AppSnackType.error,
+                            message: e.toString().replaceAll('Exception: ', ''),
+                          );
+                        }
+                      },
                     );
-                    if (msg == null) return;
-
-                    try {
-                      await controller.sendFriendRequest(
-                        requestText: msg,
-                        otherUid: widget.uid,
-                      );
-                      SnackbarService.show(
-                        type: AppSnackType.success,
-                        message: '친구 신청을 보냈어요',
-                      );
-                    } catch (e) {
-                      print(e);
-                      SnackbarService.show(
-                        type: AppSnackType.error,
-                        message: e.toString().replaceAll('Exception: ', ''),
-                      );
-                    }
                   },
-                ),
-              ),
-            )
+                );
+              },
+            ),
+        ],
+      )
           : null,
+
+      bottomNavigationBar: _buildBottomBar(
+        context: context,
+        state: state,
+        controller: controller,
+        myUid: myUid,
+        uidToShow: uidToShow,
+        isMe: isMe,
+        otherUserAsync: otherUserAsync,
+      ),
+
       body: Builder(
         builder: (context) {
           if (myUid == null) {
@@ -189,19 +169,23 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
             );
           }
 
-          final uidToShow = widget.uid ?? myUid;
-          final isMe = uidToShow == myUid;
+          if (uidToShow == null) {
+            return Center(
+              child: Text(
+                '사용자가 없어요',
+                style: AppTextStyle.bodyMediumStyle.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            );
+          }
 
-          // ✅ 내 프로필은 기존 provider 그대로 사용
           if (isMe) {
             final my = ref.watch(myUserModelProvider);
             return _buildBody(context, my, isMe: true);
           }
 
-          // ✅ 남 프로필은 uid로 가져오기
-          final async = ref.watch(userByUidProvider(uidToShow));
-
-          return async.when(
+          return otherUserAsync!.when(
             loading: () => const Center(child: CupertinoActivityIndicator()),
             error: (e, _) => Center(child: Text('error: $e')),
             data: (user) {
@@ -220,6 +204,66 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
           );
         },
       ),
+    );
+  }
+
+  Widget? _buildBottomBar({
+    required BuildContext context,
+    required ProfileState state,
+    required ProfileController controller,
+    required String? myUid,
+    required String? uidToShow,
+    required bool isMe,
+    required AsyncValue<UserModel?>? otherUserAsync,
+  }) {
+    if (myUid == null) return null;
+    if (uidToShow == null) return null;
+    if (isMe) return null;
+    if (!state.showFriendButton) return null;
+
+    return otherUserAsync!.when(
+      loading: () => null,
+      error: (_, __) => null,
+      data: (user) {
+        if (user == null) return null;
+
+        return SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+            child: CommonBottomButton(
+              title: state.friendButtonTitle,
+              enabled: state.friendButtonEnabled,
+              loading: state.isBusy,
+              onTap: () async {
+                final msg = await DialogService.showTextInput(
+                  context: context,
+                  title: '친구 신청',
+                  hintText: '신청 메시지를 입력하세요',
+                  confirmText: '보내기',
+                );
+                if (msg == null) return;
+
+                try {
+                  await controller.sendFriendRequest(
+                    requestText: msg,
+                    otherUid: uidToShow,
+                  );
+                  SnackbarService.show(
+                    type: AppSnackType.success,
+                    message: '친구 신청을 보냈어요',
+                  );
+                } catch (e) {
+                  SnackbarService.show(
+                    type: AppSnackType.error,
+                    message: e.toString().replaceAll('Exception: ', ''),
+                  );
+                }
+              },
+            ),
+          ),
+        );
+      },
     );
   }
 
