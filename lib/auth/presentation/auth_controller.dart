@@ -55,7 +55,9 @@ class AuthController extends StateNotifier<AuthState> {
         );
 
         debugPrint('apple userIdentifier: ${appleCredential.userIdentifier}');
-        debugPrint('apple authorizationCode: ${appleCredential.authorizationCode}');
+        debugPrint(
+          'apple authorizationCode: ${appleCredential.authorizationCode}',
+        );
         debugPrint('apple identityToken: ${appleCredential.identityToken}');
         debugPrint('apple givenName: ${appleCredential.givenName}');
         debugPrint('apple familyName: ${appleCredential.familyName}');
@@ -119,9 +121,7 @@ class AuthController extends StateNotifier<AuthState> {
           },
         });
       } else {
-        await firebaseRef.update({
-          'updatedAt': FieldValue.serverTimestamp(),
-        });
+        await firebaseRef.update({'updatedAt': FieldValue.serverTimestamp()});
       }
     } on FirebaseAuthException catch (e, st) {
       debugPrint('Apple login FirebaseAuthException: ${e.code} / ${e.message}');
@@ -133,6 +133,7 @@ class AuthController extends StateNotifier<AuthState> {
       rethrow;
     }
   }
+
   Future<void> signInWithGoogle() async {
     final _auth = FirebaseAuth.instance;
     // 1) Google 인증(로그인)
@@ -240,25 +241,13 @@ class AuthController extends StateNotifier<AuthState> {
     // 예: Firestore 저장, 다음 페이지 이동 등
   }
 
-  Future<void> _openUrl(String url,BuildContext context) async {
+  Future<void> _openUrl(String url, BuildContext context) async {
     final uri = Uri.parse(url);
-    final ok = await launchUrl(
-      uri,
-      mode: LaunchMode.externalApplication,
-    );
+    final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!ok && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('페이지를 열 수 없어요')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('페이지를 열 수 없어요')));
     }
   }
-
-  Future<void> openPrivacy(BuildContext context) async {
-    await _openUrl('https://hellchinza.web.app/privacy',context);
-  }
-
-  Future<void> openTerms(BuildContext context) async {
-    await _openUrl('https://hellchinza.web.app/terms',context);
-  }
-
 }

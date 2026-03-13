@@ -1,17 +1,18 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:hellchinza/setting/setting_controller.dart';
-import 'package:hellchinza/withdraw/withdraw_view.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
-import '../auth/presentation/auth_controller.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_text_style.dart';
 import '../inquiry/inquiry_view.dart';
 import '../notice/notice_list_view.dart';
 import '../services/dialog_service.dart';
 import '../services/snackbar_service.dart';
+import '../setting/setting_controller.dart';
+import '../withdraw/withdraw_view.dart';
+import 'block_user_list.dart';
 
 class SettingView extends ConsumerStatefulWidget {
   const SettingView({super.key});
@@ -25,8 +26,9 @@ class _SettingViewState extends ConsumerState<SettingView> {
   Widget build(BuildContext context) {
     final state = ref.watch(settingControllerProvider);
     final controller = ref.read(settingControllerProvider.notifier);
+
     return Scaffold(
-      appBar: AppBar(title: Text('설정')),
+      appBar: AppBar(title: const Text('설정')),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
@@ -46,18 +48,18 @@ class _SettingViewState extends ConsumerState<SettingView> {
                       destructive: false,
                     );
                     if (!ok) return;
+
                     try {
                       await controller.logout(context);
                       SnackbarService.show(
                         type: AppSnackType.success,
                         message: '로그아웃 되었습니다',
                       );
-                      // 필요하면 로그인 화면으로 이동
                     } catch (_) {
                       SnackbarService.show(
                         type: AppSnackType.error,
                         message:
-                            ref.read(settingControllerProvider).errorMessage ??
+                        ref.read(settingControllerProvider).errorMessage ??
                             '로그아웃 실패',
                       );
                     }
@@ -67,30 +69,12 @@ class _SettingViewState extends ConsumerState<SettingView> {
                   title: '회원탈퇴',
                   subtitle: '계정과 관련 데이터를 삭제합니다',
                   isDestructive: true,
-                  onTap: () async {
-                    // final ok = await _confirm(
-                    //   context,
-                    //   title: '회원탈퇴할까요?',
-                    //   message: '탈퇴 후에는 되돌릴 수 없습니다.',
-                    //   destructive: true,
-                    // );
-                    // if (!ok) return;
-                    // try {
-                    //   await controller.deleteAccount();
-                    //   SnackbarService.show(
-                    //     type: AppSnackType.success,
-                    //     message: '회원탈퇴가 완료되었습니다',
-                    //   );
-                    //   // 필요하면 로그인 화면으로 이동
-                    // } catch (_) {
-                    //   SnackbarService.show(
-                    //     type: AppSnackType.error,
-                    //     message: '회원탈퇴 실패',
-                    //   );
-                    // }
+                  onTap: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => WithdrawView()),
+                      MaterialPageRoute(
+                        builder: (_) => const WithdrawView(),
+                      ),
                     );
                   },
                 ),
@@ -99,7 +83,6 @@ class _SettingViewState extends ConsumerState<SettingView> {
 
             const SizedBox(height: 16),
 
-            // ---------------- 고객센터 ----------------
             _SettingSection(
               title: '고객센터',
               children: [
@@ -110,7 +93,9 @@ class _SettingViewState extends ConsumerState<SettingView> {
                   onTap: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => const NoticeListView()),
+                      MaterialPageRoute(
+                        builder: (_) => const NoticeListView(),
+                      ),
                     );
                   },
                 ),
@@ -121,7 +106,69 @@ class _SettingViewState extends ConsumerState<SettingView> {
                   onTap: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => const InquiryView()),
+                      MaterialPageRoute(
+                        builder: (_) => const InquiryView(),
+                      ),
+                    );
+                  },
+                ),
+                _SettingTile(
+                  title: '고객지원',
+                  subtitle: '이용 중 도움이 필요하면 확인해 주세요',
+                  isDestructive: false,
+                  onTap: () async {
+                    await _openUrl('https://hellchinza.web.app/support');
+                  },
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 16),
+
+            _SettingSection(
+              title: '정책 및 정보',
+              children: [
+                _SettingTile(
+                  title: '개인정보 처리방침',
+                  subtitle: '개인정보 수집 및 이용 내용을 확인합니다',
+                  isDestructive: false,
+                  onTap: () async {
+                    await _openUrl('https://hellchinza.web.app/privacy');
+                  },
+                ),
+                _SettingTile(
+                  title: '이용약관',
+                  subtitle: '서비스 이용약관을 확인합니다',
+                  isDestructive: false,
+                  onTap: () async {
+                    await _openUrl('https://hellchinza.web.app/terms');
+                  },
+                ),
+                _SettingTile(
+                  title: '차단 사용자 관리',
+                  subtitle: '차단한 사용자를 확인하고 해제할 수 있습니다',
+                  isDestructive: false,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const BlockUserListView(),
+                      ),
+                    );
+                  },
+                ),
+                _SettingTile(
+                  title: '버전 정보',
+                  subtitle: '현재 앱 버전 확인',
+                  isDestructive: false,
+                  onTap: () async {
+                    final packageInfo = await PackageInfo.fromPlatform();
+
+                    await DialogService.showConfirmOneButton(
+                      context: context,
+                      title: '버전 정보',
+                      message: '현재 버전: ${packageInfo.version}',
+                      confirmText: '확인',
                     );
                   },
                 ),
@@ -130,7 +177,6 @@ class _SettingViewState extends ConsumerState<SettingView> {
 
             const SizedBox(height: 16),
 
-            // ---------------- 알림 설정 ----------------
             _SettingSection(
               title: '알림 설정',
               children: [
@@ -142,7 +188,6 @@ class _SettingViewState extends ConsumerState<SettingView> {
                     controller.updateNotificationSetting('chat', v);
                   },
                 ),
-
                 _SettingSwitchTile(
                   title: '댓글 알림',
                   subtitle: '내 피드에 댓글이 달리면 알림을 받습니다',
@@ -151,7 +196,6 @@ class _SettingViewState extends ConsumerState<SettingView> {
                     controller.updateNotificationSetting('comment', v);
                   },
                 ),
-
                 _SettingSwitchTile(
                   title: '좋아요 알림',
                   subtitle: '내 피드에 좋아요가 눌리면 알림을 받습니다',
@@ -170,41 +214,33 @@ class _SettingViewState extends ConsumerState<SettingView> {
                 ),
               ],
             ),
-            const SizedBox(height: 16),
-
-            // ---------------- 앱 정보 ----------------
-            _SettingSection(
-              title: '앱 정보',
-              children: [
-                _SettingTile(
-                  title: '버전 정보',
-                  subtitle: '현재 앱 버전 확인',
-                  isDestructive: false,
-                  onTap: () async {
-                    final packageInfo = await PackageInfo.fromPlatform();
-
-                    await DialogService.showConfirmOneButton(
-                      context: context,
-                      title: '버전 정보',
-                      message: '현재 버전: ${packageInfo.version}',
-                      confirmText: '확인',
-                    );
-                  },
-                ),
-              ],
-            ),
           ],
         ),
       ),
     );
   }
 
+  Future<void> _openUrl(String url) async {
+    final uri = Uri.parse(url);
+    final ok = await launchUrl(
+      uri,
+      mode: LaunchMode.externalApplication,
+    );
+
+    if (!ok) {
+      SnackbarService.show(
+        type: AppSnackType.error,
+        message: '페이지를 열 수 없어요',
+      );
+    }
+  }
+
   Future<bool> _confirm(
-    BuildContext context, {
-    required String title,
-    required String message,
-    required bool destructive,
-  }) async {
+      BuildContext context, {
+        required String title,
+        required String message,
+        required bool destructive,
+      }) async {
     final result = await DialogService.showConfirm(
       context: context,
       title: title,
@@ -229,7 +265,10 @@ class _SettingSection extends StatelessWidget {
   final String title;
   final List<Widget> children;
 
-  const _SettingSection({required this.title, required this.children});
+  const _SettingSection({
+    required this.title,
+    required this.children,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -305,7 +344,10 @@ class _SettingTile extends StatelessWidget {
                 ],
               ),
             ),
-            Icon(Icons.chevron_right, color: AppColors.icSecondary),
+            const Icon(
+              Icons.chevron_right,
+              color: AppColors.icSecondary,
+            ),
           ],
         ),
       ),

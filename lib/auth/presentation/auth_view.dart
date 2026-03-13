@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:hellchinza/auth/presentation/auth_controller.dart';
 import 'package:hellchinza/constants/app_border_radius.dart';
+import 'package:hellchinza/services/policy_link_service.dart';
 
 import '../../constants/app_colors.dart';
 import '../../constants/app_text_style.dart';
@@ -102,11 +103,11 @@ class _AuthViewState extends ConsumerState<AuthView> {
             const SizedBox(height: 16),
 
             _AuthAgreementSection(
-              onTapPrivacy: (){
-                controller.openPrivacy(context);
+              onTapPrivacy: () {
+                PolicyLinkService.openPrivacy();
               },
-              onTapTerms: (){
-                controller.openTerms(context);
+              onTapTerms: () {
+                PolicyLinkService.openTerms();
               },
             ),
             SizedBox(height: 12),
@@ -179,10 +180,8 @@ class _AuthAgreementSectionState extends State<_AuthAgreementSection> {
   @override
   void initState() {
     super.initState();
-    _privacyRecognizer = TapGestureRecognizer()
-      ..onTap = widget.onTapPrivacy;
-    _termsRecognizer = TapGestureRecognizer()
-      ..onTap = widget.onTapTerms;
+    _privacyRecognizer = TapGestureRecognizer()..onTap = widget.onTapPrivacy;
+    _termsRecognizer = TapGestureRecognizer()..onTap = widget.onTapTerms;
   }
 
   @override
@@ -220,32 +219,25 @@ class _AuthAgreementSectionState extends State<_AuthAgreementSection> {
         text: TextSpan(
           style: baseStyle,
           children: [
-            const TextSpan(
-              text: '계속 진행하면 가보자운동의\n',
-            ),
+            const TextSpan(text: '계속 진행하면 가보자운동의\n'),
             TextSpan(
               text: '개인정보 처리방침',
               style: linkStyle,
               recognizer: _privacyRecognizer,
             ),
-            const TextSpan(
-              text: ' 및 ',
-            ),
+            const TextSpan(text: ' 및 '),
             TextSpan(
               text: '이용약관',
               style: linkStyle,
               recognizer: _termsRecognizer,
             ),
-            const TextSpan(
-              text: '에 동의한 것으로 간주됩니다.',
-            ),
+            const TextSpan(text: '에 동의한 것으로 간주됩니다.'),
           ],
         ),
       ),
     );
   }
 }
-
 
 class UnchinLoginHeader extends StatelessWidget {
   const UnchinLoginHeader({super.key});
