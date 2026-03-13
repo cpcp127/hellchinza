@@ -280,6 +280,7 @@ class _MeetDetailViewState extends ConsumerState<MeetDetailView> {
 
         await controller.leaveMeet();
         SnackbarService.show(type: AppSnackType.success, message: '모임에서 나왔어요');
+        Navigator.pop(context);
       },
       onReport: () {
         Navigator.push(
