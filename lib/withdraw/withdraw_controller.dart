@@ -54,10 +54,12 @@ class WithdrawController extends StateNotifier<WithdrawState> {
       await deleteAccount(context);
 
       state = state.copyWith(isLoading: false);
+      Navigator.pop(context);
       SnackbarService.show(
         type: AppSnackType.success,
         message: '회원탈퇴가 완료되었습니다',
       );
+
     } catch (e) {
       print('에러 : $e');
       SnackbarService.show(

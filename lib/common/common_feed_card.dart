@@ -556,6 +556,20 @@ final feedLikeCountProvider = FutureProvider.autoDispose.family<int, String>((
   return result.count ?? 0;
 });
 
+final feedCommentCountProvider = FutureProvider.autoDispose.family<int, String>((
+    ref,
+    feedId,
+    ) async {
+  final result = await FirebaseFirestore.instance
+      .collection('feeds')
+      .doc(feedId)
+      .collection('comments')
+      .count()
+      .get();
+
+  return result.count ?? 0;
+});
+
 class _FeedActionRow extends ConsumerWidget {
   final FeedModel feed;
 
@@ -566,9 +580,11 @@ class _FeedActionRow extends ConsumerWidget {
     final myUid = FirebaseAuth.instance.currentUser?.uid;
     final isLikedAsync = ref.watch(isFeedLikedProvider(feed.id));
     final likeCountAsync = ref.watch(feedLikeCountProvider(feed.id));
+    final commentsCountAsync = ref.watch(feedCommentCountProvider(feed.id));
 
     final isLiked = isLikedAsync.value ?? false;
     final likeCount = likeCountAsync.value ?? 0;
+    final commentCount = commentsCountAsync.value ?? 0;
     return Row(
       children: [
         Row(
@@ -610,7 +626,7 @@ class _FeedActionRow extends ConsumerWidget {
           },
           child: _ActionItem(
             icon: Icons.chat_bubble_outline,
-            label: feed.commentCount.toString(),
+            label: commentCount.toString(),
           ),
         ),
       ],
@@ -907,7 +923,7 @@ class _FeedCommentBottomSheetState
                           );
 
                           _triggerRefresh();
-
+                          ref.invalidate(feedCommentCountProvider(widget.feedId));
                           SnackbarService.show(
                             type: AppSnackType.success,
                             message: '댓글이 삭제되었습니다',
@@ -1073,13 +1089,8 @@ class _FeedCommentBottomSheetState
       // ✅ 작성 즉시 리스트 갱신 (실시간X, 수동 refresh)
       _triggerRefresh();
 
-      // commentCount 증가 + feed invalidate는 기존 그대로
-      await FirebaseFirestore.instance.runTransaction((tx) async {
-        final feedRef = FirebaseFirestore.instance
-            .collection('feeds')
-            .doc(widget.feedId);
-        tx.update(feedRef, {'commentCount': FieldValue.increment(1)});
-      });
+      ref.invalidate(feedCommentCountProvider(widget.feedId));
+
 
       ref.invalidate(feedDocProvider(widget.feedId));
     } catch (e) {
