@@ -61,6 +61,6 @@ FutureProvider.family<List<FeedModel>, ({String uid, DateTime anyDayInWeek})>(
 );
 
 final workoutGoalControllerProvider =
-StateNotifierProvider.autoDispose<WorkoutGoalController, WorkoutGoalState>(
+StateNotifierProvider<WorkoutGoalController, WorkoutGoalState>(
       (ref) => WorkoutGoalController(ref),
 );

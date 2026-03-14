@@ -656,11 +656,11 @@ class _SubTypeDonutSection extends StatelessWidget {
         const SizedBox(height: 10),
         Container(
           padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: AppColors.bgWhite,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppColors.borderSecondary),
-          ),
+          // decoration: BoxDecoration(
+          //   color: AppColors.bgWhite,
+          //   borderRadius: BorderRadius.circular(16),
+          //   border: Border.all(color: AppColors.borderSecondary),
+          // ),
           child: Row(
             children: [
               const SizedBox(width: 8),

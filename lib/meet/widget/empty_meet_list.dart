@@ -3,9 +3,16 @@ import 'package:flutter/material.dart';
 import '../../constants/app_colors.dart';
 import '../../constants/app_text_style.dart';
 
-class EmptyMeetList extends StatelessWidget {
-  const EmptyMeetList({required this.onTapCreate});
+class EmptyList extends StatelessWidget {
+  const EmptyList({
+    required this.onTapCreate,
+    required this.title,
+    required this.subTitle, required this.btnTitle,
+  });
 
+  final String title;
+  final String subTitle;
+  final String btnTitle;
   final VoidCallback onTapCreate;
 
   @override
@@ -14,7 +21,7 @@ class EmptyMeetList extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 60, 16, 16),
       children: [
         Text(
-          '아직 모임이 없어요',
+          title,
           style: AppTextStyle.headlineSmallBoldStyle.copyWith(
             color: AppColors.textDefault,
           ),
@@ -22,7 +29,7 @@ class EmptyMeetList extends StatelessWidget {
         ),
         const SizedBox(height: 10),
         Text(
-          '운동친구를 모으는 첫 모임을 만들어볼까요?',
+          subTitle,
           style: AppTextStyle.bodyMediumStyle.copyWith(
             color: AppColors.textSecondary,
           ),
@@ -41,7 +48,7 @@ class EmptyMeetList extends StatelessWidget {
               ),
             ),
             child: Text(
-              '모임 만들기',
+              btnTitle,
               style: AppTextStyle.titleMediumBoldStyle.copyWith(
                 color: AppColors.white,
               ),

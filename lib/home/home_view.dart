@@ -8,6 +8,7 @@ import 'package:hellchinza/feed/feed_list/feed_list_view.dart';
 import 'package:hellchinza/meet/meet_create/meet_create_view.dart';
 import 'package:hellchinza/meet/meet_list/meet_list_view.dart';
 import 'package:hellchinza/profile/profile_view.dart';
+import 'package:hellchinza/workout_goal/presentation/work_out_goal_gate_view.dart';
 import 'package:hellchinza/workout_goal/presentation/workout_goal_root_view.dart';
 
 import '../chat/chat_list/chat_list_view.dart';
@@ -211,7 +212,7 @@ class _HomeViewState extends ConsumerState<HomeView> {
           body: IndexedStack(
             index: _pageIndex,
             children: [
-              WorkoutGoalRootView(uid: FirebaseAuth.instance.currentUser!.uid,),
+              WorkoutGoalGateView(),
               FeedListView(),
               MeetListView(),
 

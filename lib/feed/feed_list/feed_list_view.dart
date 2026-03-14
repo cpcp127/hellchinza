@@ -6,11 +6,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hellchinza/common/common_banner_ad.dart';
 import 'package:hellchinza/constants/app_constants.dart';
+import 'package:hellchinza/feed/create_feed/create_feed_view.dart';
 import 'package:hellchinza/feed/feed_list/feed_list_controller.dart';
 
 import '../../common/common_feed_card.dart';
 import '../../constants/app_colors.dart';
 import '../../constants/app_text_style.dart';
+import '../../meet/widget/empty_meet_list.dart';
 import '../domain/feed_model.dart';
 import '../widget/feed_filter_sheet.dart';
 
@@ -23,7 +25,6 @@ class FeedListView extends ConsumerStatefulWidget {
 
 class _FeedListViewState extends ConsumerState<FeedListView>
     with SingleTickerProviderStateMixin {
-
   final ScrollController _feedScrollCtrl = ScrollController();
 
   final List<FeedModel> _feedItems = [];
@@ -190,10 +191,7 @@ class _FeedListViewState extends ConsumerState<FeedListView>
               curve: Curves.easeOutCubic,
             );
 
-            return FadeTransition(
-              opacity: curved,
-              child: child,
-            );
+            return FadeTransition(opacity: curved, child: child);
           },
         );
       },
@@ -250,19 +248,19 @@ class _FeedListViewState extends ConsumerState<FeedListView>
       child: _feedIsLoading
           ? const Center(child: CircularProgressIndicator())
           : _feedItems.isEmpty
-          ? ListView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              children: [
-                const SizedBox(height: 80),
-                Center(
-                  child: Text(
-                    state.onlyFriendFeeds ? '아직 친구의 피드가 없어요' : '아직 피드가 없어요',
-                    style: AppTextStyle.bodyMediumStyle.copyWith(
-                      color: AppColors.textSecondary,
-                    ),
+          ? EmptyList(
+              btnTitle: '피드 작성하기',
+              title: '아직 피드가 없어요',
+              subTitle: '피드로 첫 운동기록을 작성해볼까요?',
+              onTapCreate: () {
+                Navigator.push(
+                  context,
+                  CupertinoPageRoute(
+                    fullscreenDialog: true,
+                    builder: (_) => CreateFeedView(),
                   ),
-                ),
-              ],
+                );
+              },
             )
           : ListView.separated(
               controller: _feedScrollCtrl,

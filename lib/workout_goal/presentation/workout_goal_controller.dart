@@ -92,13 +92,9 @@ class WorkoutGoalController extends StateNotifier<WorkoutGoalState> {
 
   /// ✅ 목표 저장은 "내 페이지"에서만 사용한다고 가정
   Future<void> setWeeklyGoal(int target) async {
-    final uid = state.targetUid;
+    //final uid = state.targetUid;
     final myUid = FirebaseAuth.instance.currentUser?.uid;
 
-    if (uid == null || myUid == null) return;
-
-    // 상대 uid 페이지에서는 수정 막기
-    if (uid != myUid) return;
 
     state = state.copyWith(
       isLoading: true,
@@ -106,7 +102,7 @@ class WorkoutGoalController extends StateNotifier<WorkoutGoalState> {
     );
 
     try {
-      final userRef = FirebaseFirestore.instance.collection('users').doc(uid);
+      final userRef = FirebaseFirestore.instance.collection('users').doc(myUid);
 
       await userRef.set({
         'workoutGoal': {
@@ -121,11 +117,11 @@ class WorkoutGoalController extends StateNotifier<WorkoutGoalState> {
         errorMessage: null,
         goalPerWeek: target,
       );
-
-      await init(
-        uid: uid,
-        anyDayInWeek: state.selectedDay,
-      );
+      ref.invalidate(workoutGoalProvider(FirebaseAuth.instance.currentUser!.uid));
+      // await init(
+      //   uid: myUid!,
+      //   anyDayInWeek: state.selectedDay,
+      // );
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
