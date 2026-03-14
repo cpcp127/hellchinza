@@ -66,13 +66,21 @@ class NotificationListView extends StatelessWidget {
           padding: EdgeInsets.symmetric(vertical: 14),
           child: Center(child: CupertinoActivityIndicator()),
         ),
-        onEmpty: Center(
-          child: Text(
-            '아직 알림이 없어요',
-            style: AppTextStyle.bodyMediumStyle.copyWith(
-              color: AppColors.textSecondary,
+        onEmpty: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+
+            Row(),
+            Icon(Icons.notifications, size: 42, color: AppColors.icDisabled),
+            const SizedBox(height: 12),
+            Text(
+              '아직 알림이 없어요',
+              style: AppTextStyle.headlineSmallBoldStyle.copyWith(
+                color: AppColors.textDefault,
+              ),
+              textAlign: TextAlign.center,
             ),
-          ),
+          ],
         ),
 
         itemBuilder: (context, docs, index) {
