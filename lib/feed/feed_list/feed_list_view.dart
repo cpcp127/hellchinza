@@ -249,6 +249,7 @@ class _FeedListViewState extends ConsumerState<FeedListView>
           ? const Center(child: CircularProgressIndicator())
           : _feedItems.isEmpty
           ? EmptyList(
+              icon: Icons.feed_outlined,
               btnTitle: '피드 작성하기',
               title: '아직 피드가 없어요',
               subTitle: '피드로 첫 운동기록을 작성해볼까요?',

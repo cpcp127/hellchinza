@@ -7,19 +7,24 @@ class EmptyList extends StatelessWidget {
   const EmptyList({
     required this.onTapCreate,
     required this.title,
-    required this.subTitle, required this.btnTitle,
+    required this.subTitle,
+    required this.btnTitle,
+    required this.icon,
   });
 
   final String title;
   final String subTitle;
   final String btnTitle;
   final VoidCallback onTapCreate;
+  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 60, 16, 16),
       children: [
+        Icon(icon, size: 42, color: AppColors.icDisabled),
+        const SizedBox(height: 12),
         Text(
           title,
           style: AppTextStyle.headlineSmallBoldStyle.copyWith(

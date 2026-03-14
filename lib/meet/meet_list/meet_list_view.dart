@@ -242,6 +242,7 @@ class _MeetListViewState extends ConsumerState<MeetListView> {
     // ✅ empty
     if (_docs.isEmpty) {
       return EmptyList(
+        icon: Icons.people_rounded,
         btnTitle: '모임 만들기',
         title: '아직 모임이 없어요',
         subTitle: '운동친구를 모으는 첫 모임을 만들어볼까요?',
