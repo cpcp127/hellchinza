@@ -89,6 +89,8 @@ dependencies:
   # Notification
   flutter_local_notifications: ^21.0.0
 
+  # ads
+  google_mobile_ads: ^7.0.0
 dev_dependencies:
   flutter_test:
     sdk: flutter

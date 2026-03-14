@@ -4,6 +4,7 @@ import 'package:firebase_pagination/firebase_pagination.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hellchinza/common/common_banner_ad.dart';
 import 'package:hellchinza/constants/app_constants.dart';
 import 'package:hellchinza/feed/feed_list/feed_list_controller.dart';
 
@@ -144,6 +145,7 @@ class _FeedListViewState extends ConsumerState<FeedListView>
           ),
           SizedBox(height: 8),
           Expanded(child: _buildFeedPaginationList()),
+          CommonBannerAd(),
         ],
       ),
     );
