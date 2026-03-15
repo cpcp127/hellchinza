@@ -236,6 +236,7 @@ async function deleteMeetDoc(
   const chatRoomId = asStringOrNull(data.chatRoomId);
 
   await deleteSubcollectionByPath(`${meetRef.path}/requests`);
+  await deleteSubcollectionByPath(`${meetRef.path}/members`);
 
   const lightningSnap = await meetRef.collection("lightnings").get();
   if (!lightningSnap.empty) {
@@ -250,49 +251,80 @@ async function deleteMeetDoc(
 }
 
 async function leaveParticipatedMeets(uid: string): Promise<void> {
-  functions.logger.info("query meets start", {uid});
+  functions.logger.info("query meet members start", {uid});
 
-  const snap = await db
-    .collection("meets")
-    .where("userUids", "array-contains", uid)
+  const memberSnap = await db
+    .collectionGroup("members")
+    .where("uid", "==", uid)
     .get();
 
-  functions.logger.info("query meets done", {
+  functions.logger.info("query meet members done", {
     uid,
-    count: snap.size,
+    count: memberSnap.size,
   });
 
-  if (snap.empty) return;
+  if (memberSnap.empty) return;
 
-  for (const doc of snap.docs) {
-    const data = doc.data() || {};
-    const userUids = asStringArray(data.userUids);
+  for (const memberDoc of memberSnap.docs) {
+    const meetRef = memberDoc.ref.parent.parent;
+    if (!meetRef) continue;
 
-    if (!userUids.includes(uid)) continue;
+    const meetSnap = await meetRef.get();
+    if (!meetSnap.exists) continue;
 
-    const isHost = data.authorUid === uid;
-    const nextUserUids = userUids.filter((userUid) => userUid !== uid);
+    const meetData = meetSnap.data() || {};
+    const isHost = meetData.authorUid === uid;
 
-    if (isHost && nextUserUids.length === 0) {
-      await deleteMeetDoc(doc.ref);
+    // 1) 내 member 문서 삭제
+    await memberDoc.ref.delete();
+
+    // 2) 남은 멤버 조회
+    const remainSnap = await meetRef
+      .collection("members")
+      .orderBy("joinedAt", "asc")
+      .limit(10)
+      .get();
+
+    // 3) 마지막 멤버였으면 모임 전체 삭제
+    if (remainSnap.empty) {
+      await deleteMeetDoc(meetRef);
       continue;
     }
 
-    const updates: Record<string, unknown> = {
-      userUids: nextUserUids,
-      currentMemberCount: clampCount(data.currentMemberCount, -1),
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    };
-
+    // 4) 호스트가 나가는 경우 -> 다음 호스트 지정
     if (isHost) {
-      const nextHostUid = pickNextHost(userUids, uid);
-      updates.authorUid = nextHostUid;
-      if (!nextHostUid) {
-        updates.needApproval = false;
-      }
-    }
+      const nextHostDoc = remainSnap.docs.find((doc) => {
+        const data = doc.data() || {};
+        const nextUid = typeof data.uid === "string" ? data.uid : doc.id;
+        return nextUid !== uid;
+      });
 
-    await doc.ref.update(updates);
+      const nextHostUid = nextHostDoc
+        ? (typeof nextHostDoc.data().uid === "string"
+            ? nextHostDoc.data().uid
+            : nextHostDoc.id)
+        : null;
+
+      if (nextHostUid) {
+        await meetRef.update({
+          authorUid: nextHostUid,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+
+        // 선택: members.role도 같이 맞추고 싶으면
+        await meetRef.collection("members").doc(nextHostUid).set(
+          {
+            role: "host",
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          },
+          {merge: true},
+        );
+      }
+    } else {
+      await meetRef.update({
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    }
   }
 }
 

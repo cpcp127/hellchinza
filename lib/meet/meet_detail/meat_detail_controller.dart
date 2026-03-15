@@ -30,6 +30,9 @@ class MeetDetailController extends StateNotifier<MeetDetailState> {
   DocumentReference<Map<String, dynamic>> get _meetRef =>
       _db.collection('meets').doc(meetId);
 
+  CollectionReference<Map<String, dynamic>> get _membersRef =>
+      _meetRef.collection('members');
+
   Future<void> init() async {
     final myUid = _auth.currentUser?.uid;
 
@@ -39,24 +42,55 @@ class MeetDetailController extends StateNotifier<MeetDetailState> {
       meet: null,
       myUid: myUid,
       myRequestStatus: null,
+      isMember: false,
+      memberCount: 0,
     );
 
     try {
       final meetSnap = await _meetRef.get();
       if (!meetSnap.exists) {
-        state = state.copyWith(isLoading: false, errorMessage: '모임이 없어요');
+        state = state.copyWith(
+          isLoading: false,
+          errorMessage: '모임이 없어요',
+        );
         return;
       }
 
       final meet = MeetModel.fromDoc(meetSnap);
 
+      bool isMember = false;
+      int memberCount = 0;
       String? reqStatus;
 
-      // ✅ 남의 모임 + needApproval인 경우만 요청 상태 확인
-      if (myUid != null && meet.needApproval == true && meet.authorUid != myUid) {
-        final reqSnap = await _meetRef.collection('requests').doc(myUid).get();
-        if (reqSnap.exists) {
-          reqStatus = (reqSnap.data()?['status'] ?? 'pending').toString();
+      final futures = <Future<dynamic>>[
+        _membersRef.count().get(),
+      ];
+
+      if (myUid != null) {
+        futures.add(_membersRef.doc(myUid).get());
+
+        if (meet.needApproval && meet.authorUid != myUid) {
+          futures.add(_meetRef.collection('requests').doc(myUid).get());
+        }
+      }
+
+      final results = await Future.wait(futures);
+
+      final countSnap = results[0] as AggregateQuerySnapshot;
+      memberCount = countSnap.count ?? 0;
+
+      var cursor = 1;
+
+      if (myUid != null) {
+        final memberSnap = results[cursor] as DocumentSnapshot<Map<String, dynamic>>;
+        isMember = memberSnap.exists;
+        cursor += 1;
+
+        if (meet.needApproval && meet.authorUid != myUid) {
+          final reqSnap = results[cursor] as DocumentSnapshot<Map<String, dynamic>>;
+          if (reqSnap.exists) {
+            reqStatus = (reqSnap.data()?['status'] ?? 'pending').toString();
+          }
         }
       }
 
@@ -64,68 +98,92 @@ class MeetDetailController extends StateNotifier<MeetDetailState> {
         isLoading: false,
         meet: meet,
         myUid: myUid,
+        isMember: isMember,
+        memberCount: memberCount,
         myRequestStatus: reqStatus,
         clearError: true,
       );
     } catch (_) {
-      state = state.copyWith(isLoading: false, errorMessage: '불러오기 실패');
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: '불러오기 실패',
+      );
     }
   }
 
-
-  /// ✅ 남의 모임: 참가(또는 요청)
   Future<void> joinNow() async {
     final meet = state.meet;
     final uid = state.myUid;
-    if (meet == null || uid == null) throw Exception('로그인이 필요해요');
+
+    if (meet == null || uid == null) {
+      throw Exception('로그인이 필요해요');
+    }
     if (state.isOwner) return;
     if (state.isMember) return;
 
-    if (meet.status != 'open') throw Exception('종료된 모임이에요');
-    if (state.isFull) throw Exception('정원이 마감되었습니다');
-    if (meet.needApproval == true) {
+    if (meet.status != 'open') {
+      throw Exception('종료된 모임이에요');
+    }
+    if (state.isFull) {
+      throw Exception('정원이 마감되었습니다');
+    }
+    if (meet.needApproval) {
       throw Exception('승인이 필요한 모임이에요');
     }
 
-    final meetRef = _meetRef; // meets/{meetId}
     final roomRef = _db.collection('chatRooms').doc(meet.id);
+    final memberRef = _membersRef.doc(uid);
 
     await _db.runTransaction((tx) async {
-      final meetSnap = await tx.get(meetRef);
-      final meetData = meetSnap.data()!;
-      final current = (meetData['currentMemberCount'] ?? 0) as int;
-      final max = (meetData['maxMembers'] ?? 0) as int;
-      final userUids = List<String>.from(meetData['userUids'] ?? []);
+      final meetSnap = await tx.get(_meetRef);
+      if (!meetSnap.exists) {
+        throw Exception('모임이 존재하지 않아요');
+      }
 
-      if (userUids.contains(uid)) return;
-      if (current >= max) throw Exception('정원이 마감되었습니다');
+      final freshMeet = MeetModel.fromDoc(meetSnap);
 
-      // ✅ 채팅방도 같이 업데이트
+      if (freshMeet.status != 'open') {
+        throw Exception('종료된 모임이에요');
+      }
+
+      final countSnap = await _membersRef.count().get();
+      final currentCount = countSnap.count ?? 0;
+
+      if (currentCount >= freshMeet.maxMembers) {
+        throw Exception('정원이 마감되었습니다');
+      }
+
+      final memberSnap = await tx.get(memberRef);
+      if (memberSnap.exists) {
+        return;
+      }
+
       final roomSnap = await tx.get(roomRef);
-      if (!roomSnap.exists) throw Exception('채팅방이 존재하지 않아요');
+      if (!roomSnap.exists) {
+        throw Exception('채팅방이 존재하지 않아요');
+      }
 
       final roomData = roomSnap.data() as Map<String, dynamic>;
+
       final roomUserUids = List<String>.from(roomData['userUids'] ?? []);
       final visibleUids = List<String>.from(roomData['visibleUids'] ?? []);
-
       final unreadCountMap =
       Map<String, dynamic>.from(roomData['unreadCountMap'] ?? {});
       final activeAtMap =
       Map<String, dynamic>.from(roomData['activeAtMap'] ?? {});
 
-      // meet update
-      userUids.add(uid);
-      tx.update(meetRef, {
-        'userUids': userUids,
-        'currentMemberCount': current + 1,
+      tx.set(memberRef, {
+        'uid': uid,
+        'role': 'member',
+        'status': 'approved',
+        'joinedAt': FieldValue.serverTimestamp(),
+        'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
-      // chatRoom update (group 참여)
       if (!roomUserUids.contains(uid)) roomUserUids.add(uid);
       if (!visibleUids.contains(uid)) visibleUids.add(uid);
 
-      // 참여자는 unread 0으로 초기화
       unreadCountMap[uid] = 0;
       activeAtMap[uid] = FieldValue.serverTimestamp();
 
@@ -137,21 +195,24 @@ class MeetDetailController extends StateNotifier<MeetDetailState> {
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
-      // (선택) 시스템 메시지: “OO님이 참가했어요”
       final msgRef = roomRef.collection('messages').doc();
       tx.set(msgRef, {
         'id': msgRef.id,
-        'authorUid': 'system', // system이라면 authorUid를 host로 두기도 함. 너 정책대로.
+        'authorUid': 'system',
         'type': 'system',
         'text': '새 참가자가 들어왔어요 🎉',
         'createdAt': FieldValue.serverTimestamp(),
       });
 
-      // lastMessage 갱신 (너 room 문서에 lastMessage* 있음)
       tx.update(roomRef, {
         'lastMessageText': '새 참가자가 들어왔어요 🎉',
         'lastMessageType': 'system',
         'lastMessageAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      tx.update(_meetRef, {
+        'updatedAt': FieldValue.serverTimestamp(),
       });
     });
 
@@ -159,7 +220,6 @@ class MeetDetailController extends StateNotifier<MeetDetailState> {
     ref.read(meetListControllerProvider.notifier).refresh();
   }
 
-  /// ✅ 남의 모임: 나가기
   Future<void> leaveMeet() async {
     final meet = state.meet;
     final uid = state.myUid;
@@ -169,58 +229,71 @@ class MeetDetailController extends StateNotifier<MeetDetailState> {
       throw Exception('로그인이 필요해요');
     }
 
-    final roomId = meet.id;
     final isHost = state.isOwner;
-
-    final roomRef = roomId != null && roomId.isNotEmpty
-        ? _db.collection('chatRooms').doc(roomId)
-        : null;
+    final roomRef = _db.collection('chatRooms').doc(meet.id);
+    final memberRef = _membersRef.doc(uid);
 
     await _db.runTransaction((tx) async {
-
-      /// 1️⃣ 먼저 모든 read
       final meetSnap = await tx.get(_meetRef);
       if (!meetSnap.exists) return;
 
-      final meetData = meetSnap.data()!;
-      final current = (meetData['currentMemberCount'] ?? 0) as int;
-      final userUids = List<String>.from(meetData['userUids'] ?? []);
+      final memberSnap = await tx.get(memberRef);
+      if (!memberSnap.exists) return;
 
-      DocumentSnapshot? roomSnap;
-      if (roomRef != null) {
-        roomSnap = await tx.get(roomRef);
-      }
+      DocumentSnapshot<Map<String, dynamic>>? roomSnap;
+      roomSnap = await tx.get(roomRef);
 
-      if (!userUids.contains(uid)) return;
+      tx.delete(memberRef);
 
-      final nextUserUids = List<String>.from(userUids)..remove(uid);
+      final countAfterLeaveSnap = await _membersRef.count().get();
+      final currentCount = countAfterLeaveSnap.count ?? 0;
+      final nextCount = currentCount - 1;
 
-      /// 2️⃣ 호스트 혼자였으면 모임 + 채팅방 삭제
-      if (isHost && nextUserUids.isEmpty) {
+      if (nextCount <= 0) {
         tx.delete(_meetRef);
 
-        if (roomRef != null && roomSnap!.exists) {
+        if (roomSnap.exists) {
           tx.delete(roomRef);
         }
-
         return;
       }
 
-      /// 3️⃣ meet 업데이트
-      final meetUpdates = {
-        'userUids': nextUserUids,
-        'currentMemberCount': (current - 1).clamp(0, 999999),
+      String? nextAuthorUid;
+      if (isHost) {
+        final nextMemberSnap = await _membersRef
+            .orderBy('joinedAt', descending: false)
+            .limit(2)
+            .get();
+
+        for (final doc in nextMemberSnap.docs) {
+          final nextUid = (doc.data()['uid'] ?? doc.id).toString();
+          if (nextUid != uid) {
+            nextAuthorUid = nextUid;
+            break;
+          }
+        }
+
+        if (nextAuthorUid == null) {
+          final fallbackSnap = await _membersRef.limit(1).get();
+          if (fallbackSnap.docs.isNotEmpty) {
+            nextAuthorUid =
+                (fallbackSnap.docs.first.data()['uid'] ?? fallbackSnap.docs.first.id)
+                    .toString();
+          }
+        }
+      }
+
+      final meetUpdates = <String, dynamic>{
         'updatedAt': FieldValue.serverTimestamp(),
       };
 
-      if (isHost) {
-        meetUpdates['authorUid'] = nextUserUids.first;
+      if (isHost && nextAuthorUid != null) {
+        meetUpdates['authorUid'] = nextAuthorUid;
       }
 
       tx.update(_meetRef, meetUpdates);
 
-      /// 4️⃣ chatRoom 업데이트
-      if (roomRef != null && roomSnap!.exists) {
+      if (roomSnap.exists) {
         final roomData = roomSnap.data() as Map<String, dynamic>;
 
         final roomUserUids = List<String>.from(roomData['userUids'] ?? []);
@@ -247,7 +320,6 @@ class MeetDetailController extends StateNotifier<MeetDetailState> {
           'updatedAt': FieldValue.serverTimestamp(),
         });
 
-        /// 5️⃣ 시스템 메시지
         final msgRef = roomRef.collection('messages').doc();
         final text = '$myNickname님이 모임을 나갔어요';
 
@@ -275,19 +347,34 @@ class MeetDetailController extends StateNotifier<MeetDetailState> {
   Future<void> requestJoin() async {
     final meet = state.meet;
     final uid = state.myUid;
-    if (meet == null || uid == null) throw Exception('로그인이 필요해요');
+
+    if (meet == null || uid == null) {
+      throw Exception('로그인이 필요해요');
+    }
     if (state.isOwner || state.isMember) return;
-    if (meet.needApproval != true) return;
-    if (state.isFull) throw Exception('정원이 마감되었어요');
-    if (meet.status != 'open') throw Exception('종료된 모임이에요');
+    if (!meet.needApproval) return;
+    if (state.isFull) {
+      throw Exception('정원이 마감되었어요');
+    }
+    if (meet.status != 'open') {
+      throw Exception('종료된 모임이에요');
+    }
 
-    final ref = _meetRef.collection('requests').doc(uid);
+    final requestRef = _meetRef.collection('requests').doc(uid);
 
-    // 이미 요청중이면 리턴
-    final snap = await ref.get();
-    if (snap.exists) return;
+    final memberSnap = await _membersRef.doc(uid).get();
+    if (memberSnap.exists) return;
 
-    await ref.set({
+    final countSnap = await _membersRef.count().get();
+    final currentCount = countSnap.count ?? 0;
+    if (currentCount >= meet.maxMembers) {
+      throw Exception('정원이 마감되었어요');
+    }
+
+    final requestSnap = await requestRef.get();
+    if (requestSnap.exists) return;
+
+    await requestRef.set({
       'uid': uid,
       'status': 'pending',
       'createdAt': FieldValue.serverTimestamp(),
@@ -299,48 +386,53 @@ class MeetDetailController extends StateNotifier<MeetDetailState> {
   Future<void> cancelRequest() async {
     final meet = state.meet;
     final uid = state.myUid;
-    if (meet == null || uid == null) throw Exception('로그인이 필요해요');
-    if (meet.needApproval != true) return;
+
+    if (meet == null || uid == null) {
+      throw Exception('로그인이 필요해요');
+    }
+    if (!meet.needApproval) return;
 
     await _meetRef.collection('requests').doc(uid).delete();
     await init();
   }
 
-
-  /// ✅ 내 모임: 삭제 (삭제 전 confirm은 View에서)
   Future<void> deleteMeet() async {
     if (!state.isOwner) return;
+
     await _meetRef.delete();
     await _db.collection('chatRooms').doc(state.meet!.id).delete();
   }
 
-  /// ✅ 내 모임: 상태 변경(open/closed 등) 필요하면
   Future<void> setStatus(String status) async {
     if (!state.isOwner) return;
+
     await _meetRef.update({
       'status': status,
       'updatedAt': FieldValue.serverTimestamp(),
     });
+
     await init();
   }
 
   Future<void> onTapMeetPrimaryButton({
     required MeetDetailState state,
-    required MeetDetailController controller,required BuildContext context
+    required MeetDetailController controller,
+    required BuildContext context,
   }) async {
     final meet = state.meet;
     if (meet == null) return;
 
     try {
-      // 1) 종료/마감 처리
       if (meet.status != 'open') {
-        SnackbarService.show(type: AppSnackType.error, message: '종료된 모임이에요');
+        SnackbarService.show(
+          type: AppSnackType.error,
+          message: '종료된 모임이에요',
+        );
         return;
       }
 
-      // 2) 내가 호스트면 (여긴 네가 원하는 동작으로)
       if (state.isOwner) {
-        final updated = await   Navigator.push(
+        final updated = await Navigator.push(
           context,
           CupertinoPageRoute(
             fullscreenDialog: true,
@@ -350,39 +442,55 @@ class MeetDetailController extends StateNotifier<MeetDetailState> {
           ),
         );
 
-        if (updated == true) controller.init();
-        return;
-      }
-
-      // 3) 이미 참가한 상태면 -> 참가 취소
-      if (state.isMember) {
-        await controller.leaveMeet();
-        SnackbarService.show(type: AppSnackType.success, message: '참가를 취소했어요');
-        return;
-      }
-
-      // 4) 승인 필요 모임이면 -> 요청/요청취소
-      if (meet.needApproval == true) {
-        if (state.isRequested) {
-          await controller.cancelRequest();   // ✅ 이미 있음
-          SnackbarService.show(type: AppSnackType.success, message: '요청을 취소했어요');
-        } else {
-          if (state.isFull) {
-            SnackbarService.show(type: AppSnackType.error, message: '정원이 마감되었습니다');
-            return;
-          }
-          await controller.requestJoin();     // ✅ 이미 있음
-          SnackbarService.show(type: AppSnackType.success, message: '참가 요청을 보냈어요');
+        if (updated == true) {
+          await controller.init();
         }
         return;
       }
 
-      // 5) 승인 필요 없는 모임 -> 즉시 참가
+      if (state.isMember) {
+        await controller.leaveMeet();
+        SnackbarService.show(
+          type: AppSnackType.success,
+          message: '참가를 취소했어요',
+        );
+        return;
+      }
+
+      if (meet.needApproval) {
+        if (state.isRequested) {
+          await controller.cancelRequest();
+          SnackbarService.show(
+            type: AppSnackType.success,
+            message: '요청을 취소했어요',
+          );
+        } else {
+          if (state.isFull) {
+            SnackbarService.show(
+              type: AppSnackType.error,
+              message: '정원이 마감되었습니다',
+            );
+            return;
+          }
+          await controller.requestJoin();
+          SnackbarService.show(
+            type: AppSnackType.success,
+            message: '참가 요청을 보냈어요',
+          );
+        }
+        return;
+      }
+
       await controller.joinNow();
-      SnackbarService.show(type: AppSnackType.success, message: '모임에 참가했어요');
+      SnackbarService.show(
+        type: AppSnackType.success,
+        message: '모임에 참가했어요',
+      );
     } catch (e) {
-      SnackbarService.show(type: AppSnackType.error, message: e.toString());
+      SnackbarService.show(
+        type: AppSnackType.error,
+        message: e.toString(),
+      );
     }
   }
-
 }

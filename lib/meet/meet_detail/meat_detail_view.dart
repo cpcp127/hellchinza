@@ -19,6 +19,7 @@ import '../../services/snackbar_service.dart';
 import '../domain/lightning_model.dart';
 import '../domain/meet_model.dart';
 import '../lightning_create/lightning_create_view.dart';
+import '../meet_list/meet_list_view.dart';
 import '../widget/lightning_card.dart';
 import '../widget/manage_request_sheet.dart';
 import '../widget/meet_feed_list_view.dart';
@@ -435,7 +436,7 @@ final meetPhotoFeedSectionProvider =
 // Body Widgets (not simple -> keep widget)
 // =======================================================
 
-class _MeetDetailBody extends StatelessWidget {
+class _MeetDetailBody extends ConsumerWidget {
   const _MeetDetailBody({
     required this.controller,
     required this.meet,
@@ -447,13 +448,16 @@ class _MeetDetailBody extends StatelessWidget {
   final MeetDetailController controller;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final memberCountAsync = ref.watch(meetMemberCountProvider(meet.id));
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: RefreshIndicator(
         color: AppColors.sky400,
         backgroundColor: AppColors.bgWhite,
         onRefresh: () async {
+          ref.invalidate(meetMemberCountProvider(meet.id));
           await controller.init();
           await Future.delayed(const Duration(milliseconds: 250));
         },
@@ -479,7 +483,6 @@ class _MeetDetailBody extends StatelessWidget {
               CommonChip(label: meet.category, selected: true),
               const SizedBox(height: 6),
 
-              // 주 활동 지역
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -506,7 +509,7 @@ class _MeetDetailBody extends StatelessWidget {
               const SizedBox(height: 10),
 
               Text(
-                meet.intro ?? '',
+                meet.intro,
                 style: AppTextStyle.bodyMediumStyle.copyWith(
                   color: AppColors.textDefault,
                 ),
@@ -514,12 +517,21 @@ class _MeetDetailBody extends StatelessWidget {
 
               const SizedBox(height: 16),
 
-              // ✅ 참가자
               Row(
                 children: [
-                  Text(
-                    '참가자 ${meet.userUids.length}명',
-                    style: AppTextStyle.titleMediumBoldStyle,
+                  memberCountAsync.when(
+                    data: (count) => Text(
+                      '참가자 ${count}명',
+                      style: AppTextStyle.titleMediumBoldStyle,
+                    ),
+                    loading: () => Text(
+                      '참가자 -명',
+                      style: AppTextStyle.titleMediumBoldStyle,
+                    ),
+                    error: (_, __) => Text(
+                      '참가자 -명',
+                      style: AppTextStyle.titleMediumBoldStyle,
+                    ),
                   ),
                   const Spacer(),
                   Text(
@@ -529,7 +541,12 @@ class _MeetDetailBody extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 10),
-              _MemberPreviewRow(userUids: meet.userUids),
+
+              _MemberPreviewRow(
+                meetId: meet.id,
+                hostUid: meet.authorUid,
+              ),
+
               const SizedBox(height: 16),
 
               _MeetPhotoFeedSection(
@@ -1005,11 +1022,14 @@ class _PhotoItem {
 // =======================================================
 
 class _MemberPreviewRow extends StatefulWidget {
-  const _MemberPreviewRow({required this.userUids, this.pageSize = 10});
+  const _MemberPreviewRow({
+    required this.meetId,
+    required this.hostUid,
+    this.pageSize = 10,
+  });
 
-  final List<String> userUids;
-
-  /// ✅ 10명씩 (whereIn 제한 고려)
+  final String meetId;
+  final String hostUid;
   final int pageSize;
 
   @override
@@ -1019,75 +1039,85 @@ class _MemberPreviewRow extends StatefulWidget {
 class _MemberPreviewRowState extends State<_MemberPreviewRow> {
   final List<UserMini> _users = [];
   final Set<String> _loadedUids = {};
-  bool _isLoading = false;
 
-  int _cursor = 0; // userUids에서 어디까지 로드했는지
+  DocumentSnapshot<Map<String, dynamic>>? _lastDoc;
+
+  bool _isLoading = false;
+  bool _hasMore = true;
 
   @override
   void initState() {
     super.initState();
-    _loadNext(); // 첫 10명 로드
+    _loadNext();
   }
 
   @override
   void didUpdateWidget(covariant _MemberPreviewRow oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    if (!_listEquals(oldWidget.userUids, widget.userUids)) {
+    if (oldWidget.meetId != widget.meetId ||
+        oldWidget.hostUid != widget.hostUid) {
       _users.clear();
       _loadedUids.clear();
-      _cursor = 0;
+      _lastDoc = null;
       _isLoading = false;
+      _hasMore = true;
       _loadNext();
     }
   }
 
-  bool _listEquals(List<String> a, List<String> b) {
-    if (a.length != b.length) return false;
-    for (int i = 0; i < a.length; i++) {
-      if (a[i] != b[i]) return false;
-    }
-    return true;
-  }
-
-  bool get _hasMore => _cursor < widget.userUids.length;
-
   Future<void> _loadNext() async {
-    if (_isLoading) return;
-    if (!_hasMore) return;
+    if (_isLoading || !_hasMore) return;
 
     setState(() => _isLoading = true);
 
     try {
-      final end = (_cursor + widget.pageSize).clamp(
-        0,
-        widget.userUids.length,
-      );
-      final slice = widget.userUids.sublist(_cursor, end);
+      Query<Map<String, dynamic>> query = FirebaseFirestore.instance
+          .collection('meets')
+          .doc(widget.meetId)
+          .collection('members')
+          .orderBy('joinedAt', descending: false)
+          .limit(widget.pageSize);
 
-      // 중복 제거
-      final need = slice.where((uid) => !_loadedUids.contains(uid)).toList();
-      _cursor = end;
+      if (_lastDoc != null) {
+        query = query.startAfterDocument(_lastDoc!);
+      }
 
-      if (need.isEmpty) {
+      final memberSnap = await query.get();
+
+      if (memberSnap.docs.isEmpty) {
+        setState(() {
+          _hasMore = false;
+          _isLoading = false;
+        });
+        return;
+      }
+
+      _lastDoc = memberSnap.docs.last;
+      if (memberSnap.docs.length < widget.pageSize) {
+        _hasMore = false;
+      }
+
+      final uids = memberSnap.docs
+          .map((d) => (d.data()['uid'] ?? d.id).toString())
+          .where((uid) => uid.isNotEmpty && !_loadedUids.contains(uid))
+          .toList();
+
+      if (uids.isEmpty) {
         setState(() => _isLoading = false);
         return;
       }
 
-      // ✅ whereIn 최대 10개 제한 -> pageSize=10이면 안전
-      final snap = await FirebaseFirestore.instance
+      final userSnap = await FirebaseFirestore.instance
           .collection('users')
-          .where('uid', whereIn: need)
+          .where('uid', whereIn: uids)
           .get();
 
-      final fetched = snap.docs
+      final fetched = userSnap.docs
           .map((d) => UserMini.fromMap(d.data(), d.id))
           .toList();
 
-      // whereIn은 순서 보장 X → need 순서로 정렬
-      fetched.sort(
-        (a, b) => need.indexOf(a.uid).compareTo(need.indexOf(b.uid)),
-      );
+      fetched.sort((a, b) => uids.indexOf(a.uid).compareTo(uids.indexOf(b.uid)));
 
       for (final u in fetched) {
         _loadedUids.add(u.uid);
@@ -1104,7 +1134,7 @@ class _MemberPreviewRowState extends State<_MemberPreviewRow> {
 
   @override
   Widget build(BuildContext context) {
-    if (widget.userUids.isEmpty) {
+    if (_users.isEmpty && !_isLoading) {
       return _buildEmptyMemberBox();
     }
 
@@ -1116,56 +1146,71 @@ class _MemberPreviewRowState extends State<_MemberPreviewRow> {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.borderSecondary),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // ✅ 가로 스크롤 (overflow 방지)
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                for (final u in _users) ...[
-                  _buildMemberAvatar(user: u),
-                  const SizedBox(width: 10),
-                ],
-
-                if (_isLoading) ...[
-                  for (int i = 0; i < 3; i++) ...[
-                    _buildMemberAvatarSkeleton(),
-                    const SizedBox(width: 10),
-                  ],
-                ],
-
-                if (_hasMore && !_isLoading)
-                  _buildLoadMoreChip(text: '10명 더보기', onTap: _loadNext),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            for (final u in _users) ...[
+              _buildMemberAvatar(
+                user: u,
+                isHost: u.uid == widget.hostUid,
+              ),
+              const SizedBox(width: 10),
+            ],
+            if (_isLoading) ...[
+              for (int i = 0; i < 3; i++) ...[
+                _buildMemberAvatarSkeleton(),
+                const SizedBox(width: 10),
               ],
-            ),
-          ),
-        ],
+            ],
+            if (_hasMore && !_isLoading)
+              _buildLoadMoreChip(
+                text: '${widget.pageSize}명 더보기',
+                onTap: _loadNext,
+              ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildMemberAvatar({required UserMini user}) {
-    return Column(
-      children: [
-        CommonProfileAvatar(
-          imageUrl: user.photoUrl,
-          size: 40,
-          uid: user.uid,
-          gender: user.gender,
-        ),
-        const SizedBox(height: 6),
-        Text(
-          user.nickname,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          textAlign: TextAlign.center,
-          style: AppTextStyle.labelXSmallStyle.copyWith(
-            color: AppColors.textSecondary,
+  Widget _buildMemberAvatar({
+    required UserMini user,
+    required bool isHost,
+  }) {
+    return SizedBox(
+     // width: 56,
+      child: Column(
+        children: [
+          CommonProfileAvatar(
+            imageUrl: user.photoUrl,
+            size: 40,
+            uid: user.uid,
+            gender: user.gender,
           ),
-        ),
-      ],
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              if(isHost)...[
+                Icon(
+                  Icons.star_rounded,
+                  size: 12,
+                  color: AppColors.sky400,
+                ),
+              ],
+              Text(
+                user.nickname,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: AppTextStyle.labelXSmallStyle.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 

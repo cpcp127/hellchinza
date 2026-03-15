@@ -1,22 +1,30 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hellchinza/meet/domain/meet_model.dart';
 
 import '../../constants/app_colors.dart';
 import '../../constants/app_text_style.dart';
 import '../domain/meet_summary_model.dart';
+import '../meet_list/meet_list_view.dart';
 import 'meet_thumb.dart';
 
-class MeetCard extends StatelessWidget {
-  const MeetCard({required this.item, required this.onTap});
+class MeetCard extends ConsumerWidget {
+  const MeetCard({
+    super.key,
+    required this.item,
+    required this.onTap,
+  });
 
   final MeetModel item;
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final regionText = item.regions.isNotEmpty
         ? item.regions.first.fullName
         : '지역 미설정';
+
+    final memberCountAsync = ref.watch(meetMemberCountProvider(item.id));
 
     return InkWell(
       onTap: onTap,
@@ -51,10 +59,12 @@ class MeetCard extends StatelessWidget {
                           item.category,
                           style: AppTextStyle.labelXSmallStyle.copyWith(
                             color: AppColors.textPrimary,
-                            fontWeight: FontWeight.w700,)
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ),
                     ),
+                    const SizedBox(height: 8),
                     Text(
                       item.title,
                       maxLines: 1,
@@ -64,7 +74,6 @@ class MeetCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 6),
-
                     Row(
                       children: [
                         const Icon(
@@ -73,14 +82,29 @@ class MeetCard extends StatelessWidget {
                           color: AppColors.icSecondary,
                         ),
                         const SizedBox(width: 6),
-                        Text(
-                          '현재 ${item.currentMemberCount}/${item.maxMembers}명',
-                          style: AppTextStyle.labelSmallStyle.copyWith(
-                            color: AppColors.textSecondary,
+                        memberCountAsync.when(
+                          data: (count) => Text(
+                            '현재 $count/${item.maxMembers}명',
+                            style: AppTextStyle.labelSmallStyle.copyWith(
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                          loading: () => Text(
+                            '현재 -/${item.maxMembers}명',
+                            style: AppTextStyle.labelSmallStyle.copyWith(
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                          error: (_, __) => Text(
+                            '현재 -/${item.maxMembers}명',
+                            style: AppTextStyle.labelSmallStyle.copyWith(
+                              color: AppColors.textSecondary,
+                            ),
                           ),
                         ),
                       ],
                     ),
+                    const SizedBox(height: 4),
                     Row(
                       children: [
                         const Icon(

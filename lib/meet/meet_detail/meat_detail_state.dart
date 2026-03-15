@@ -1,5 +1,3 @@
-import 'package:flutter/foundation.dart';
-
 import '../domain/meet_model.dart';
 
 class MeetDetailState {
@@ -10,11 +8,16 @@ class MeetDetailState {
   final String? myRequestStatus;
   final String? myUid;
 
+  final bool isMember;
+  final int memberCount;
+
   const MeetDetailState({
     required this.isLoading,
     required this.errorMessage,
     required this.meet,
     required this.myUid,
+    required this.isMember,
+    required this.memberCount,
     this.myRequestStatus,
   });
 
@@ -23,9 +26,10 @@ class MeetDetailState {
         errorMessage = null,
         meet = null,
         myUid = null,
-        myRequestStatus = null;
+        myRequestStatus = null,
+        isMember = false,
+        memberCount = 0;
 
-  // ✅ copyWith
   MeetDetailState copyWith({
     bool? isLoading,
     String? errorMessage,
@@ -38,6 +42,9 @@ class MeetDetailState {
 
     String? myRequestStatus,
     bool clearMyRequestStatus = false,
+
+    bool? isMember,
+    int? memberCount,
   }) {
     return MeetDetailState(
       isLoading: isLoading ?? this.isLoading,
@@ -49,6 +56,9 @@ class MeetDetailState {
       myRequestStatus: clearMyRequestStatus
           ? null
           : (myRequestStatus ?? this.myRequestStatus),
+
+      isMember: isMember ?? this.isMember,
+      memberCount: memberCount ?? this.memberCount,
     );
   }
 
@@ -61,14 +71,9 @@ class MeetDetailState {
 
   bool get isRequested => myRequestStatus == 'pending';
 
-  bool get isMember {
-    if (meet == null || myUid == null) return false;
-    return meet!.userUids.contains(myUid);
-  }
-
   bool get isFull {
     if (meet == null) return false;
-    return meet!.currentMemberCount >= meet!.maxMembers;
+    return memberCount >= meet!.maxMembers;
   }
 
   bool get canRequest =>
@@ -76,7 +81,7 @@ class MeetDetailState {
           myUid != null &&
           !isOwner &&
           !isMember &&
-          meet!.needApproval == true &&
+          meet!.needApproval &&
           meet!.status == 'open' &&
           !isFull;
 }

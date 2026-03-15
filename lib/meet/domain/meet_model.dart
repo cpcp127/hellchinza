@@ -2,8 +2,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'meet_region.dart';
 
-
-
 class MeetModel {
   final String id;
   final String authorUid;
@@ -15,8 +13,8 @@ class MeetModel {
   final int maxMembers;
   final int currentMemberCount;
   final bool needApproval;
-  final List<String> userUids;
   final String status;
+  final String? chatRoomId;
 
   final List<String> imageUrls;
 
@@ -33,8 +31,8 @@ class MeetModel {
     required this.maxMembers,
     required this.currentMemberCount,
     required this.needApproval,
-    required this.userUids,
     required this.status,
+    required this.chatRoomId,
     required this.imageUrls,
     required this.createdAt,
     required this.updatedAt,
@@ -45,8 +43,10 @@ class MeetModel {
     final regionsRaw = (d['regions'] as List?) ?? [];
     final imageRaw = (d['imageUrls'] as List?) ?? [];
 
-    DateTime? tsToDt(dynamic v) =>
-        v is Timestamp ? v.toDate() : null;
+    DateTime? tsToDt(dynamic v) {
+      if (v is Timestamp) return v.toDate();
+      return null;
+    }
 
     return MeetModel(
       id: (d['id'] as String?) ?? doc.id,
@@ -61,8 +61,8 @@ class MeetModel {
       maxMembers: (d['maxMembers'] as num?)?.toInt() ?? 0,
       currentMemberCount: (d['currentMemberCount'] as num?)?.toInt() ?? 0,
       needApproval: (d['needApproval'] as bool?) ?? false,
-      userUids: List<String>.from(d['userUids'] ?? const []),
       status: (d['status'] as String?) ?? 'open',
+      chatRoomId: d['chatRoomId'] as String?,
       imageUrls: imageRaw.map((e) => e.toString()).toList(),
       createdAt: tsToDt(d['createdAt']),
       updatedAt: tsToDt(d['updatedAt']),

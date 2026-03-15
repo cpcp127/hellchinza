@@ -17,6 +17,17 @@ import '../widget/meet_subtype_filter_sheet.dart';
 import 'meet_list_controller.dart';
 import 'meet_list_state.dart';
 
+final meetMemberCountProvider = FutureProvider.family<int, String>((ref, meetId) async {
+  final snap = await FirebaseFirestore.instance
+      .collection('meets')
+      .doc(meetId)
+      .collection('members')
+      .count()
+      .get();
+
+  return snap.count ?? 0;
+});
+
 class MeetListView extends ConsumerStatefulWidget {
   const MeetListView({super.key});
 

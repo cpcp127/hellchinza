@@ -149,7 +149,6 @@ class MeetCreateController extends StateNotifier<MeetCreateState> {
     }
   }
 
-  // ---- submit (create/update 공용) ----
   Future<void> submit() async {
     if (!state.isLast || !state.canGoNext) {
       state = state.copyWith(errorMessage: _stepErrorMessage(state.step));
@@ -164,11 +163,9 @@ class MeetCreateController extends StateNotifier<MeetCreateState> {
       if (uid == null) throw Exception('로그인이 필요해요');
 
       final isEdit = state.editingMeetId != null;
-      final meetId = isEdit
-          ? state.editingMeetId!
-          : db.collection('meets').doc().id;
-      final meetRef = db.collection('meets').doc(meetId);
+      final meetId = isEdit ? state.editingMeetId! : db.collection('meets').doc().id;
 
+      final meetRef = db.collection('meets').doc(meetId);
       final maxMembers = int.parse(state.maxMembersText.trim());
 
       final update = <String, dynamic>{
@@ -190,47 +187,54 @@ class MeetCreateController extends StateNotifier<MeetCreateState> {
       } else if (state.removeExistingThumbnail) {
         await _deleteMeetThumb(meetId);
         update['imageUrls'] = [];
-      } // else: 수정 시 기존 유지 (imageUrls 미변경)
+      }
+      // else: 수정 시 기존 유지
 
       if (!isEdit) {
+        final now = FieldValue.serverTimestamp();
+
         final create = <String, dynamic>{
           ...update,
           'status': 'open',
           'currentMemberCount': 1,
-          // ✅ 너 규칙: userUids 사용
-          'userUids': [uid],
-          'createdAt': FieldValue.serverTimestamp(),
-          // (선택) 나중에 접근 쉽게
+          'createdAt': now,
           'chatRoomId': meetId,
         };
 
-        // ✅ 단톡방(그룹 채팅)도 같이 생성
-        final chatRoomRef = db.collection('chatRooms').doc(meetId); // roomId = meetId
-        final firstMsgRef = chatRoomRef.collection('messages').doc();
+        final memberRef = meetRef.collection('members').doc(uid);
 
-        final now = FieldValue.serverTimestamp();
+        final chatRoomRef = db.collection('chatRooms').doc(meetId);
+        final firstMsgRef = chatRoomRef.collection('messages').doc();
 
         final batch = db.batch();
 
         // 1) meet 생성
         batch.set(meetRef, create);
 
-        // 2) chatRoom 생성 (dm 구조 확장)
+        // 2) host member 생성
+        batch.set(memberRef, <String, dynamic>{
+          'uid': uid,
+          'role': 'host', // host / member
+          'status': 'approved',
+          'joinedAt': now,
+          'createdAt': now,
+          'updatedAt': now,
+        });
+
+        // 3) group chatRoom 생성
         batch.set(chatRoomRef, <String, dynamic>{
-          'type': 'group',                // ✅ 단톡 타입
-          'meetId': meetId,               // ✅ 모임 연결
-          'title': state.title.trim(),    // 표시용(선택)
+          'type': 'group',
+          'meetId': meetId,
+          'title': state.title.trim(),
           'allowMessages': true,
 
-          // ✅ 멤버/가시성
+          // ✅ 채팅방은 array 유지
           'userUids': [uid],
           'visibleUids': [uid],
 
-          // ✅ unread/active 맵 초기화
-          'unreadCountMap': { uid: 0 },
-          'activeAtMap': { uid: now },
+          'unreadCountMap': {uid: 0},
+          'activeAtMap': {uid: now},
 
-          // ✅ 마지막 메시지(시스템)
           'lastMessageAt': now,
           'lastMessageText': '모임 채팅이 생성되었어요 🎉',
           'lastMessageType': 'system',
@@ -239,20 +243,28 @@ class MeetCreateController extends StateNotifier<MeetCreateState> {
           'updatedAt': now,
         });
 
-        // 3) 첫 시스템 메시지
+        // 4) 첫 시스템 메시지
         batch.set(firstMsgRef, <String, dynamic>{
           'id': firstMsgRef.id,
           'type': 'system',
           'text': '모임 채팅이 생성되었어요 🎉',
-          'authorUid': uid, // 시스템이면 'system'으로 두고 싶으면 바꿔도 됨
+          'authorUid': uid,
           'createdAt': now,
         });
 
         await batch.commit();
       } else {
         await meetRef.update(update);
+
+        // 제목 수정 시 채팅방 title도 같이 맞추고 싶으면 같이 업데이트
+        await db.collection('chatRooms').doc(meetId).update({
+          'title': state.title.trim(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
       }
+
       ref.read(meetListControllerProvider.notifier).refresh();
+
       state = state.copyWith(isLoading: false);
 
       SnackbarService.show(
@@ -260,8 +272,15 @@ class MeetCreateController extends StateNotifier<MeetCreateState> {
         message: isEdit ? '모임이 수정되었습니다' : '모임이 생성되었습니다',
       );
     } catch (e) {
-      state = state.copyWith(isLoading: false, errorMessage: '저장에 실패했어요');
-      SnackbarService.show(type: AppSnackType.error, message: '저장에 실패했어요');
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: '저장에 실패했어요',
+      );
+
+      SnackbarService.show(
+        type: AppSnackType.error,
+        message: '저장에 실패했어요',
+      );
       rethrow;
     }
   }
