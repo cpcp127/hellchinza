@@ -5,27 +5,22 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hellchinza/auth/domain/user_mini_provider.dart';
 
-import '../../common/common_network_image.dart';
 import '../../common/common_profile_avatar.dart';
 import '../../constants/app_colors.dart';
 import '../../constants/app_text_style.dart';
 import '../../services/snackbar_service.dart';
 
-final meetRequestUidsProvider = FutureProvider.autoDispose.family<List<String>, String>((
-  ref,
-  meetId,
-) async {
-  final snap = await FirebaseFirestore.instance
-      .collection('meets')
-      .doc(meetId)
-      .collection('requests')
-      // 네가 pending만 보고 있으면 유지
-      .where('status', isEqualTo: 'pending')
-      .get();
+final meetRequestUidsProvider = FutureProvider.autoDispose
+    .family<List<String>, String>((ref, meetId) async {
+      final snap = await FirebaseFirestore.instance
+          .collection('meets')
+          .doc(meetId)
+          .collection('requests')
+          .where('status', isEqualTo: 'pending')
+          .get();
 
-  // 보통 요청 문서 id == uid
-  return snap.docs.map((d) => d.id).toList();
-});
+      return snap.docs.map((d) => d.id).toList();
+    });
 
 class ManageRequestsSheet extends ConsumerWidget {
   const ManageRequestsSheet({
@@ -40,13 +35,12 @@ class ManageRequestsSheet extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final reqAsync = ref.watch(meetRequestUidsProvider(meetId));
+
     return DraggableScrollableSheet(
       initialChildSize: 0.92,
       minChildSize: 0.55,
       maxChildSize: 0.98,
       builder: (context, scrollController) {
-
-
         return Container(
           decoration: const BoxDecoration(
             color: AppColors.bgWhite,
@@ -64,7 +58,6 @@ class ManageRequestsSheet extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 12),
-
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Row(
@@ -83,45 +76,43 @@ class ManageRequestsSheet extends ConsumerWidget {
                   ],
                 ),
               ),
-
               const SizedBox(height: 4),
-              reqAsync.when(
-                loading: () {
-                  // ✅ 너 원래 로딩 UI 그대로 넣어
-                  return const Center(child: CupertinoActivityIndicator());
-                },
-                error: (e, _) {
-                  // ✅ 너 원래 에러 UI 그대로 넣어
-                  return Center(child: Text('요청 불러오기 실패: $e'));
-                },
-                data: (uids) {
-                  // ✅ 여기부터는 "기존 builder에서 snap.data!.docs" 대신 uids를 쓰면 됨
-                  if (uids.isEmpty) {
-                    // ✅ 기존 empty UI 그대로
-                    return Text(
-                      '대기 중인 요청이 없어요',
-                      style: AppTextStyle.bodyMediumStyle.copyWith(
-                        color: AppColors.textSecondary,
-                      ),
-                    );
-                  }
+              Expanded(
+                child: reqAsync.when(
+                  loading: () {
+                    return const Center(child: CupertinoActivityIndicator());
+                  },
+                  error: (e, _) {
+                    return Center(child: Text('요청 불러오기 실패: $e'));
+                  },
+                  data: (uids) {
+                    if (uids.isEmpty) {
+                      return Center(
+                        child: Text(
+                          '대기 중인 요청이 없어요',
+                          style: AppTextStyle.bodyMediumStyle.copyWith(
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      );
+                    }
 
-                  // ✅ 기존 ListView/Column 등 구조 그대로 유지
-                  return Expanded(
-                    child: ListView.builder(
+                    return ListView.separated(
+                      controller: scrollController,
+                      padding: const EdgeInsets.only(bottom: 24),
                       itemCount: uids.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 10),
                       itemBuilder: (context, index) {
                         final uid = uids[index];
-
                         return _RequestRow(
                           meetId: meetId,
                           uid: uid,
                           onChanged: onChanged,
                         );
                       },
-                    ),
-                  );
-                },
+                    );
+                  },
+                ),
               ),
             ],
           ),
@@ -148,62 +139,84 @@ class _RequestRow extends StatefulWidget {
 
 class _RequestRowState extends State<_RequestRow> {
   bool _busy = false;
+  bool _approved = false;
 
   DocumentReference<Map<String, dynamic>> get _meetRef =>
       FirebaseFirestore.instance.collection('meets').doc(widget.meetId);
 
   Future<void> _approve() async {
-    if (_busy) return;
+    if (_busy || _approved) return;
     setState(() => _busy = true);
 
     try {
-      final uidToApprove = widget.uid; // 승인할 사람 uid
-      final reqRef = _meetRef.collection('requests').doc(uidToApprove);
-
+      final uidToApprove = widget.uid;
       final db = FirebaseFirestore.instance;
+
+      final reqRef = _meetRef.collection('requests').doc(uidToApprove);
+      final memberRef = _meetRef.collection('members').doc(uidToApprove);
       final roomRef = db.collection('chatRooms').doc(widget.meetId);
 
-
       await db.runTransaction((tx) async {
-        // 1) meet
         final meetSnap = await tx.get(_meetRef);
-        final data = meetSnap.data()!;
-        final current = (data['currentMemberCount'] ?? 0) as int;
-        final max = (data['maxMembers'] ?? 0) as int;
+        if (!meetSnap.exists) {
+          throw Exception('모임이 없어요');
+        }
 
-        final members = List<String>.from(data['userUids'] ?? []);
+        final meetData = meetSnap.data()!;
+        final max = (meetData['maxMembers'] ?? 0) as int;
+        final status = (meetData['status'] ?? 'open').toString();
 
-        // 요청이 이미 승인되어 멤버면: 요청만 정리
-        if (members.contains(uidToApprove)) {
+        if (status != 'open') {
+          throw Exception('종료된 모임이에요');
+        }
+
+        final reqSnap = await tx.get(reqRef);
+        if (!reqSnap.exists) {
+          throw Exception('이미 처리된 요청이에요');
+        }
+
+        final memberSnap = await tx.get(memberRef);
+        if (memberSnap.exists) {
           tx.delete(reqRef);
           return;
         }
-        if (current >= max) throw Exception('정원이 마감되었습니다');
 
-        // 2) room
+        final countSnap = await _meetRef.collection('members').count().get();
+        final currentCount = countSnap.count ?? 0;
+        if (currentCount >= max) {
+          throw Exception('정원이 마감되었습니다');
+        }
+
         final roomSnap = await tx.get(roomRef);
-        if (!roomSnap.exists) throw Exception('채팅방이 없어요');
+        if (!roomSnap.exists) {
+          throw Exception('채팅방이 없어요');
+        }
 
         final roomData = roomSnap.data() as Map<String, dynamic>;
         final roomUserUids = List<String>.from(roomData['userUids'] ?? []);
         final visibleUids = List<String>.from(roomData['visibleUids'] ?? []);
+        final unreadCountMap = Map<String, dynamic>.from(
+          roomData['unreadCountMap'] ?? {},
+        );
+        final activeAtMap = Map<String, dynamic>.from(
+          roomData['activeAtMap'] ?? {},
+        );
 
-        final unreadCountMap =
-        Map<String, dynamic>.from(roomData['unreadCountMap'] ?? {});
-        final activeAtMap =
-        Map<String, dynamic>.from(roomData['activeAtMap'] ?? {});
-
-        // ✅ meet 멤버 추가
-        members.add(uidToApprove);
-        tx.update(_meetRef, {
-          'userUids': members,
-          'currentMemberCount': current + 1,
+        tx.set(memberRef, {
+          'uid': uidToApprove,
+          'role': 'member',
+          'status': 'approved',
+          'joinedAt': FieldValue.serverTimestamp(),
+          'createdAt': FieldValue.serverTimestamp(),
           'updatedAt': FieldValue.serverTimestamp(),
         });
 
-        // ✅ 채팅방 멤버/노출 추가
-        if (!roomUserUids.contains(uidToApprove)) roomUserUids.add(uidToApprove);
-        if (!visibleUids.contains(uidToApprove)) visibleUids.add(uidToApprove);
+        if (!roomUserUids.contains(uidToApprove)) {
+          roomUserUids.add(uidToApprove);
+        }
+        if (!visibleUids.contains(uidToApprove)) {
+          visibleUids.add(uidToApprove);
+        }
 
         unreadCountMap[uidToApprove] = 0;
         activeAtMap[uidToApprove] = FieldValue.serverTimestamp();
@@ -216,154 +229,168 @@ class _RequestRowState extends State<_RequestRow> {
           'updatedAt': FieldValue.serverTimestamp(),
         });
 
-        // (선택) 시스템 메시지
         final msgRef = roomRef.collection('messages').doc();
         tx.set(msgRef, {
           'id': msgRef.id,
-          'authorUid': uidToApprove,
+          'authorUid': 'system',
           'type': 'system',
           'text': '새 참가자가 승인되어 입장했어요 ✅',
           'createdAt': FieldValue.serverTimestamp(),
         });
+
         tx.update(roomRef, {
           'lastMessageText': '새 참가자가 승인되어 입장했어요 ✅',
           'lastMessageType': 'system',
           'lastMessageAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
         });
 
-        // ✅ 요청 문서 삭제(너 방식 유지)
+        tx.update(_meetRef, {'updatedAt': FieldValue.serverTimestamp()});
+
         tx.delete(reqRef);
       });
 
-      SnackbarService.show(type: AppSnackType.success, message: '승인했어요');
-      final functions = FirebaseFunctions.instanceFor(region: 'asia-northeast3');
-
-      await functions
-          .httpsCallable('sendMeetRequestApprovedNotification')
-          .call({
-        'meetId': widget.meetId,
-        'targetUid': uidToApprove,
+      setState(() {
+        _approved = true;
       });
+
+      SnackbarService.show(type: AppSnackType.success, message: '승인했어요');
+
+      final functions = FirebaseFunctions.instanceFor(
+        region: 'asia-northeast3',
+      );
+      await functions.httpsCallable('sendMeetRequestApprovedNotification').call(
+        {'meetId': widget.meetId, 'targetUid': uidToApprove},
+      );
+
       await widget.onChanged();
+
+      if (mounted) {
+        Navigator.pop(context);
+      }
     } catch (e) {
       SnackbarService.show(type: AppSnackType.error, message: e.toString());
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) {
+        setState(() => _busy = false);
+      }
     }
   }
+
   Future<void> _reject() async {
-    if (_busy) return;
+    if (_busy || _approved) return;
     setState(() => _busy = true);
 
     try {
       await _meetRef.collection('requests').doc(widget.uid).delete();
+
       SnackbarService.show(type: AppSnackType.success, message: '거절했어요');
 
+      final functions = FirebaseFunctions.instanceFor(
+        region: 'asia-northeast3',
+      );
+      await functions.httpsCallable('sendMeetRequestRejectedNotification').call(
+        {'meetId': widget.meetId, 'targetUid': widget.uid},
+      );
 
-      final functions = FirebaseFunctions.instanceFor(region: 'asia-northeast3');
-
-      await functions
-          .httpsCallable('sendMeetRequestRejectedNotification')
-          .call({
-        'meetId': widget.meetId,
-        'targetUid': widget.uid,
-      });
-      await widget.onChanged(); // ✅ 부모 init 호출
+      await widget.onChanged();
     } catch (e) {
       SnackbarService.show(type: AppSnackType.error, message: e.toString());
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) {
+        setState(() => _busy = false);
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final userDoc = FirebaseFirestore.instance
-        .collection('users')
-        .doc(widget.uid);
-
     return Consumer(
       builder: (context, ref, _) {
         final userAsync = ref.watch(userMiniProvider(widget.uid));
 
         return userAsync.when(
           loading: () {
-            // ✅ 기존 UI 구조 유지: 로딩 시에도 동일한 row 스켈레톤 느낌으로
-            return Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: AppColors.bgWhite,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.borderSecondary),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: AppColors.bgSecondary,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: AppColors.borderSecondary),
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    child: const Icon(
-                      Icons.person,
-                      color: AppColors.icDisabled,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      '불러오는 중…',
-                      style: AppTextStyle.titleSmallBoldStyle.copyWith(
-                        color: AppColors.textTeritary,
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppColors.bgWhite,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.borderSecondary),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: AppColors.bgSecondary,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: AppColors.borderSecondary),
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: const Icon(
+                        Icons.person,
+                        color: AppColors.icDisabled,
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  _SmallOutlineButton(text: '거절', onTap: null),
-                  const SizedBox(width: 8),
-                  _SmallPrimaryButton(text: '승인', onTap: null),
-                ],
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        '불러오는 중…',
+                        style: AppTextStyle.titleSmallBoldStyle.copyWith(
+                          color: AppColors.textTeritary,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    _SmallOutlineButton(text: '거절', onTap: null),
+                    const SizedBox(width: 8),
+                    _SmallPrimaryButton(text: '승인', onTap: null),
+                  ],
+                ),
               ),
             );
           },
           error: (e, _) {
-            // ✅ 에러 시에도 기존 구조 유지
-            return Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: AppColors.bgWhite,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.borderSecondary),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: AppColors.bgSecondary,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: AppColors.borderSecondary),
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    child: const Icon(
-                      Icons.person,
-                      color: AppColors.icDisabled,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      '사용자 정보를 불러오지 못했어요',
-                      style: AppTextStyle.titleSmallBoldStyle.copyWith(
-                        color: AppColors.textDefault,
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppColors.bgWhite,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.borderSecondary),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: AppColors.bgSecondary,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: AppColors.borderSecondary),
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: const Icon(
+                        Icons.person,
+                        color: AppColors.icDisabled,
                       ),
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        '사용자 정보를 불러오지 못했어요',
+                        style: AppTextStyle.titleSmallBoldStyle.copyWith(
+                          color: AppColors.textDefault,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             );
           },
@@ -399,15 +426,17 @@ class _RequestRowState extends State<_RequestRow> {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 10),
-                    _SmallOutlineButton(
-                      text: '거절',
-                      onTap: _busy ? null : _reject,
-                    ),
-                    const SizedBox(width: 8),
+                    if (!_approved) ...[
+                      const SizedBox(width: 10),
+                      _SmallOutlineButton(
+                        text: '거절',
+                        onTap: _busy ? null : _reject,
+                      ),
+                      const SizedBox(width: 8),
+                    ],
                     _SmallPrimaryButton(
-                      text: _busy ? '처리중' : '승인',
-                      onTap: _busy ? null : _approve,
+                      text: _busy ? '처리중' : (_approved ? '승인완료' : '승인'),
+                      onTap: (_busy || _approved) ? null : _approve,
                     ),
                   ],
                 ),
@@ -433,7 +462,9 @@ class _SmallPrimaryButton extends StatelessWidget {
       child: ElevatedButton(
         onPressed: onTap,
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.btnPrimary,
+          backgroundColor: onTap == null
+              ? AppColors.btnDisabled
+              : AppColors.btnPrimary,
           elevation: 0,
           padding: const EdgeInsets.symmetric(horizontal: 12),
           shape: RoundedRectangleBorder(

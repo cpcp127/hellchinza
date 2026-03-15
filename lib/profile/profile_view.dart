@@ -22,9 +22,99 @@ import '../common/common_bottom_button.dart';
 import '../common/common_text_field.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_text_style.dart';
+import '../meet/domain/meet_model.dart';
 import '../services/dialog_service.dart';
 import '../services/snackbar_service.dart';
 import '../workout_goal/presentation/workout_goal_root_view.dart';
+final hostedMeetPreviewProvider =
+FutureProvider.autoDispose.family<List<MeetModel>, String>((ref, uid) async {
+  final snap = await FirebaseFirestore.instance
+      .collection('meets')
+      .where('authorUid', isEqualTo: uid)
+      .orderBy('createdAt', descending: true)
+      .limit(3)
+      .get();
+
+  return snap.docs.map((d) => MeetModel.fromDoc(d)).toList();
+});
+
+final hostedMeetAllProvider =
+FutureProvider.autoDispose.family<List<MeetModel>, String>((ref, uid) async {
+  final snap = await FirebaseFirestore.instance
+      .collection('meets')
+      .where('status', isEqualTo: 'open')
+      .where('authorUid', isEqualTo: uid)
+      .orderBy('createdAt', descending: true)
+      .get();
+
+  return snap.docs.map((d) => MeetModel.fromDoc(d)).toList();
+});
+final joinedMeetPreviewProvider =
+FutureProvider.autoDispose.family<List<MeetModel>, String>((ref, uid) async {
+  try {
+    final memberSnap = await FirebaseFirestore.instance
+        .collectionGroup('members')
+        .where('uid', isEqualTo: uid)
+        .get();
+
+    debugPrint('members count: ${memberSnap.docs.length}');
+
+    final meetRefs = memberSnap.docs
+        .map((doc) => doc.reference.parent.parent)
+        .whereType<DocumentReference<Map<String, dynamic>>>()
+        .toList();
+
+    final meetSnaps = await Future.wait(meetRefs.map((ref) => ref.get()));
+
+    final meets = meetSnaps
+        .where((doc) => doc.exists)
+        .map((doc) => MeetModel.fromDoc(doc))
+        .where((meet) => meet.authorUid != uid)
+        .toList()
+      ..sort((a, b) {
+        final aTime = a.createdAt ?? DateTime(1970);
+        final bTime = b.createdAt ?? DateTime(1970);
+        return aTime.compareTo(bTime);
+      });
+
+    return meets.take(3).toList();
+  } catch (e, st) {
+    debugPrint('joinedMeetPreviewProvider error: $e');
+    debugPrintStack(stackTrace: st);
+    rethrow;
+  }
+});
+
+final joinedMeetAllProvider =
+FutureProvider.autoDispose.family<List<MeetModel>, String>((ref, uid) async {
+  final memberSnap = await FirebaseFirestore.instance
+      .collectionGroup('members')
+      .where('uid', isEqualTo: uid)
+      .get();
+
+  if (memberSnap.docs.isEmpty) return [];
+
+  final meetRefs = memberSnap.docs
+      .map((doc) => doc.reference.parent.parent)
+      .whereType<DocumentReference<Map<String, dynamic>>>()
+      .toList();
+
+  final meetSnaps = await Future.wait(meetRefs.map((ref) => ref.get()));
+
+  final meets = meetSnaps
+      .where((doc) => doc.exists)
+      .map((doc) => MeetModel.fromDoc(doc))
+      .where((meet) => meet.status == 'open')
+      .where((meet) => meet.authorUid != uid)
+      .toList()
+    ..sort((a, b) {
+      final aTime = a.createdAt ?? DateTime(1970);
+      final bTime = b.createdAt ?? DateTime(1970);
+      return aTime.compareTo(bTime);
+    });
+
+  return meets;
+});
 
 final userByUidProvider = FutureProvider.family<UserModel?, String>((
   ref,
@@ -369,80 +459,96 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
 
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Builder(
-                builder: (context) {
-                  final joinedPreviewQuery = FirebaseFirestore.instance
-                      .collection('meets')
-                      .where('userUids', arrayContains: uid)
-                      .where('authorUid', isNotEqualTo: uid)
-                      .orderBy('createdAt')
-                      .limit(3);
+              child: Consumer(
+                builder: (context, ref, _) {
+                  final previewAsync = ref.watch(joinedMeetPreviewProvider(uid));
+                  final allAsync = ref.watch(joinedMeetAllProvider(uid));
 
-                  final joinedAllQuery = FirebaseFirestore.instance
-                      .collection('meets')
-                      .where('status', isEqualTo: 'open')
-                      .where('userUids', arrayContains: uid)
-                      .where('authorUid', isNotEqualTo: uid)
-                      .orderBy('createdAt');
+                  return previewAsync.when(
+                    loading: () => MeetPreviewSection(
+                      title: isMe ? '내가 참가한 모임' : '참가한 모임',
+                      items: const [],
+                      emptyText: '불러오는 중...',
+                      onTapAll: null,
+                    ),
+                    error: (e, _) => MeetPreviewSection(
+                      title: isMe ? '내가 참가한 모임' : '참가한 모임',
+                      items: const [],
+                      emptyText: '모임을 불러오지 못했어요',
+                      onTapAll: null,
+                    ),
+                    data: (previewItems) {
+                      return MeetPreviewSection(
+                        title: isMe ? '내가 참가한 모임' : '참가한 모임',
+                        items: previewItems,
+                        emptyText: '아직 참가한 모임이 없어요',
+                        onTapAll: () {
+                          final allItems = allAsync.value ?? const <MeetModel>[];
 
-                  return MeetPreviewSection(
-                    title: isMe ? '내가 참가한 모임' : '참가한 모임',
-                    query: joinedPreviewQuery,
-                    emptyText: '아직 참가한 모임이 없어요',
-                    onTapAll: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => MyMeetsListView(
-                            title: isMe ? '내가 참가한 모임' : '참가한 모임',
-                            query: joinedAllQuery,
-                          ),
-                        ),
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => MyMeetsListView(
+                                title: isMe ? '내가 참가한 모임' : '참가한 모임',
+                                items: allItems,
+                              ),
+                            ),
+                          );
+                        },
                       );
                     },
                   );
                 },
               ),
             ),
-
             const SizedBox(height: 18),
 
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Builder(
-                builder: (context) {
-                  final hostedPreviewQuery = FirebaseFirestore.instance
-                      .collection('meets')
-                      .where('authorUid', isEqualTo: uid)
-                      .orderBy('createdAt', descending: true)
-                      .limit(3);
+              child: Consumer(
+                builder: (context, ref, _) {
+                  final previewAsync = ref.watch(hostedMeetPreviewProvider(uid));
 
-                  final hostedAllQuery = FirebaseFirestore.instance
-                      .collection('meets')
-                      .where('status', isEqualTo: 'open')
-                      .where('authorUid', isEqualTo: uid)
-                      .orderBy('createdAt', descending: true);
+                  return previewAsync.when(
+                    loading: () => MeetPreviewSection(
+                      title: isMe ? '내가 만든 모임' : '만든 모임',
+                      items: const [],
+                      emptyText: '불러오는 중...',
+                      onTapAll: null,
+                    ),
+                    error: (e, _) => MeetPreviewSection(
+                      title: isMe ? '내가 만든 모임' : '만든 모임',
+                      items: const [],
+                      emptyText: '모임을 불러오지 못했어요',
+                      onTapAll: null,
+                    ),
+                    data: (previewItems) {
+                      return MeetPreviewSection(
+                        title: isMe ? '내가 만든 모임' : '만든 모임',
+                        items: previewItems,
+                        emptyText: '아직 만든 모임이 없어요',
+                        onTapAll: () async {
+                          final allItems =
+                          await ref.read(hostedMeetAllProvider(uid).future);
 
-                  return MeetPreviewSection(
-                    title: isMe ? '내가 만든 모임' : '만든 모임',
-                    query: hostedPreviewQuery,
-                    emptyText: '아직 만든 모임이 없어요',
-                    onTapAll: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => MyMeetsListView(
-                            title: isMe ? '내가 만든 모임' : '만든 모임',
-                            query: hostedAllQuery,
-                          ),
-                        ),
+                          if (!context.mounted) return;
+
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => MyMeetsListView(
+                                title: isMe ? '내가 만든 모임' : '만든 모임',
+                                items: allItems,
+                              ),
+                            ),
+                          );
+                        },
                       );
                     },
                   );
                 },
               ),
             ),
-
             const SizedBox(height: 20),
           ],
         ),
