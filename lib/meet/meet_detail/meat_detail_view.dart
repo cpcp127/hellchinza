@@ -1113,10 +1113,15 @@ class _MemberPreviewRowState extends State<_MemberPreviewRow> {
           .where('uid', whereIn: uids)
           .get();
 
-      final fetched = userSnap.docs
-          .map((d) => UserMini.fromMap(d.data(), d.id))
-          .toList();
+      final fetched = <UserMini>[];
 
+      for (final d in userSnap.docs) {
+        try {
+          fetched.add(UserMini.fromMap(d.data(), d.id));
+        } catch (e) {
+          debugPrint('skip invalid user doc: ${d.id}, error: $e');
+        }
+      }
       fetched.sort((a, b) => uids.indexOf(a.uid).compareTo(uids.indexOf(b.uid)));
 
       for (final u in fetched) {
