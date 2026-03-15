@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hellchinza/common/common_home_app_bar.dart';
 import 'package:hellchinza/feed/create_feed/create_feed_view.dart';
@@ -43,186 +44,193 @@ class _HomeViewState extends ConsumerState<HomeView> {
       error: (e, _) =>
           Scaffold(body: Center(child: Text('Home init error: $e'))),
       data: (ok) {
-        return Scaffold(
-          appBar: CommonHomeAppbar(
-            title: title[_pageIndex],
+        return AnnotatedRegion<SystemUiOverlayStyle>(
+          value: const SystemUiOverlayStyle(
+            statusBarColor: Colors.transparent,
+            statusBarIconBrightness: Brightness.dark, // Android
+            statusBarBrightness: Brightness.light, // iOS -> 검정 글자
+          ),
+          child: Scaffold(
+            appBar: CommonHomeAppbar(
+              title: title[_pageIndex],
 
-            actions: [
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  IconButton(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const NotificationListView(),
-                        ),
-                      );
-                    },
-                    icon: const Icon(
-                      Icons.notifications_none,
-                      size: 24,
-                      color: AppColors.icDefault,
-                    ),
-                  ),
-                  if (hasUnreadAsync.value == true)
-                    Positioned(
-                      right: 10,
-                      top: 10,
-                      child: Container(
-                        width: 8,
-                        height: 8,
-                        decoration: const BoxDecoration(
-                          color: AppColors.red100,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-
-              IconButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const ChatListView(),
-                    ),
-                  );
-                },
-                icon: Stack(
+              actions: [
+                Stack(
                   clipBehavior: Clip.none,
                   children: [
-                    const Icon(
-                      Icons.chat_bubble_outline,
-                      size: 24,
-                      color: AppColors.icDefault,
-                    ),
-
-                    unreadAsync.when(
-                      data: (count) {
-                        if (count == 0) return const SizedBox();
-
-                        return Positioned(
-                          right: -4,
-                          top: -4,
-                          child: ChatBadge(count: count),
-                        );
-                      },
-                      loading: () => const SizedBox(),
-                      error: (_, __) => const SizedBox(),
-                    ),
-                  ],
-                ),
-              ),
-              _pageIndex != 3
-                  ? Container()
-                  : IconButton(
-                      icon: const Icon(
-                        Icons.settings_outlined,
-                        size: 24,
-                        color: AppColors.icDefault,
-                      ),
+                    IconButton(
                       onPressed: () {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
+                            builder: (_) => const NotificationListView(),
+                          ),
+                        );
+                      },
+                      icon: const Icon(
+                        Icons.notifications_none,
+                        size: 24,
+                        color: AppColors.icDefault,
+                      ),
+                    ),
+                    if (hasUnreadAsync.value == true)
+                      Positioned(
+                        right: 10,
+                        top: 10,
+                        child: Container(
+                          width: 8,
+                          height: 8,
+                          decoration: const BoxDecoration(
+                            color: AppColors.red100,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+
+                IconButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const ChatListView(),
+                      ),
+                    );
+                  },
+                  icon: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      const Icon(
+                        Icons.chat_bubble_outline,
+                        size: 24,
+                        color: AppColors.icDefault,
+                      ),
+
+                      unreadAsync.when(
+                        data: (count) {
+                          if (count == 0) return const SizedBox();
+
+                          return Positioned(
+                            right: -4,
+                            top: -4,
+                            child: ChatBadge(count: count),
+                          );
+                        },
+                        loading: () => const SizedBox(),
+                        error: (_, __) => const SizedBox(),
+                      ),
+                    ],
+                  ),
+                ),
+                _pageIndex != 3
+                    ? Container()
+                    : IconButton(
+                        icon: const Icon(
+                          Icons.settings_outlined,
+                          size: 24,
+                          color: AppColors.icDefault,
+                        ),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) {
+                                return SettingView();
+                              },
+                            ),
+                          );
+                        },
+                      ),
+              ],
+            ),
+            bottomNavigationBar: Theme(
+              data: Theme.of(context).copyWith(
+                splashColor: Colors.transparent,
+                highlightColor: Colors.transparent,
+                splashFactory: NoSplash.splashFactory, // ⭐ 핵심
+              ),
+              child: BottomNavigationBar(
+                showSelectedLabels: false,
+                showUnselectedLabels: false,
+
+                onTap: (index) {
+                  if (index == 2) {
+                    controller.showCreateActionSheet(
+                      context: context,
+                      onCreateFeed: () {
+                        Navigator.push(
+                          context,
+                          CupertinoPageRoute(
+                            fullscreenDialog: true,
                             builder: (context) {
-                              return SettingView();
+                              return CreateFeedView();
                             },
                           ),
                         );
                       },
-                    ),
-            ],
-          ),
-          bottomNavigationBar: Theme(
-            data: Theme.of(context).copyWith(
-              splashColor: Colors.transparent,
-              highlightColor: Colors.transparent,
-              splashFactory: NoSplash.splashFactory, // ⭐ 핵심
+                      onCreateMeeting: () {
+                        Navigator.push(
+                          context,
+                          CupertinoPageRoute(
+                            fullscreenDialog: true,
+                            builder: (context) {
+                              return MeetCreateStepperView();
+                            },
+                          ),
+                        );
+                      },
+                    );
+                    return;
+                  } else {
+                    setState(() {
+                      _navIndex = index;
+                      _pageIndex = index > 2 ? index - 1 : index;
+                    });
+                  }
+                },
+                type: BottomNavigationBarType.fixed,
+
+                elevation: 0,
+                backgroundColor: Colors.white,
+                selectedItemColor: AppColors.btnPrimary,
+                unselectedItemColor: Colors.grey,
+                currentIndex: _navIndex,
+                items: [
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.fitness_center),
+                    label: '',
+                  ),
+                  BottomNavigationBarItem(icon: Icon(Icons.feed), label: ''),
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.add_box_outlined),
+                    label: '',
+                  ),
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.people_rounded),
+                    label: '',
+                  ),
+
+                  BottomNavigationBarItem(icon: Icon(Icons.person), label: ''),
+                ],
+              ),
             ),
-            child: BottomNavigationBar(
-              showSelectedLabels: false,
-              showUnselectedLabels: false,
 
-              onTap: (index) {
-                if (index == 2) {
-                  controller.showCreateActionSheet(
-                    context: context,
-                    onCreateFeed: () {
-                      Navigator.push(
-                        context,
-                        CupertinoPageRoute(
-                          fullscreenDialog: true,
-                          builder: (context) {
-                            return CreateFeedView();
-                          },
-                        ),
-                      );
-                    },
-                    onCreateMeeting: () {
-                      Navigator.push(
-                        context,
-                        CupertinoPageRoute(
-                          fullscreenDialog: true,
-                          builder: (context) {
-                            return MeetCreateStepperView();
-                          },
-                        ),
-                      );
-                    },
-                  );
-                  return;
-                } else {
-                  setState(() {
-                    _navIndex = index;
-                    _pageIndex = index > 2 ? index - 1 : index;
-                  });
-                }
-              },
-              type: BottomNavigationBarType.fixed,
+            body: IndexedStack(
+              index: _pageIndex,
+              children: [
+                WorkoutGoalGateView(),
+                FeedListView(),
+                MeetListView(),
 
-              elevation: 0,
-              backgroundColor: Colors.white,
-              selectedItemColor: AppColors.btnPrimary,
-              unselectedItemColor: Colors.grey,
-              currentIndex: _navIndex,
-              items: [
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.fitness_center),
-                  label: '',
-                ),
-                BottomNavigationBarItem(icon: Icon(Icons.feed), label: ''),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.add_box_outlined),
-                  label: '',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.people_rounded),
-                  label: '',
-                ),
-
-                BottomNavigationBarItem(icon: Icon(Icons.person), label: ''),
+                FirebaseAuth.instance.currentUser == null
+                    ? Container()
+                    : ProfileView(
+                        uid: FirebaseAuth.instance.currentUser!.uid,
+                        fromHomeTab: true,
+                      ),
               ],
             ),
-          ),
-
-          body: IndexedStack(
-            index: _pageIndex,
-            children: [
-              WorkoutGoalGateView(),
-              FeedListView(),
-              MeetListView(),
-
-              FirebaseAuth.instance.currentUser == null
-                  ? Container()
-                  : ProfileView(
-                      uid: FirebaseAuth.instance.currentUser!.uid,
-                      fromHomeTab: true,
-                    ),
-            ],
           ),
         );
       },

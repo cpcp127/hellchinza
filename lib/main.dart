@@ -26,6 +26,13 @@ Future<void> main() async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   await MobileAds.instance.initialize();
   await GoogleSignIn.instance.initialize();
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent, // iOS에서는 무시되지만 유지
+      statusBarIconBrightness: Brightness.dark, // Android
+      statusBarBrightness: Brightness.light, // iOS (light → 검정 텍스트)
+    ),
+  );
    KakaoSdk.init(
     nativeAppKey:'f107d10aec4120e46508bdcbfc1ad0af'
   );
@@ -80,6 +87,10 @@ class MyApp extends StatelessWidget {
         theme: ThemeData(
           scaffoldBackgroundColor: Colors.white,
           appBarTheme: AppBarTheme(
+            systemOverlayStyle: const SystemUiOverlayStyle(
+              statusBarBrightness: Brightness.light,
+              statusBarIconBrightness: Brightness.dark,
+            ),
             scrolledUnderElevation: 0,
             surfaceTintColor: Colors.transparent,
             backgroundColor: AppColors.bgWhite,
