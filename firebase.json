@@ -64,6 +64,11 @@
         "source": "/support",
         "destination": "/support.html",
         "type": 301
+      },
+      {
+        "source": "/delete-account",
+        "destination": "/delete-account.html",
+        "type": 301
       }
     ]
   }

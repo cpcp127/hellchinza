@@ -7,6 +7,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hellchinza/auth/domain/user_mini_provider.dart';
 import 'package:hellchinza/common/common_chip.dart';
 import 'package:hellchinza/constants/app_constants.dart';
 import 'package:hellchinza/services/image_service.dart';
@@ -71,7 +72,8 @@ class _ProfileEditViewState extends ConsumerState<ProfileEditView> {
           .read(homeControllerProvider.notifier)
           .fetchUser(FirebaseAuth.instance.currentUser!.uid);
       ref.read(myUserModelProvider.notifier).updateUserModel(userModel!);
-
+      ref.read(userMiniRepoProvider).clear(userModel.uid);
+      ref.invalidate(userMiniProvider(userModel.uid));
       Navigator.pop(context);
     } catch (e) {
       // TODO: 스낵바/토스트

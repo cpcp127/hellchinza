@@ -36,6 +36,25 @@ class MeetCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    Container(
+                      decoration: BoxDecoration(
+                        color: AppColors.sky50,
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(color: AppColors.borderPrimary),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        child: Text(
+                          item.category,
+                          style: AppTextStyle.labelXSmallStyle.copyWith(
+                            color: AppColors.textPrimary,
+                            fontWeight: FontWeight.w700,)
+                        ),
+                      ),
+                    ),
                     Text(
                       item.title,
                       maxLines: 1,

@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 
 const Map<String, bool> kDefaultNotificationSettings = {
@@ -15,6 +14,7 @@ const List<String> workList = [
   '테니스',
   '스쿼시',
   '배드민턴',
+  '등산',
   '런닝',
   '사이클',
   '풋살/축구',
