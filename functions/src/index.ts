@@ -920,10 +920,21 @@ export const sendChatMessageNotification = functions.firestore
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     };
 
-    for (const targetUid of receiverUids) {
-      roomUpdates[`unreadCountMap.${targetUid}`] =
-        admin.firestore.FieldValue.increment(1);
-    }
+   for (const targetUid of receiverUids) {
+     const activeAt = activeAtMap[targetUid];
+
+     let isActiveRecently = false;
+
+     if (activeAt instanceof admin.firestore.Timestamp) {
+       const diffMs = createdAt.toMillis() - activeAt.toMillis();
+       isActiveRecently = diffMs <= 30 * 1000; // 30초 안에 활동 중
+     }
+
+     if (!isActiveRecently) {
+       roomUpdates[`unreadCountMap.${targetUid}`] =
+         admin.firestore.FieldValue.increment(1);
+     }
+   }
 
     await roomRef.update(roomUpdates);
 
