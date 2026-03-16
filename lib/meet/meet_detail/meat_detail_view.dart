@@ -1,3 +1,6 @@
+import 'dart:ui';
+
+import 'package:blur/blur.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -242,35 +245,10 @@ class _MeetDetailViewState extends ConsumerState<MeetDetailView> {
   }) async {
     if (state.meet == null) return;
 
-    // if (state.isOwner) {
-    //   await _showMeetOwnerActionSheet(
-    //     context: context,
-    //     onDelete: () async {
-    //       final ok = await _confirm(
-    //         context,
-    //         title: '모임을 삭제할까요?',
-    //         message: '삭제 후 되돌릴 수 없습니다.',
-    //         destructive: true,
-    //       );
-    //       if (!ok) return;
-    //
-    //       await controller.deleteMeet();
-    //       if (context.mounted) Navigator.pop(context);
-    //       SnackbarService.show(
-    //         type: AppSnackType.success,
-    //         message: '모임을 삭제했습니다.',
-    //       );
-    //     },
-    //   );
-    //   return;
-    // }
-
     await _showMeetGuestActionSheet(
       context: context,
       isMember: state.isMember,
       onLeave: () async {
-
-
         final ok = await _confirm(
           context,
           title: '모임에서 나갈까요?',
@@ -328,26 +306,6 @@ class _MeetDetailViewState extends ConsumerState<MeetDetailView> {
     );
   }
 
-  Future<void> _showMeetOwnerActionSheet({
-    required BuildContext context,
-    required VoidCallback onDelete,
-  }) async {
-    final items = <CommonActionSheetItem>[
-      CommonActionSheetItem(
-        icon: Icons.delete_outline,
-        title: '모임 삭제',
-        onTap: onDelete,
-        isDestructive: true,
-      ),
-    ];
-
-    await showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (_) => CommonActionSheet(title: '모임 관리', items: items),
-    );
-  }
 
   Future<void> _showMeetGuestActionSheet({
     required BuildContext context,
@@ -364,13 +322,13 @@ class _MeetDetailViewState extends ConsumerState<MeetDetailView> {
           onTap: onLeave,
           isDestructive: true,
         ),
-      if(!state.isOwner)
-      CommonActionSheetItem(
-        icon: Icons.report_outlined,
-        title: '신고하기',
-        onTap: onReport,
-        isDestructive: true,
-      ),
+      if (!state.isOwner)
+        CommonActionSheetItem(
+          icon: Icons.report_outlined,
+          title: '신고하기',
+          onTap: onReport,
+          isDestructive: true,
+        ),
     ];
 
     await showModalBottomSheet(
@@ -450,6 +408,7 @@ class _MeetDetailBody extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final memberCountAsync = ref.watch(meetMemberCountProvider(meet.id));
+    final shouldLockContent = !state.isMember && !state.isOwner;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -462,6 +421,7 @@ class _MeetDetailBody extends ConsumerWidget {
           await Future.delayed(const Duration(milliseconds: 250));
         },
         child: SingleChildScrollView(
+          physics: const ClampingScrollPhysics(),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -542,54 +502,48 @@ class _MeetDetailBody extends ConsumerWidget {
               ),
               const SizedBox(height: 10),
 
-              _MemberPreviewRow(
-                meetId: meet.id,
-                hostUid: meet.authorUid,
-              ),
+              if (shouldLockContent)
+                _LockedMeetContentPreview(
 
-              const SizedBox(height: 16),
-
-              _MeetPhotoFeedSection(
-                meetId: meet.id,
-                state: state,
-                controller: controller,
-                onTapAll: () {
-                  if (!state.isMember) {
-                    SnackbarService.show(
-                      type: AppSnackType.error,
-                      message: '모임에 먼저 참가해야 해요',
-                    );
-                    return;
-                  }
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => MeetFeedListView(meetId: meet.id),
+                )
+              else
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _MemberPreviewRow(
+                      meetId: meet.id,
+                      hostUid: meet.authorUid,
                     ),
-                  );
-                },
-              ),
-              const SizedBox(height: 18),
-
-              _MeetLightningSection(
-                meetId: meet.id,
-                isMeetMember: state.isMember,
-                onTapAll: () async {
-                  if (!state.isMember) {
-                    SnackbarService.show(
-                      type: AppSnackType.error,
-                      message: '모임에 먼저 참가해야 해요',
-                    );
-                    return;
-                  }
-                  await Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => MeetLightningListView(meetId: meet.id),
+                    const SizedBox(height: 16),
+                    _MeetPhotoFeedSection(
+                      meetId: meet.id,
+                      state: state,
+                      controller: controller,
+                      onTapAll: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => MeetFeedListView(meetId: meet.id),
+                          ),
+                        );
+                      },
                     ),
-                  );
-                },
-              ),
+                    const SizedBox(height: 18),
+                    _MeetLightningSection(
+                      meetId: meet.id,
+                      isMeetMember: state.isMember,
+                      onTapAll: () async {
+                        await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                MeetLightningListView(meetId: meet.id),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
             ],
           ),
         ),
@@ -941,7 +895,8 @@ class _MeetPhotoFeedSection extends StatelessWidget {
                 ? CommonNetworkImage(
                     imageUrl: item.imageUrl!,
                     height: double.infinity,
-                    fit: BoxFit.cover,enableViewer: false,
+                    fit: BoxFit.cover,
+                    enableViewer: false,
                   )
                 : _buildTextTile(text: item.previewText ?? ''),
           ),
@@ -1122,7 +1077,9 @@ class _MemberPreviewRowState extends State<_MemberPreviewRow> {
           debugPrint('skip invalid user doc: ${d.id}, error: $e');
         }
       }
-      fetched.sort((a, b) => uids.indexOf(a.uid).compareTo(uids.indexOf(b.uid)));
+      fetched.sort(
+        (a, b) => uids.indexOf(a.uid).compareTo(uids.indexOf(b.uid)),
+      );
 
       for (final u in fetched) {
         _loadedUids.add(u.uid);
@@ -1152,14 +1109,12 @@ class _MemberPreviewRowState extends State<_MemberPreviewRow> {
         border: Border.all(color: AppColors.borderSecondary),
       ),
       child: SingleChildScrollView(
+        physics: const ClampingScrollPhysics(),
         scrollDirection: Axis.horizontal,
         child: Row(
           children: [
             for (final u in _users) ...[
-              _buildMemberAvatar(
-                user: u,
-                isHost: u.uid == widget.hostUid,
-              ),
+              _buildMemberAvatar(user: u, isHost: u.uid == widget.hostUid),
               const SizedBox(width: 10),
             ],
             if (_isLoading) ...[
@@ -1179,12 +1134,9 @@ class _MemberPreviewRowState extends State<_MemberPreviewRow> {
     );
   }
 
-  Widget _buildMemberAvatar({
-    required UserMini user,
-    required bool isHost,
-  }) {
+  Widget _buildMemberAvatar({required UserMini user, required bool isHost}) {
     return SizedBox(
-     // width: 56,
+      // width: 56,
       child: Column(
         children: [
           CommonProfileAvatar(
@@ -1196,12 +1148,8 @@ class _MemberPreviewRowState extends State<_MemberPreviewRow> {
           const SizedBox(height: 6),
           Row(
             children: [
-              if(isHost)...[
-                Icon(
-                  Icons.star_rounded,
-                  size: 12,
-                  color: AppColors.sky400,
-                ),
+              if (isHost) ...[
+                Icon(Icons.star_rounded, size: 12, color: AppColors.sky400),
               ],
               Text(
                 user.nickname,
@@ -1284,6 +1232,240 @@ class _MemberPreviewRowState extends State<_MemberPreviewRow> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _LockedMeetContentPreview extends StatelessWidget {
+  const _LockedMeetContentPreview();
+
+
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        IgnorePointer(
+          ignoring: true,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildMemberPreviewPlaceholder(),
+              const SizedBox(height: 16),
+              _buildFeedSectionPlaceholder(),
+              const SizedBox(height: 18),
+              _buildLightningSectionPlaceholder(),
+            ],
+          ),
+        ),
+
+        Positioned.fill(
+          child: Container(
+            decoration: BoxDecoration(
+              color: AppColors.bgWhite.withValues(alpha: 0.88),
+              borderRadius: BorderRadius.circular(16),
+
+            ),
+          ),
+        ),
+
+        Positioned.fill(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(
+                  Icons.lock_outline_rounded,
+                  size: 28,
+                  color: AppColors.icDefault,
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  '모임에 참가해야 참가자,\n모임 피드, 번개를 볼 수 있어요',
+                  textAlign: TextAlign.center,
+                  style: AppTextStyle.titleSmallBoldStyle.copyWith(
+                    color: AppColors.textDefault,
+                  ),
+                ),
+
+
+
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMemberPreviewPlaceholder() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.bgSecondary,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.borderSecondary),
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        physics: const NeverScrollableScrollPhysics(),
+        child: Row(
+          children: List.generate(6, (index) {
+            return Padding(
+              padding: EdgeInsets.only(right: index == 5 ? 0 : 10),
+              child: Column(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: AppColors.gray100,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: AppColors.borderSecondary),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Container(
+                    width: 46,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      color: AppColors.gray100,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFeedSectionPlaceholder() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text('모임 피드', style: AppTextStyle.titleMediumBoldStyle),
+            const Spacer(),
+            Text(
+              '전체보기',
+              style: AppTextStyle.labelMediumStyle.copyWith(
+                color: AppColors.textPrimary,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: 6,
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 3,
+            crossAxisSpacing: 8,
+            mainAxisSpacing: 8,
+            childAspectRatio: 1,
+          ),
+          itemBuilder: (_, __) {
+            return Container(
+              decoration: BoxDecoration(
+                color: AppColors.gray100,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.borderSecondary),
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLightningSectionPlaceholder() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text('번개', style: AppTextStyle.titleMediumBoldStyle),
+            const Spacer(),
+            Text(
+              '전체보기',
+              style: AppTextStyle.labelMediumStyle.copyWith(
+                color: AppColors.textPrimary,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Column(
+          children: List.generate(2, (index) {
+            return Padding(
+              padding: EdgeInsets.only(bottom: index == 1 ? 0 : 10),
+              child: Container(
+                height: 96,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: AppColors.bgSecondary,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.borderSecondary),
+                ),
+                padding: const EdgeInsets.all(12),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 72,
+                      height: double.infinity,
+                      decoration: BoxDecoration(
+                        color: AppColors.gray100,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            width: 72,
+                            height: 12,
+                            decoration: BoxDecoration(
+                              color: AppColors.gray100,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Container(
+                            width: double.infinity,
+                            height: 14,
+                            decoration: BoxDecoration(
+                              color: AppColors.gray100,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Container(
+                            width: 120,
+                            height: 12,
+                            decoration: BoxDecoration(
+                              color: AppColors.gray100,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }),
+        ),
+      ],
     );
   }
 }
