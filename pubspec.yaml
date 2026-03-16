@@ -79,7 +79,6 @@ dependencies:
 
   # UI
   animate_do: ^4.2.0
-  blur: ^4.0.2
   image_picker: ^1.2.1
   flutter_image_compress: ^2.4.0
   cached_network_image: ^3.4.1
