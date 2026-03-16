@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hellchinza/chat/chat_room/chat_room_view.dart';
 import 'package:hellchinza/claim/claim_view.dart';
 import 'package:hellchinza/common/common_chip.dart';
 import 'package:hellchinza/common/common_network_image.dart';
@@ -305,7 +306,6 @@ class _MeetDetailViewState extends ConsumerState<MeetDetailView> {
     );
   }
 
-
   Future<void> _showMeetGuestActionSheet({
     required BuildContext context,
     required bool isMember,
@@ -473,6 +473,22 @@ class _MeetDetailBody extends ConsumerWidget {
                   color: AppColors.textDefault,
                 ),
               ),
+              const SizedBox(height: 16),
+              _MeetChatEntryCard(
+                locked: !state.isMember && !state.isOwner,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ChatView(
+                        roomId: meet.chatRoomId!,
+                        roomType: 'group',
+                        meetId: meet.id,
+                      ),
+                    ),
+                  );
+                },
+              ),
 
               const SizedBox(height: 16),
 
@@ -502,17 +518,12 @@ class _MeetDetailBody extends ConsumerWidget {
               const SizedBox(height: 10),
 
               if (shouldLockContent)
-                _LockedMeetContentPreview(
-
-                )
+                _LockedMeetContentPreview()
               else
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _MemberPreviewRow(
-                      meetId: meet.id,
-                      hostUid: meet.authorUid,
-                    ),
+                    _MemberPreviewRow(meetId: meet.id, hostUid: meet.authorUid),
                     const SizedBox(height: 16),
                     _MeetPhotoFeedSection(
                       meetId: meet.id,
@@ -1238,8 +1249,6 @@ class _MemberPreviewRowState extends State<_MemberPreviewRow> {
 class _LockedMeetContentPreview extends StatelessWidget {
   const _LockedMeetContentPreview();
 
-
-
   @override
   Widget build(BuildContext context) {
     return Stack(
@@ -1263,7 +1272,6 @@ class _LockedMeetContentPreview extends StatelessWidget {
             decoration: BoxDecoration(
               color: AppColors.bgWhite.withValues(alpha: 0.88),
               borderRadius: BorderRadius.circular(16),
-
             ),
           ),
         ),
@@ -1287,9 +1295,6 @@ class _LockedMeetContentPreview extends StatelessWidget {
                     color: AppColors.textDefault,
                   ),
                 ),
-
-
-
               ],
             ),
           ),
@@ -1465,6 +1470,74 @@ class _LockedMeetContentPreview extends StatelessWidget {
           }),
         ),
       ],
+    );
+  }
+}
+
+class _MeetChatEntryCard extends StatelessWidget {
+  const _MeetChatEntryCard({required this.locked, required this.onTap});
+
+  final bool locked;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: locked ? null : onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: locked ? AppColors.bgSecondary : AppColors.sky50,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: locked ? AppColors.borderSecondary : AppColors.borderPrimary,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: locked ? AppColors.gray100 : AppColors.sky50,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                locked ? Icons.lock_outline : Icons.chat_bubble_outline,
+                color: locked ? AppColors.icSecondary : AppColors.sky400,
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    locked ? '모임 단톡방' : '모임 단톡방 바로가기',
+                    style: AppTextStyle.titleSmallBoldStyle.copyWith(
+                      color: AppColors.textDefault,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    locked ? '모임에 참가해야 단톡방에 입장할 수 있어요' : '참가 멤버와 바로 대화해보세요',
+                    style: AppTextStyle.bodySmallStyle.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.chevron_right_rounded,
+              color: locked ? AppColors.icSecondary : AppColors.icDefault,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
