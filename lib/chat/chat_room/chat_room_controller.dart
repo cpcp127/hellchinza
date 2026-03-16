@@ -358,61 +358,90 @@ class ChatController extends StateNotifier<ChatState> {
 
       final room = roomSnap.data()!;
       final type = (room['type'] ?? 'dm').toString();
+
       final userUids = List<String>.from(room['userUids'] ?? const []);
+      final visibleUids = List<String>.from(room['visibleUids'] ?? const []);
 
-      if (!userUids.contains(myUid)) return; // 이미 나간 상태
+      final unreadCountMap =
+      Map<String, dynamic>.from(room['unreadCountMap'] ?? const {});
+      final activeAtMap =
+      Map<String, dynamic>.from(room['activeAtMap'] ?? const {});
+      final chatPushOffMap =
+      Map<String, dynamic>.from(room['chatPushOffMap'] ?? const {});
 
-      // ✅ READ 먼저(요구조건)
-      // (dm이면 friend 문서도 읽어도 되지만, 없어도 delete 가능)
+      final isInUserUids = userUids.contains(myUid);
+      final isInVisibleUids = visibleUids.contains(myUid);
 
-      // 1) userUids에서 나 제거 → 내 채팅리스트에서 사라짐
-      final newUserUids = [...userUids]..remove(myUid);
+      if (!isInUserUids && !isInVisibleUids) return;
 
-      // 2) 시스템 메시지
+      final updates = <String, dynamic>{
+        'allowMessages': false,
+        'updatedAt': FieldValue.serverTimestamp(),
+        'lastMessageText': '사용자가 채팅방을 나갔습니다.',
+        'lastMessageType': 'system',
+        'lastMessageAt': FieldValue.serverTimestamp(),
+      };
+
+      // 시스템 메시지는 system으로 넣는 게 안전
       final sysRef = _roomRef.collection('messages').doc();
       tx.set(sysRef, {
         'id': sysRef.id,
         'type': 'system',
-        'authorUid': myUid,
+        'authorUid': 'system',
         'text': '사용자가 채팅방을 나갔습니다.',
         'createdAt': FieldValue.serverTimestamp(),
       });
 
-      // 3) 남은 사람은 입력 disable
-      // - dm: 한 명이라도 나가면 allowMessages=false
-      // - group: 정책에 따라 다르지만, 너 요구는 “남은 사람 disable”이라면 group도 false로.
-      final updates = <String, dynamic>{
-        'userUids': newUserUids,
-        'allowMessages': false,
-        'updatedAt': FieldValue.serverTimestamp(),
-        'lastMessageText': '사용자가 채팅방을 나갔습니다.',
-        'lastMessageAt': FieldValue.serverTimestamp(),
-      };
+      if (type == 'dm') {
+        // ✅ DM은 상대 식별이 깨지지 않게 userUids는 유지
+        final newVisibleUids = [...visibleUids]..remove(myUid);
 
-      // 4) dm이면 친구끊기까지
-      if (type == 'dm' && otherUid != null && otherUid.isNotEmpty) {
-        final myFriendRef = _db
-            .collection('users')
-            .doc(myUid)
-            .collection('friends')
-            .doc(otherUid);
-        final otherFriendRef = _db
-            .collection('users')
-            .doc(otherUid)
-            .collection('friends')
-            .doc(myUid);
+        unreadCountMap.remove(myUid);
+        activeAtMap.remove(myUid);
+        chatPushOffMap.remove(myUid);
 
-        tx.delete(myFriendRef);
-        tx.delete(otherFriendRef);
+        updates['visibleUids'] = newVisibleUids;
+        updates['unreadCountMap'] = unreadCountMap;
+        updates['activeAtMap'] = activeAtMap;
+        updates['chatPushOffMap'] = chatPushOffMap;
 
-        // dm의 friendshipStatus도 정리(선택)
-        updates['friendshipStatus'] = 'rejected';
+        if (otherUid != null && otherUid.isNotEmpty) {
+          final myFriendRef = _db
+              .collection('users')
+              .doc(myUid)
+              .collection('friends')
+              .doc(otherUid);
+
+          final otherFriendRef = _db
+              .collection('users')
+              .doc(otherUid)
+              .collection('friends')
+              .doc(myUid);
+
+          tx.delete(myFriendRef);
+          tx.delete(otherFriendRef);
+
+          updates['friendshipStatus'] = 'rejected';
+        }
+      } else {
+        // ✅ group은 실제 탈퇴
+        final newUserUids = [...userUids]..remove(myUid);
+        final newVisibleUids = [...visibleUids]..remove(myUid);
+
+        unreadCountMap.remove(myUid);
+        activeAtMap.remove(myUid);
+        chatPushOffMap.remove(myUid);
+
+        updates['userUids'] = newUserUids;
+        updates['visibleUids'] = newVisibleUids;
+        updates['unreadCountMap'] = unreadCountMap;
+        updates['activeAtMap'] = activeAtMap;
+        updates['chatPushOffMap'] = chatPushOffMap;
       }
 
       tx.update(_roomRef, updates);
     });
 
-    // 리스트/룸 상태 즉시 반영
     ref.invalidate(chatRoomProvider(roomId));
   }
 
