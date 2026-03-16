@@ -618,33 +618,143 @@ class ChatController extends StateNotifier<ChatState> {
     final db = FirebaseFirestore.instance;
 
     final roomRef = db.collection('chatRooms').doc(roomId);
-    final meetRef = db.collection('meets').doc(roomId);
-    // roomId == meetId 설계 기준
+    final meetRef = db.collection('meets').doc(roomId); // roomId == meetId
+    final memberRef = meetRef.collection('members').doc(uid);
 
     await db.runTransaction((tx) async {
       final roomSnap = await tx.get(roomRef);
       final meetSnap = await tx.get(meetRef);
+      final memberSnap = await tx.get(memberRef);
 
       if (!roomSnap.exists || !meetSnap.exists) {
         throw Exception('데이터가 존재하지 않아요');
       }
 
-      // 🔹 chatRooms 업데이트
-      tx.update(roomRef, {
-        'userUids': FieldValue.arrayRemove([uid]),
-        'visibleUids': FieldValue.arrayRemove([uid]),
-        'unreadCountMap.$uid': FieldValue.delete(),
-        'activeAtMap.$uid': FieldValue.delete(),
-        'updatedAt': FieldValue.serverTimestamp(),
+      if (!memberSnap.exists) {
+        // 이미 탈퇴된 상태면 그냥 종료
+        return;
+      }
+
+      final roomData = roomSnap.data()!;
+      final meetData = meetSnap.data()!;
+
+      final userUids = List<String>.from(roomData['userUids'] ?? const []);
+      final visibleUids = List<String>.from(roomData['visibleUids'] ?? const []);
+      final unreadCountMap =
+      Map<String, dynamic>.from(roomData['unreadCountMap'] ?? const {});
+      final activeAtMap =
+      Map<String, dynamic>.from(roomData['activeAtMap'] ?? const {});
+      final chatPushOffMap =
+      Map<String, dynamic>.from(roomData['chatPushOffMap'] ?? const {});
+
+      final isHost = meetData['authorUid'] == uid;
+
+      // 시스템 메시지용 닉네임
+      String nickname = '알 수 없음';
+      final userRef = db.collection('users').doc(uid);
+      final userSnap = await tx.get(userRef);
+      if (userSnap.exists) {
+        final userData = userSnap.data();
+        final rawNickname = userData?['nickname'];
+        if (rawNickname is String && rawNickname.trim().isNotEmpty) {
+          nickname = rawNickname.trim();
+        }
+      }
+
+      // 1) members/{uid} 삭제 = 모임 탈퇴
+      tx.delete(memberRef);
+
+      // 2) 채팅방에서 제거
+      final newUserUids = [...userUids]..remove(uid);
+      final newVisibleUids = [...visibleUids]..remove(uid);
+
+      unreadCountMap.remove(uid);
+      activeAtMap.remove(uid);
+      chatPushOffMap.remove(uid);
+
+      // 3) 시스템 메시지
+      final msgRef = roomRef.collection('messages').doc();
+      final systemText = '$nickname님이 모임을 나갔어요';
+
+      tx.set(msgRef, {
+        'id': msgRef.id,
+        'authorUid': 'system',
+        'type': 'system',
+        'text': systemText,
+        'createdAt': FieldValue.serverTimestamp(),
       });
 
-      // 🔹 meets 업데이트
-      tx.update(meetRef, {
-        'userUids': FieldValue.arrayRemove([uid]),
-        'currentMemberCount': FieldValue.increment(-1),
+      // 4) chatRoom 업데이트
+      tx.update(roomRef, {
+        'userUids': newUserUids,
+        'visibleUids': newVisibleUids,
+        'unreadCountMap': unreadCountMap,
+        'activeAtMap': activeAtMap,
+        'chatPushOffMap': chatPushOffMap,
+        'lastMessageText': systemText,
+        'lastMessageType': 'system',
+        'lastMessageAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       });
     });
+
+    // 트랜잭션 밖에서 host 넘김 / 빈 모임 정리
+    await _fixMeetAfterLeave(roomId: roomId, leavingUid: uid);
+  }
+
+  Future<void> _fixMeetAfterLeave({
+    required String roomId,
+    required String leavingUid,
+  }) async {
+    final db = FirebaseFirestore.instance;
+
+    final meetRef = db.collection('meets').doc(roomId);
+    final roomRef = db.collection('chatRooms').doc(roomId);
+
+    final meetSnap = await meetRef.get();
+    if (!meetSnap.exists) return;
+
+    final meetData = meetSnap.data()!;
+    final wasHost = meetData['authorUid'] == leavingUid;
+
+    final membersSnap = await meetRef
+        .collection('members')
+        .orderBy('joinedAt', descending: false)
+        .limit(20)
+        .get();
+
+    // 마지막 멤버였으면 모임/채팅방 삭제
+    if (membersSnap.docs.isEmpty) {
+      await roomRef.delete();
+      await meetRef.delete();
+      return;
+    }
+
+    // 호스트가 나갔으면 다음 멤버를 호스트로 지정
+    if (wasHost) {
+      String? nextHostUid;
+
+      for (final doc in membersSnap.docs) {
+        final data = doc.data();
+        final nextUid = (data['uid'] ?? doc.id).toString();
+        if (nextUid != leavingUid) {
+          nextHostUid = nextUid;
+          break;
+        }
+      }
+
+      if (nextHostUid != null) {
+        await meetRef.update({
+          'authorUid': nextHostUid,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+
+        await meetRef.collection('members').doc(nextHostUid).set({
+          'role': 'host',
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+      }
+    }
   }
 
   DateTime? createdAtFrom(Map<String, dynamic> data) {
