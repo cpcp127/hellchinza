@@ -1,3 +1,4 @@
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,8 +7,10 @@ import 'package:hellchinza/utils/date_time_util.dart';
 import '../../common/common_feed_card.dart';
 import '../../constants/app_colors.dart';
 import '../../constants/app_text_style.dart';
+import '../../ranking/ranking_view.dart';
 import '../domain/week_oow_stat_model.dart';
 import '../provider/workout_goal_provider.dart';
+import '../widget/ranking_entry_button.dart';
 
 class WorkoutGoalRootView extends ConsumerStatefulWidget {
   const WorkoutGoalRootView({super.key, required this.uid, this.isHomeWidget});
@@ -63,7 +66,6 @@ class _WorkoutGoalRootViewState extends ConsumerState<WorkoutGoalRootView> {
               child: ListView(
                 children: [
                   const SizedBox(height: 12),
-
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: _WeeklyGoalCard(

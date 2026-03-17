@@ -4,10 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:hellchinza/utils/date_time_util.dart';
 
+import '../../auth/domain/user_model.dart';
 import '../../feed/domain/feed_model.dart';
 import '../domain/week_oow_stat_model.dart';
 import '../provider/workout_goal_provider.dart';
 import 'workout_goal_state.dart';
+
 
 class WorkoutGoalController extends StateNotifier<WorkoutGoalState> {
   WorkoutGoalController(this.ref) : super(WorkoutGoalState.initial());
@@ -27,13 +29,22 @@ class WorkoutGoalController extends StateNotifier<WorkoutGoalState> {
     try {
       final day = anyDayInWeek ?? DateTime.now();
 
-      final goal = await ref.read(workoutGoalProvider(uid).future);
-      final feeds = await ref.read(
-        userWeeklyOowFeedsProvider(
-          (uid: uid, anyDayInWeek: day),
-        ).future,
-      );
+      // ✅ 동시에 가져오기
+      final results = await Future.wait([
+        ref.read(workoutGoalProvider(uid).future),
+        ref.read(
+          userWeeklyOowFeedsProvider(
+            (uid: uid, anyDayInWeek: day),
+          ).future,
+        ),
+        //ref.read(userByUidProvider(uid).future), // ✅ 추가
+      ]);
 
+      final goal = results[0] as int?;
+      final feeds = results[1] as List<FeedModel>;
+      //final user = results[2] as UserModel?;
+
+      /// 기존 로직 그대로
       final map = <String, List<FeedModel>>{};
       for (final f in feeds) {
         final c = f.createdAt;
@@ -63,6 +74,8 @@ class WorkoutGoalController extends StateNotifier<WorkoutGoalState> {
         weekMap: map,
         doneDays: doneDays,
         selectedDay: defaultSelected,
+
+
       );
 
       await loadLast5Weeks(uid: uid);
@@ -73,7 +86,6 @@ class WorkoutGoalController extends StateNotifier<WorkoutGoalState> {
       );
     }
   }
-
   void selectDay(DateTime d) {
     state = state.copyWith(
       selectedDay: DateTime(d.year, d.month, d.day),

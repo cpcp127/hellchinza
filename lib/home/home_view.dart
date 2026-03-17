@@ -9,6 +9,7 @@ import 'package:hellchinza/feed/feed_list/feed_list_view.dart';
 import 'package:hellchinza/meet/meet_create/meet_create_view.dart';
 import 'package:hellchinza/meet/meet_list/meet_list_view.dart';
 import 'package:hellchinza/profile/profile_view.dart';
+import 'package:hellchinza/ranking/ranking_view.dart';
 import 'package:hellchinza/workout_goal/presentation/work_out_goal_gate_view.dart';
 import 'package:hellchinza/workout_goal/presentation/workout_goal_root_view.dart';
 
@@ -55,6 +56,21 @@ class _HomeViewState extends ConsumerState<HomeView> {
               title: title[_pageIndex],
 
               actions: [
+                IconButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => RankingView(),
+                      ),
+                    );
+                  },
+                  icon:  Icon(
+                    Icons.emoji_events_outlined,
+                    size: 24,
+                    color: AppColors.icDefault,
+                  ),
+                ),
                 Stack(
                   clipBehavior: Clip.none,
                   children: [

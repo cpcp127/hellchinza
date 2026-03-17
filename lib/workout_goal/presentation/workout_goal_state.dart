@@ -1,3 +1,4 @@
+import '../../auth/domain/user_model.dart';
 import '../../feed/domain/feed_model.dart';
 import '../domain/week_oow_stat_model.dart';
 

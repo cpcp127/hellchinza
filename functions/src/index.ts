@@ -513,6 +513,224 @@ async function cleanupFriendsAndBlocks(uid: string): Promise<void> {
 async function cleanupUserNotifications(uid: string): Promise<void> {
   await deleteSubcollectionByPath(`users/${uid}/notifications`);
 }
+async function cleanupUserScores(uid: string): Promise<void> {
+  await deleteSubcollectionByPath(`users/${uid}/scoreEvents`);
+  await deleteSubcollectionByPath(`users/${uid}/scoreDaily`);
+}
+
+const SCORE = {
+  OOW_FEED: 20,
+  NORMAL_FEED: 5,
+  MEET_CREATE: 20,
+  MEET_JOIN: 10,
+  LIGHTNING_CREATE: 15,
+  LIGHTNING_JOIN: 15,
+  COMMENT_WRITE: 2,
+  COMMENT_RECEIVED: 2,
+  LIKE_RECEIVED: 1,
+};
+
+const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function toKstShifted(date: Date): Date {
+  return new Date(date.getTime() + KST_OFFSET_MS);
+}
+
+function dayKeyFromDate(date: Date): string {
+  const shifted = toKstShifted(date);
+  const y = shifted.getUTCFullYear();
+  const m = String(shifted.getUTCMonth() + 1).padStart(2, "0");
+  const d = String(shifted.getUTCDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function startOfKstWeekUtc(date: Date): Date {
+  const shifted = toKstShifted(date);
+  const day = shifted.getUTCDay(); // Sun=0
+  const diffFromMonday = (day + 6) % 7;
+  shifted.setUTCHours(0, 0, 0, 0);
+  shifted.setUTCDate(shifted.getUTCDate() - diffFromMonday);
+  return new Date(shifted.getTime() - KST_OFFSET_MS);
+}
+
+function endOfKstWeekUtc(date: Date): Date {
+  return new Date(startOfKstWeekUtc(date).getTime() + 7 * DAY_MS);
+}
+
+function weekKeyFromDate(date: Date): string {
+  const start = startOfKstWeekUtc(date);
+  return dayKeyFromDate(start);
+}
+
+async function grantOneTimeScore(params: {
+  uid: string;
+  eventId: string;
+  type: string;
+  points: number;
+  refId?: string;
+  dayKey?: string;
+  weekKey?: string;
+  extra?: Record<string, unknown>;
+}): Promise<boolean> {
+  const userRef = db.collection("users").doc(params.uid);
+  const eventRef = userRef.collection("scoreEvents").doc(params.eventId);
+
+  return db.runTransaction(async (tx) => {
+    const eventSnap = await tx.get(eventRef);
+    if (eventSnap.exists) return false;
+
+    tx.set(eventRef, {
+      id: params.eventId,
+      type: params.type,
+      points: params.points,
+      refId: params.refId ?? null,
+      dayKey: params.dayKey ?? null,
+      weekKey: params.weekKey ?? null,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      ...(params.extra ?? {}),
+    });
+
+    tx.set(
+      userRef,
+      {
+        score: {
+          total: admin.firestore.FieldValue.increment(params.points),
+          weekly: admin.firestore.FieldValue.increment(params.points),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+      },
+      {merge: true},
+    );
+
+    return true;
+  });
+}
+
+async function grantDailyLimitedScore(params: {
+  uid: string;
+  eventId: string;
+  type: string;
+  points: number;
+  dayKey: string;
+  dailyField: string;
+  dailyMaxCount: number;
+  refId?: string;
+  weekKey?: string;
+  extra?: Record<string, unknown>;
+}): Promise<boolean> {
+  const userRef = db.collection("users").doc(params.uid);
+  const eventRef = userRef.collection("scoreEvents").doc(params.eventId);
+  const dailyRef = userRef.collection("scoreDaily").doc(params.dayKey);
+
+  return db.runTransaction(async (tx) => {
+    const [eventSnap, dailySnap] = await Promise.all([
+      tx.get(eventRef),
+      tx.get(dailyRef),
+    ]);
+
+    if (eventSnap.exists) return false;
+
+    const dailyData = dailySnap.exists ? (dailySnap.data() ?? {}) : {};
+    const currentCount =
+      typeof dailyData[params.dailyField] === "number" ?
+        (dailyData[params.dailyField] as number) :
+        0;
+
+    if (currentCount >= params.dailyMaxCount) return false;
+
+    tx.set(eventRef, {
+      id: params.eventId,
+      type: params.type,
+      points: params.points,
+      refId: params.refId ?? null,
+      dayKey: params.dayKey,
+      weekKey: params.weekKey ?? null,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      ...(params.extra ?? {}),
+    });
+
+    tx.set(
+      dailyRef,
+      {
+        dayKey: params.dayKey,
+        [params.dailyField]: currentCount + 1,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      },
+      {merge: true},
+    );
+
+    tx.set(
+      userRef,
+      {
+        score: {
+          total: admin.firestore.FieldValue.increment(params.points),
+          weekly: admin.firestore.FieldValue.increment(params.points),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+      },
+      {merge: true},
+    );
+
+    return true;
+  });
+}
+
+async function tryGrantWeeklyGoalBonus(
+  uid: string,
+  baseDate: Date,
+): Promise<boolean> {
+  const userRef = db.collection("users").doc(uid);
+  const userSnap = await userRef.get();
+  if (!userSnap.exists) return false;
+
+  const userData = userSnap.data() ?? {};
+  const workoutGoal =
+    (userData.workoutGoal as Record<string, unknown> | undefined) ?? {};
+  const weeklyTarget =
+    typeof workoutGoal.weeklyTarget === "number" ?
+      workoutGoal.weeklyTarget :
+      0;
+
+  if (weeklyTarget <= 0) return false;
+
+  const weekStart = startOfKstWeekUtc(baseDate);
+  const weekEnd = endOfKstWeekUtc(baseDate);
+  const weekKey = weekKeyFromDate(baseDate);
+
+  const feedSnap = await db
+    .collection("feeds")
+    .where("authorUid", "==", uid)
+    .where("mainType", "==", "오운완")
+    .where("createdAt", ">=", admin.firestore.Timestamp.fromDate(weekStart))
+    .where("createdAt", "<", admin.firestore.Timestamp.fromDate(weekEnd))
+    .get();
+
+  const uniqueDayKeys = new Set<string>();
+
+  for (const doc of feedSnap.docs) {
+    const data = doc.data() ?? {};
+    const ts = data.createdAt;
+    if (ts instanceof admin.firestore.Timestamp) {
+      uniqueDayKeys.add(dayKeyFromDate(ts.toDate()));
+    }
+  }
+
+  if (uniqueDayKeys.size < weeklyTarget) return false;
+
+  return grantOneTimeScore({
+    uid,
+    eventId: `weekly_goal_bonus_${weekKey}`,
+    type: "weekly_goal_bonus",
+    points: weeklyTarget * 10,
+    weekKey,
+    extra: {
+      weeklyTarget,
+      achievedDays: uniqueDayKeys.size,
+    },
+  });
+}
+
 
 export const deleteUserData = functions
   .region("asia-northeast3")
@@ -567,7 +785,9 @@ export const deleteUserData = functions
       functions.logger.info("cleanup notifications start", {uid});
       await cleanupUserNotifications(uid);
       functions.logger.info("cleanup notifications done", {uid});
-
+    functions.logger.info("cleanup scores start", {uid});
+    await cleanupUserScores(uid);
+        functions.logger.info("cleanup scores done", {uid});
       functions.logger.info("cleanup friends/blocks start", {uid});
       await cleanupFriendsAndBlocks(uid);
       functions.logger.info("cleanup friends/blocks done", {uid});
@@ -1357,3 +1577,450 @@ export const sendMeetRequestRejectedNotification = functions
     }
   });
 
+export const onFeedCreatedGiveScore = functions
+  .region("asia-northeast3")
+  .firestore
+  .document("feeds/{feedId}")
+  .onCreate(async (snap, context) => {
+    const feedId = context.params.feedId;
+    const data = snap.data() ?? {};
+
+    if (data.isSeed === true) return;
+
+    const authorUid =
+      typeof data.authorUid === "string" ? data.authorUid : null;
+    if (!authorUid) return;
+
+    const mainType =
+      typeof data.mainType === "string" ? data.mainType : "";
+    const createdAt =
+      data.createdAt instanceof admin.firestore.Timestamp ?
+        data.createdAt.toDate() :
+        new Date();
+
+    const dayKey = dayKeyFromDate(createdAt);
+    const weekKey = weekKeyFromDate(createdAt);
+
+    if (mainType === "오운완") {
+      const granted = await grantOneTimeScore({
+        uid: authorUid,
+        eventId: `oow_${dayKey}`,
+        type: "oow_feed",
+        points: SCORE.OOW_FEED,
+        refId: feedId,
+        dayKey,
+        weekKey,
+      });
+
+      if (granted) {
+        await tryGrantWeeklyGoalBonus(authorUid, createdAt);
+      }
+      return;
+    }
+
+    await grantDailyLimitedScore({
+      uid: authorUid,
+      eventId: `feed_create_${feedId}`,
+      type: "feed_create",
+      points: SCORE.NORMAL_FEED,
+      refId: feedId,
+      dayKey,
+      weekKey,
+      dailyField: "normalFeedCount",
+      dailyMaxCount: 3,
+    });
+  });
+
+export const onMeetCreatedGiveScore = functions
+  .region("asia-northeast3")
+  .firestore
+  .document("meets/{meetId}")
+  .onCreate(async (snap, context) => {
+    const meetId = context.params.meetId;
+    const data = snap.data() ?? {};
+
+    if (data.isSeed === true) return;
+
+    const authorUid =
+      typeof data.authorUid === "string" ? data.authorUid : null;
+    if (!authorUid) return;
+
+    const createdAt =
+      data.createdAt instanceof admin.firestore.Timestamp ?
+        data.createdAt.toDate() :
+        new Date();
+
+    await grantOneTimeScore({
+      uid: authorUid,
+      eventId: `meet_create_${meetId}`,
+      type: "meet_create",
+      points: SCORE.MEET_CREATE,
+      refId: meetId,
+      dayKey: dayKeyFromDate(createdAt),
+      weekKey: weekKeyFromDate(createdAt),
+    });
+  });
+
+export const onMeetMemberCreatedGiveScore = functions
+  .region("asia-northeast3")
+  .firestore
+  .document("meets/{meetId}/members/{memberUid}")
+  .onCreate(async (snap, context) => {
+    const meetId = context.params.meetId;
+    const memberUid = context.params.memberUid;
+
+    const meetSnap = await db.collection("meets").doc(meetId).get();
+    if (!meetSnap.exists) return;
+
+    const meet = meetSnap.data() ?? {};
+    if (meet.isSeed === true) return;
+
+    const hostUid =
+      typeof meet.authorUid === "string" ? meet.authorUid : null;
+
+    // 호스트는 생성 점수만 받고 참가 점수는 제외
+    if (hostUid && hostUid === memberUid) return;
+
+    const data = snap.data() ?? {};
+    const joinedAt =
+      data.joinedAt instanceof admin.firestore.Timestamp ?
+        data.joinedAt.toDate() :
+        new Date();
+
+    await grantOneTimeScore({
+      uid: memberUid,
+      eventId: `meet_join_${meetId}`,
+      type: "meet_join",
+      points: SCORE.MEET_JOIN,
+      refId: meetId,
+      dayKey: dayKeyFromDate(joinedAt),
+      weekKey: weekKeyFromDate(joinedAt),
+    });
+  });
+
+export const onLightningCreatedGiveScore = functions
+  .region("asia-northeast3")
+  .firestore
+  .document("meets/{meetId}/lightnings/{lightningId}")
+  .onCreate(async (snap, context) => {
+    const lightningId = context.params.lightningId;
+    const data = snap.data() ?? {};
+
+    if (data.isSeed === true) return;
+
+    const authorUid =
+      typeof data.authorUid === "string" ? data.authorUid : null;
+    if (!authorUid) return;
+
+    const createdAt =
+      data.createdAt instanceof admin.firestore.Timestamp ?
+        data.createdAt.toDate() :
+        new Date();
+
+    await grantOneTimeScore({
+      uid: authorUid,
+      eventId: `lightning_create_${lightningId}`,
+      type: "lightning_create",
+      points: SCORE.LIGHTNING_CREATE,
+      refId: lightningId,
+      dayKey: dayKeyFromDate(createdAt),
+      weekKey: weekKeyFromDate(createdAt),
+    });
+  });
+
+export const onLightningUpdatedGiveScore = functions
+  .region("asia-northeast3")
+  .firestore
+  .document("meets/{meetId}/lightnings/{lightningId}")
+  .onUpdate(async (change, context) => {
+    const lightningId = context.params.lightningId;
+
+    const beforeData = change.before.data() ?? {};
+    const afterData = change.after.data() ?? {};
+
+    if (afterData.isSeed === true) return;
+
+    const beforeUids = asStringArray(beforeData.userUids);
+    const afterUids = asStringArray(afterData.userUids);
+
+    if (afterUids.length <= beforeUids.length) return;
+
+    const authorUid =
+      typeof afterData.authorUid === "string" ? afterData.authorUid : null;
+
+    const addedUids = afterUids.filter((uid) => !beforeUids.includes(uid));
+
+    if (addedUids.length === 0) return;
+
+    const baseDate =
+      afterData.updatedAt instanceof admin.firestore.Timestamp ?
+        afterData.updatedAt.toDate() :
+      afterData.createdAt instanceof admin.firestore.Timestamp ?
+        afterData.createdAt.toDate() :
+        new Date();
+
+    for (const uid of addedUids) {
+      if (authorUid && uid === authorUid) continue;
+
+      await grantOneTimeScore({
+        uid,
+        eventId: `lightning_join_${lightningId}`,
+        type: "lightning_join",
+        points: SCORE.LIGHTNING_JOIN,
+        refId: lightningId,
+        dayKey: dayKeyFromDate(baseDate),
+        weekKey: weekKeyFromDate(baseDate),
+      });
+    }
+  });
+
+export const onCommentCreatedGiveScore = functions
+  .region("asia-northeast3")
+  .firestore
+  .document("feeds/{feedId}/comments/{commentId}")
+  .onCreate(async (snap, context) => {
+    const feedId = context.params.feedId;
+    const commentId = context.params.commentId;
+    const comment = snap.data() ?? {};
+
+    const authorUid =
+      typeof comment.authorUid === "string" ? comment.authorUid : null;
+    if (!authorUid) return;
+
+    const feedSnap = await db.collection("feeds").doc(feedId).get();
+    if (!feedSnap.exists) return;
+
+    const feed = feedSnap.data() ?? {};
+    if (feed.isSeed === true) return;
+
+    const feedAuthorUid =
+      typeof feed.authorUid === "string" ? feed.authorUid : null;
+    if (!feedAuthorUid) return;
+
+    // 내 피드에 내가 댓글 달면 점수 없음
+    if (feedAuthorUid === authorUid) return;
+
+    const createdAt =
+      comment.createdAt instanceof admin.firestore.Timestamp ?
+        comment.createdAt.toDate() :
+        new Date();
+
+    await grantDailyLimitedScore({
+      uid: authorUid,
+      eventId: `comment_write_${commentId}`,
+      type: "comment_write",
+      points: SCORE.COMMENT_WRITE,
+      refId: commentId,
+      dayKey: dayKeyFromDate(createdAt),
+      weekKey: weekKeyFromDate(createdAt),
+      dailyField: "commentWriteCount",
+      dailyMaxCount: 10,
+    });
+
+    // 댓글 받은 사람 점수: 피드당 최대 20회
+    const ownerEventRef = db
+      .collection("users")
+      .doc(feedAuthorUid)
+      .collection("scoreEvents")
+      .doc(`comment_received_${commentId}`);
+
+    await db.runTransaction(async (tx) => {
+      const [ownerEventSnap, latestFeedSnap] = await Promise.all([
+        tx.get(ownerEventRef),
+        tx.get(db.collection("feeds").doc(feedId)),
+      ]);
+
+      if (ownerEventSnap.exists) return;
+      if (!latestFeedSnap.exists) return;
+
+      const latestFeed = latestFeedSnap.data() ?? {};
+      const currentCount =
+        typeof latestFeed.scoreCommentPointCount === "number" ?
+          latestFeed.scoreCommentPointCount :
+          0;
+
+      if (currentCount >= 20) return;
+
+      tx.set(ownerEventRef, {
+        id: `comment_received_${commentId}`,
+        type: "comment_received",
+        points: SCORE.COMMENT_RECEIVED,
+        refId: feedId,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      tx.set(
+        db.collection("users").doc(feedAuthorUid),
+        {
+          score: {
+            total: admin.firestore.FieldValue.increment(SCORE.COMMENT_RECEIVED),
+            weekly: admin.firestore.FieldValue.increment(SCORE.COMMENT_RECEIVED),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          },
+        },
+        {merge: true},
+      );
+
+      tx.update(db.collection("feeds").doc(feedId), {
+        scoreCommentPointCount: admin.firestore.FieldValue.increment(1),
+      });
+    });
+  });
+
+export const onLikeCreatedGiveScore = functions
+  .region("asia-northeast3")
+  .firestore
+  .document("feeds/{feedId}/likes/{uid}")
+  .onCreate(async (snap, context) => {
+    const feedId = context.params.feedId;
+    const actorUid = context.params.uid;
+
+    const feedRef = db.collection("feeds").doc(feedId);
+    const feedSnap = await feedRef.get();
+    if (!feedSnap.exists) return;
+
+    const feed = feedSnap.data() ?? {};
+    if (feed.isSeed === true) return;
+
+    const targetUid =
+      typeof feed.authorUid === "string" ? feed.authorUid : null;
+    if (!targetUid) return;
+
+    // 내 피드에 내가 좋아요 = 점수 없음
+    if (targetUid === actorUid) return;
+
+    const eventRef = db
+      .collection("users")
+      .doc(targetUid)
+      .collection("scoreEvents")
+      .doc(`like_received_${feedId}_${actorUid}`);
+
+    await db.runTransaction(async (tx) => {
+      const [eventSnap, latestFeedSnap] = await Promise.all([
+        tx.get(eventRef),
+        tx.get(feedRef),
+      ]);
+
+      if (eventSnap.exists) return;
+      if (!latestFeedSnap.exists) return;
+
+      const latestFeed = latestFeedSnap.data() ?? {};
+      const currentCount =
+        typeof latestFeed.scoreLikePointCount === "number" ?
+          latestFeed.scoreLikePointCount :
+          0;
+
+      if (currentCount >= 20) return;
+
+      tx.set(eventRef, {
+        id: `like_received_${feedId}_${actorUid}`,
+        type: "like_received",
+        points: SCORE.LIKE_RECEIVED,
+        refId: feedId,
+        actorUid,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      tx.set(
+        db.collection("users").doc(targetUid),
+        {
+          score: {
+            total: admin.firestore.FieldValue.increment(SCORE.LIKE_RECEIVED),
+            weekly: admin.firestore.FieldValue.increment(SCORE.LIKE_RECEIVED),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          },
+        },
+        {merge: true},
+      );
+
+      tx.update(feedRef, {
+        scoreLikePointCount: admin.firestore.FieldValue.increment(1),
+      });
+    });
+  });
+
+export const resetWeeklyScores = functions
+  .region("asia-northeast3")
+  .pubsub
+  .schedule("5 0 * * 1")
+  .timeZone("Asia/Seoul")
+  .onRun(async () => {
+    const pageSize = 300;
+
+    while (true) {
+      const snap = await db
+        .collection("users")
+        .where("score.weekly", ">", 0)
+        .limit(pageSize)
+        .get();
+
+      if (snap.empty) break;
+
+      const batch = db.batch();
+      for (const doc of snap.docs) {
+        batch.set(doc.ref, {
+          score: {
+            weekly: 0,
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          },
+        }, {merge: true});
+      }
+      await batch.commit();
+
+      if (snap.size < pageSize) break;
+    }
+
+    return null;
+  });
+
+export const seedUserScores = functions
+  .region("asia-northeast3")
+  .https
+  .onCall(async (_, context) => {
+    // 🔥 관리자만 실행 (선택)
+    if (!context.auth) {
+      throw new functions.https.HttpsError(
+        "unauthenticated",
+        "로그인이 필요합니다.",
+      );
+    }
+
+    try {
+      const snap = await db
+        .collection("users")
+        .where("profileCompleted", "==", true)
+        .get();
+
+      if (snap.empty) {
+        return {ok: true, count: 0};
+      }
+
+      let count = 0;
+
+      for (const doc of snap.docs) {
+        // 랜덤 점수 생성
+        const weekly = Math.floor(Math.random() * 120); // 0~120
+        const total = weekly + Math.floor(Math.random() * 2000);
+
+        await doc.ref.update({
+          score: {
+            weekly,
+            total,
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          },
+        });
+
+        count++;
+      }
+
+      return {
+        ok: true,
+        count,
+      };
+    } catch (e) {
+      throw new functions.https.HttpsError(
+        "internal",
+        "점수 시드 실패",
+      );
+    }
+  });
