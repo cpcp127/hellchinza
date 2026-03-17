@@ -8,6 +8,9 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:hellchinza/auth/presentation/auth_view.dart';
 import 'package:hellchinza/services/shared_prefs_service.dart';
+import 'package:hellchinza/update/app_update_controller.dart';
+import 'package:hellchinza/update/app_update_state.dart';
+import 'package:hellchinza/update/force_update_view.dart';
 import 'package:kakao_flutter_sdk/kakao_flutter_sdk.dart' hide User;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -117,11 +120,27 @@ class AuthGate extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final updateState = ref.watch(appUpdateControllerProvider);
+
+    // 1) 업데이트 체크 먼저
+    if (updateState.isLoading ||
+        updateState.status == AppUpdateStatus.checking) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    // 2) 강제 업데이트면 여기서 막기
+    if (updateState.status == AppUpdateStatus.forceUpdate) {
+      return const ForceUpdateView();
+    }
+
+    // 3) 아니면 기존 auth gate 진행
     final authAsync = ref.watch(authUserProvider);
 
     return authAsync.when(
       loading: () =>
-          const Scaffold(body: Center(child: CircularProgressIndicator())),
+      const Scaffold(body: Center(child: CircularProgressIndicator())),
       error: (e, _) => Scaffold(body: Center(child: Text('Auth error: $e'))),
       data: (user) {
         if (user == null) return const AuthView();
@@ -130,11 +149,10 @@ class AuthGate extends ConsumerWidget {
 
         return docAsync.when(
           loading: () =>
-              const Scaffold(body: Center(child: CircularProgressIndicator())),
+          const Scaffold(body: Center(child: CircularProgressIndicator())),
           error: (e, _) =>
               Scaffold(body: Center(child: Text('User doc error: $e'))),
           data: (doc) {
-            // ✅ 문서가 없으면 "첫 유저"로 보고 ExtraInfoView로 보내고 싶다 했지?
             if (doc == null || !doc.exists) {
               return const AuthView();
             }
