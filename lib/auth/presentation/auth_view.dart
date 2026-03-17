@@ -36,42 +36,41 @@ class _AuthViewState extends ConsumerState<AuthView> {
     final controller = ref.refresh(authControllerProvider.notifier);
     return Scaffold(
       body: SafeArea(
-        child: Column(
-          children: [
-            const SizedBox(height: 36),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 36),
 
-            // ===== Brand =====
-            Align(alignment: Alignment.centerLeft, child: UnchinLoginHeader()),
-            const SizedBox(height: 12),
-            Expanded(
-              child: PageView.builder(
-                controller: pageController,
-                itemCount: imagePath.length,
-                physics: const NeverScrollableScrollPhysics(), // 👈 자동만
-                itemBuilder: (context, index) {
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(20),
-                      child: Image.asset(
-                        imagePath[index],
-                        fit: BoxFit.cover, // 👈 일러스트 느낌 유지
+              const UnchinLoginHeader(),
+              const SizedBox(height: 20),
+              Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    maxWidth: 400,
+                    maxHeight: 400,
+                  ),
+                  child: AspectRatio(
+                    aspectRatio: 1, // 👈 1:1 비율
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: AppBorderRadius.radius16,
+                        image: const DecorationImage(
+                          image: AssetImage('assets/icon/icon.png'),
+                          fit: BoxFit.cover,
+                        ),
                       ),
                     ),
-                  );
-                },
+                  ),
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Column(
+              Spacer(),
+              Column(
                 children: [
                   SocialLoginButton(
                     type: SocialLoginType.apple,
                     onTap: () {
-                      // Apple login
-                      print('apple login');
                       ref
                           .read(authControllerProvider.notifier)
                           .signInWithApple();
@@ -86,12 +85,10 @@ class _AuthViewState extends ConsumerState<AuthView> {
                           .signInWithGoogle();
                     },
                   ),
-
                   const SizedBox(height: 12),
                   SocialLoginButton(
                     type: SocialLoginType.kakao,
                     onTap: () {
-                      // Kakao login
                       ref
                           .read(authControllerProvider.notifier)
                           .signInWithKakao();
@@ -99,19 +96,23 @@ class _AuthViewState extends ConsumerState<AuthView> {
                   ),
                 ],
               ),
-            ),
-            const SizedBox(height: 16),
 
-            _AuthAgreementSection(
-              onTapPrivacy: () {
-                PolicyLinkService.openPrivacy();
-              },
-              onTapTerms: () {
-                PolicyLinkService.openTerms();
-              },
-            ),
-            SizedBox(height: 12),
-          ],
+              const SizedBox(height: 16),
+
+              Center(
+                child: _AuthAgreementSection(
+                  onTapPrivacy: () {
+                    PolicyLinkService.openPrivacy();
+                  },
+                  onTapTerms: () {
+                    PolicyLinkService.openTerms();
+                  },
+                ),
+              ),
+
+              const SizedBox(height: 12),
+            ],
+          ),
         ),
       ),
     );
@@ -212,28 +213,25 @@ class _AuthAgreementSectionState extends State<_AuthAgreementSection> {
       height: 18 / 12,
     );
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      child: RichText(
-        textAlign: TextAlign.center,
-        text: TextSpan(
-          style: baseStyle,
-          children: [
-            const TextSpan(text: '계속 진행하면 가보자운동의\n'),
-            TextSpan(
-              text: '개인정보 처리방침',
-              style: linkStyle,
-              recognizer: _privacyRecognizer,
-            ),
-            const TextSpan(text: ' 및 '),
-            TextSpan(
-              text: '이용약관',
-              style: linkStyle,
-              recognizer: _termsRecognizer,
-            ),
-            const TextSpan(text: '에 동의한 것으로 간주됩니다.'),
-          ],
-        ),
+    return RichText(
+      textAlign: TextAlign.center,
+      text: TextSpan(
+        style: baseStyle,
+        children: [
+          const TextSpan(text: '계속 진행하면 가보자운동의\n'),
+          TextSpan(
+            text: '개인정보 처리방침',
+            style: linkStyle,
+            recognizer: _privacyRecognizer,
+          ),
+          const TextSpan(text: ' 및 '),
+          TextSpan(
+            text: '이용약관',
+            style: linkStyle,
+            recognizer: _termsRecognizer,
+          ),
+          const TextSpan(text: '에 동의한 것으로 간주됩니다.'),
+        ],
       ),
     );
   }
@@ -244,29 +242,26 @@ class UnchinLoginHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '가보자운동',
-            style: AppTextStyle.headlineXLargeStyle.copyWith(
-              color: AppColors.textDefault,
-            ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '가보자운동',
+          style: AppTextStyle.headlineXLargeStyle.copyWith(
+            color: AppColors.textDefault,
           ),
+        ),
 
-          const SizedBox(height: 10),
+        const SizedBox(height: 10),
 
-          // 보조 문장(2줄까지 자연스럽게)
-          Text(
-            '하루 한 번의 운동\n오늘도 기록해볼까요?',
-            style: AppTextStyle.headlineSmallMediumStyle.copyWith(
-              color: AppColors.textDefault,
-            ),
+        // 보조 문장(2줄까지 자연스럽게)
+        Text(
+          '하루 한 번의 운동\n오늘도 기록해볼까요?',
+          style: AppTextStyle.headlineSmallMediumStyle.copyWith(
+            color: AppColors.textDefault,
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
