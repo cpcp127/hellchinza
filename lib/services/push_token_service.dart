@@ -11,6 +11,7 @@ import 'package:hellchinza/chat/chat_room/chat_room_view.dart';
 import 'package:hellchinza/main.dart';
 
 import '../feed/feed_detail/feed_detail_view.dart';
+import '../meet/meet_detail/meat_detail_view.dart';
 
 class PushTokenService {
   PushTokenService._();
@@ -76,6 +77,7 @@ class PushTokenService {
           builder: (_) => FeedDetailView(feedId: feedId),
         ),
       );
+      return;
     }
 
     if (type == 'chat') {
@@ -96,6 +98,45 @@ class PushTokenService {
           ),
         ),
       );
+      return;
+    }
+
+    if (type == 'meet') {
+      final meetId = data['meetId']?.toString();
+      if (meetId == null || meetId.isEmpty) return;
+
+      final action = data['action']?.toString();
+
+      switch (action) {
+        case 'requestCreated':
+        case 'requestApproved':
+        case 'hostTransferred':
+          rootNavigatorKey.currentState?.push(
+            MaterialPageRoute(
+              builder: (_) => MeetDetailView(meetId: meetId),
+            ),
+          );
+          return;
+
+        case 'requestRejected':
+          return;
+
+        case 'kicked':
+          rootNavigatorKey.currentState?.push(
+            MaterialPageRoute(
+              builder: (_) => MeetDetailView(meetId: meetId),
+            ),
+          );
+          return;
+
+        default:
+          rootNavigatorKey.currentState?.push(
+            MaterialPageRoute(
+              builder: (_) => MeetDetailView(meetId: meetId),
+            ),
+          );
+          return;
+      }
     }
   }
 

@@ -1,7 +1,25 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:hellchinza/feed/feed_list/feed_list_state.dart';
+
+final myBlockedUidsProvider = StreamProvider<List<String>>((ref) {
+  final myUid = FirebaseAuth.instance.currentUser?.uid;
+  if (myUid == null) return Stream.value(const []);
+
+  return FirebaseFirestore.instance
+      .collection('users')
+      .doc(myUid)
+      .collection('blocks')
+      .snapshots()
+      .map((snap) {
+    return snap.docs
+        .map((d) => (d.data()['uid'] ?? d.id).toString())
+        .where((e) => e.isNotEmpty)
+        .toList();
+  });
+});
 
 final feedListControllerProvider =
     StateNotifierProvider.autoDispose<FeedListController, FeedListState>((ref) {

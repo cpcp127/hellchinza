@@ -42,15 +42,11 @@ class _FeedListViewState extends ConsumerState<FeedListView>
     super.initState();
 
     _feedScrollCtrl.addListener(() {
-      // 바닥 근처 도달하면 다음 페이지 로드
       if (_feedScrollCtrl.position.pixels >=
           _feedScrollCtrl.position.maxScrollExtent - 300) {
-        _fetchNextFeedPage();
+        final blockedUids = ref.read(myBlockedUidsProvider).value ?? const [];
+        _fetchNextFeedPage(blockedUids: blockedUids);
       }
-    });
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _resetAndFetchFeeds(); // 최초 1페이지
     });
   }
 
@@ -60,13 +56,16 @@ class _FeedListViewState extends ConsumerState<FeedListView>
     super.dispose();
   }
 
-  String _makeFeedQueryKey() {
+  String _makeFeedQueryKey(List<String> blockedUids) {
     final s = ref.read(feedListControllerProvider);
-    // ✅ 너가 쓰는 key 규칙 그대로 유지
-    return '${s.selectMainType}_${s.selectSubType}_${s.refreshTick}_${s.onlyFriendFeeds}';
+    final sortedBlocked = [...blockedUids]..sort();
+
+    return '${s.selectMainType}_${s.selectSubType}_${s.refreshTick}_${s.onlyFriendFeeds}_${sortedBlocked.join(",")}';
   }
 
-  Future<void> _resetAndFetchFeeds() async {
+  Future<void> _resetAndFetchFeeds({
+    required List<String> blockedUids,
+  }) async {
     if (_feedIsLoading) return;
 
     setState(() {
@@ -79,19 +78,56 @@ class _FeedListViewState extends ConsumerState<FeedListView>
 
     try {
       final controller = ref.read(feedListControllerProvider.notifier);
+      final blockedSet = blockedUids.toSet();
 
-      // ✅ 1페이지 쿼리
-      final baseQuery = controller.buildFeedQuery().limit(10);
+      const pageSize = 10;
+      final List<FeedModel> visibleItems = [];
+      DocumentSnapshot<Map<String, dynamic>>? cursor;
+      bool hasMore = true;
 
-      final snap = await baseQuery.get();
-      final docs = snap.docs;
+      while (visibleItems.length < pageSize && hasMore) {
+        Query<Map<String, dynamic>> query = controller.buildFeedQuery().limit(pageSize);
 
-      final items = docs.map((d) => FeedModel.fromJson(d.data())).toList();
+        if (cursor != null) {
+          query = query.startAfterDocument(cursor);
+        }
+
+        final snap = await query.get();
+        final docs = snap.docs;
+
+        if (docs.isEmpty) {
+          hasMore = false;
+          break;
+        }
+
+        cursor = docs.last;
+
+        for (final d in docs) {
+          final data = d.data();
+          final authorUid = (data['authorUid'] ?? '').toString();
+
+          if (blockedSet.contains(authorUid)) {
+            continue;
+          }
+
+          try {
+            visibleItems.add(FeedModel.fromJson(data));
+          } catch (_) {}
+
+          if (visibleItems.length >= pageSize) {
+            break;
+          }
+        }
+
+        if (docs.length < pageSize) {
+          hasMore = false;
+        }
+      }
 
       setState(() {
-        _feedItems.addAll(items);
-        _feedCursor = docs.isNotEmpty ? docs.last : null;
-        _feedHasMore = docs.length == 10; // limit보다 적으면 끝
+        _feedItems.addAll(visibleItems);
+        _feedCursor = cursor;
+        _feedHasMore = hasMore;
         _feedIsLoading = false;
       });
     } catch (e) {
@@ -102,7 +138,9 @@ class _FeedListViewState extends ConsumerState<FeedListView>
     }
   }
 
-  Future<void> _fetchNextFeedPage() async {
+  Future<void> _fetchNextFeedPage({
+    required List<String> blockedUids,
+  }) async {
     if (_feedIsLoading || _feedIsLoadingMore || !_feedHasMore) return;
     if (_feedCursor == null) return;
 
@@ -110,21 +148,60 @@ class _FeedListViewState extends ConsumerState<FeedListView>
 
     try {
       final controller = ref.read(feedListControllerProvider.notifier);
+      final blockedSet = blockedUids.toSet();
 
-      final q = controller
-          .buildFeedQuery()
-          .startAfterDocument(_feedCursor!)
-          .limit(10);
+      const pageSize = 10;
+      final List<FeedModel> visibleItems = [];
+      DocumentSnapshot<Map<String, dynamic>>? cursor = _feedCursor;
+      bool hasMore = true;
 
-      final snap = await q.get();
-      final docs = snap.docs;
+      while (visibleItems.length < pageSize && hasMore) {
+        if (cursor == null) {
+          hasMore = false;
+          break;
+        }
 
-      final items = docs.map((d) => FeedModel.fromJson(d.data())).toList();
+        final q = controller
+            .buildFeedQuery()
+            .startAfterDocument(cursor)
+            .limit(pageSize);
+
+        final snap = await q.get();
+        final docs = snap.docs;
+
+        if (docs.isEmpty) {
+          hasMore = false;
+          break;
+        }
+
+        cursor = docs.last;
+
+        for (final d in docs) {
+          final data = d.data();
+          final authorUid = (data['authorUid'] ?? '').toString();
+
+          if (blockedSet.contains(authorUid)) {
+            continue;
+          }
+
+          try {
+            visibleItems.add(FeedModel.fromJson(data));
+          } catch (_) {}
+
+          if (visibleItems.length >= pageSize) {
+            break;
+          }
+        }
+
+        if (docs.length < pageSize) {
+          hasMore = false;
+        }
+      }
 
       setState(() {
-        _feedItems.addAll(items);
-        _feedCursor = docs.isNotEmpty ? docs.last : _feedCursor;
-        _feedHasMore = docs.length == 10;
+        _feedItems.addAll(visibleItems);
+        _feedCursor = cursor;
+        _feedHasMore = hasMore;
         _feedIsLoadingMore = false;
       });
     } catch (_) {
@@ -225,73 +302,74 @@ class _FeedListViewState extends ConsumerState<FeedListView>
   Widget _buildFeedPaginationList() {
     final state = ref.watch(feedListControllerProvider);
     final controller = ref.read(feedListControllerProvider.notifier);
+    final blockedUidsAsync = ref.watch(myBlockedUidsProvider);
 
-    // ✅ 필터/refreshTick 바뀌면 자동으로 리스트 리셋
-    final newKey = _makeFeedQueryKey();
-    if (_feedQueryKey != newKey) {
-      _feedQueryKey = newKey;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _resetAndFetchFeeds();
-      });
-    }
+    return blockedUidsAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(child: Text('차단 목록을 불러오지 못했어요')),
+      data: (blockedUids) {
+        final newKey = _makeFeedQueryKey(blockedUids);
 
-    return RefreshIndicator(
-      color: AppColors.sky400,
-      backgroundColor: AppColors.bgWhite,
-      onRefresh: () async {
-        controller.refresh(); // ✅ 너 기존 refresh 유지
-        await _resetAndFetchFeeds();
+        if (_feedQueryKey != newKey) {
+          _feedQueryKey = newKey;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _resetAndFetchFeeds(blockedUids: blockedUids);
+          });
+        }
 
-        // UX 딜레이(너 기존 유지)
-        await Future.delayed(const Duration(milliseconds: 250));
-      },
-      child: _feedIsLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _feedItems.isEmpty
-          ? EmptyList(
-              icon: Icons.feed_outlined,
-              btnTitle: '피드 작성하기',
-              title: '아직 피드가 없어요',
-              subTitle: '피드로 첫 운동기록을 작성해볼까요?',
-              onTapCreate: () {
-                Navigator.push(
-                  context,
-                  CupertinoPageRoute(
-                    fullscreenDialog: true,
-                    builder: (_) => CreateFeedView(),
-                  ),
+        return RefreshIndicator(
+          color: AppColors.sky400,
+          backgroundColor: AppColors.bgWhite,
+          onRefresh: () async {
+            controller.refresh();
+            await _resetAndFetchFeeds(blockedUids: blockedUids);
+            await Future.delayed(const Duration(milliseconds: 250));
+          },
+          child: _feedIsLoading
+              ? const Center(child: CircularProgressIndicator())
+              : _feedItems.isEmpty
+              ? EmptyList(
+            icon: Icons.feed_outlined,
+            btnTitle: '피드 작성하기',
+            title: '아직 피드가 없어요',
+            subTitle: '피드로 첫 운동기록을 작성해볼까요?',
+            onTapCreate: () {
+              Navigator.push(
+                context,
+                CupertinoPageRoute(
+                  fullscreenDialog: true,
+                  builder: (_) => CreateFeedView(),
+                ),
+              );
+            },
+          )
+              : ListView.separated(
+            controller: _feedScrollCtrl,
+            physics: const AlwaysScrollableScrollPhysics(),
+            itemCount: _feedItems.length + 1,
+            separatorBuilder: (_, __) => const SizedBox(height: 12),
+            itemBuilder: (context, index) {
+              if (index < _feedItems.length) {
+                final feed = _feedItems[index];
+                return FeedCard(feedId: feed.id);
+              }
+
+              if (_feedIsLoadingMore) {
+                return const Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Center(child: CircularProgressIndicator()),
                 );
-              },
-            )
-          : ListView.separated(
-              controller: _feedScrollCtrl,
+              }
 
-              physics: const AlwaysScrollableScrollPhysics(),
-              itemCount: _feedItems.length + 1,
-              // ✅ 마지막: 로더/끝 표시
-              separatorBuilder: (_, __) => const SizedBox(height: 12),
-              itemBuilder: (context, index) {
-                if (index < _feedItems.length) {
-                  final feed = _feedItems[index];
-                  return FeedCard(feedId: feed.id);
-                }
-
-                // ✅ 마지막 줄: 더 불러오는 중/끝
-                if (_feedIsLoadingMore) {
-                  return const Padding(
-                    padding: EdgeInsets.all(16),
-                    child: Center(child: CircularProgressIndicator()),
-                  );
-                }
-
-                if (!_feedHasMore) {
-                  return const SizedBox(height: 6);
-                }
-
-                // ✅ 아직 더 가져올 수 있는데 로딩이 안 돌고 있으면(스크롤로 트리거)
+              if (!_feedHasMore) {
                 return const SizedBox(height: 6);
-              },
-            ),
+              }
+
+              return const SizedBox(height: 6);
+            },
+          ),
+        );
+      },
     );
   }
 }

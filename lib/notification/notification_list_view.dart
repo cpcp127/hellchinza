@@ -133,22 +133,17 @@ class _NotificationTile extends StatelessWidget {
     }
 
     if (model.type == 'meet') {
-      // TODO: 번개/모임 상세 이동
+      final meetId = model.meetId;
+      if (meetId == null || meetId.isEmpty) return;
+
       switch (model.action) {
         case 'requestCreated':
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => MeetDetailView(meetId: model.meetId!),
-            ),
-          );
-          return;
-
         case 'requestApproved':
+        case 'hostTransferred':
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) => MeetDetailView(meetId: model.meetId!),
+              builder: (_) => MeetDetailView(meetId: meetId),
             ),
           );
           return;
@@ -156,7 +151,24 @@ class _NotificationTile extends StatelessWidget {
         case 'requestRejected':
           return;
 
+        case 'kicked':
+        // 추방된 경우도 일단 모임 상세로 보내고,
+        // 상세에서 비멤버 상태로 보이게 해도 됨
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => MeetDetailView(meetId: meetId),
+            ),
+          );
+          return;
+
         default:
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => MeetDetailView(meetId: meetId),
+            ),
+          );
           return;
       }
     }
