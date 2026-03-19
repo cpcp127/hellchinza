@@ -46,3 +46,6 @@ app.*.map.json
 # secrets
 serviceAccountKey.json
 **/serviceAccountKey.json
+
+.env
+.env.*
