@@ -33,86 +33,104 @@ class _AuthViewState extends ConsumerState<AuthView> {
 
   @override
   Widget build(BuildContext context) {
-    final controller = ref.refresh(authControllerProvider.notifier);
     return Scaffold(
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 36),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final horizontalPadding = 16.0;
+            final contentWidth = constraints.maxWidth - (horizontalPadding * 2);
 
-              const UnchinLoginHeader(),
-              const SizedBox(height: 20),
-              Center(
+            // 화면이 작으면 더 작게, 크면 최대 400
+            final imageSize = contentWidth.clamp(
+              160.0,
+              400.0,
+            );
+
+            return SingleChildScrollView(
+              physics: const ClampingScrollPhysics(),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(
-                    maxWidth: 400,
-                    maxHeight: 400,
+                  constraints: BoxConstraints(
+                    minHeight: constraints.maxHeight,
                   ),
-                  child: AspectRatio(
-                    aspectRatio: 1, // 👈 1:1 비율
-                    child: Container(
-                      decoration: BoxDecoration(
-                        borderRadius: AppBorderRadius.radius16,
-                        image: const DecorationImage(
-                          image: AssetImage('assets/icon/icon.png'),
-                          fit: BoxFit.cover,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 24),
+
+                      const UnchinLoginHeader(),
+                      const SizedBox(height: 20),
+
+                      Center(
+                        child: SizedBox(
+                          width: imageSize,
+                          height: imageSize,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              borderRadius: AppBorderRadius.radius16,
+                              image: const DecorationImage(
+                                image: AssetImage('assets/icon/icon.png'),
+                                fit: BoxFit.cover,
+                              ),
+                            ),
+                          ),
                         ),
                       ),
-                    ),
+
+                      const SizedBox(height: 24),
+
+                      Column(
+                        children: [
+                          SocialLoginButton(
+                            type: SocialLoginType.apple,
+                            onTap: () {
+                              ref
+                                  .read(authControllerProvider.notifier)
+                                  .signInWithApple();
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          SocialLoginButton(
+                            type: SocialLoginType.google,
+                            onTap: () {
+                              ref
+                                  .read(authControllerProvider.notifier)
+                                  .signInWithGoogle();
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          SocialLoginButton(
+                            type: SocialLoginType.kakao,
+                            onTap: () {
+                              ref
+                                  .read(authControllerProvider.notifier)
+                                  .signInWithKakao();
+                            },
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      Center(
+                        child: _AuthAgreementSection(
+                          onTapPrivacy: () {
+                            PolicyLinkService.openPrivacy();
+                          },
+                          onTapTerms: () {
+                            PolicyLinkService.openTerms();
+                          },
+                        ),
+                      ),
+
+                      const SizedBox(height: 12),
+                    ],
                   ),
                 ),
               ),
-              Spacer(),
-              Column(
-                children: [
-                  SocialLoginButton(
-                    type: SocialLoginType.apple,
-                    onTap: () {
-                      ref
-                          .read(authControllerProvider.notifier)
-                          .signInWithApple();
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  SocialLoginButton(
-                    type: SocialLoginType.google,
-                    onTap: () {
-                      ref
-                          .read(authControllerProvider.notifier)
-                          .signInWithGoogle();
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  SocialLoginButton(
-                    type: SocialLoginType.kakao,
-                    onTap: () {
-                      ref
-                          .read(authControllerProvider.notifier)
-                          .signInWithKakao();
-                    },
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 16),
-
-              Center(
-                child: _AuthAgreementSection(
-                  onTapPrivacy: () {
-                    PolicyLinkService.openPrivacy();
-                  },
-                  onTapTerms: () {
-                    PolicyLinkService.openTerms();
-                  },
-                ),
-              ),
-
-              const SizedBox(height: 12),
-            ],
-          ),
+            );
+          },
         ),
       ),
     );
