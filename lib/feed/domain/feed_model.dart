@@ -14,15 +14,19 @@ class FeedModel {
   final String? subType;
   final String? contents;
   final FeedPlace? place;
+
   /// 이미지 없으면 null
   final List<String>? imageUrls;
 
-
+  /// 기존 문서에 필드가 없거나 null이면 public 취급
+  @JsonKey(defaultValue: FeedVisibility.public)
+  final String visibility;
 
   /// 투표 (없으면 null)
   final PollModel? poll;
   final int commentCount;
   final String? meetId;
+
   @JsonKey(
     fromJson: _timestampFromJson,
     toJson: _timestampToJson,
@@ -41,23 +45,21 @@ class FeedModel {
     required this.mainType,
     this.subType,
     this.contents,
+    this.place,
     this.imageUrls,
-
+    this.visibility = FeedVisibility.public,
     this.poll,
+    required this.commentCount,
+    this.meetId,
     required this.createdAt,
     required this.updatedAt,
-    this.meetId,
-    this.place,required this.commentCount
   });
 
-  /// Firestore → Model
   factory FeedModel.fromJson(Map<String, dynamic> json) =>
       _$FeedModelFromJson(json);
 
-  /// Model → Firestore
   Map<String, dynamic> toJson() => _$FeedModelToJson(this);
 
-  // ---------- Timestamp helpers ----------
   static DateTime _timestampFromJson(dynamic value) {
     if (value == null) return DateTime.fromMillisecondsSinceEpoch(0);
     if (value is Timestamp) return value.toDate();

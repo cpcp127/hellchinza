@@ -1,4 +1,8 @@
 import 'package:flutter_image_compress/flutter_image_compress.dart';
+class FeedVisibility {
+  static const String public = 'public';
+  static const String friends = 'friends';
+}
 
 class CreateFeedState {
   final bool isLoading;
@@ -13,7 +17,7 @@ class CreateFeedState {
   final List<String>? pollOptions;
   final bool isUploading;
   final FeedPlace? selectedPlace;
-
+  final String visibility;
 
   CreateFeedState({
     this.pageIndex = 0,
@@ -26,7 +30,7 @@ class CreateFeedState {
     this.contents,
     this.currentImageIndex = 0,
     this.pollOptions,
-    this.isUploading = false,this.selectedPlace
+    this.isUploading = false,this.selectedPlace,this.visibility = FeedVisibility.public,
   });
 
   CreateFeedState copyWith({
@@ -40,7 +44,7 @@ class CreateFeedState {
     String? contents,
     int? currentImageIndex,
     List<String>? pollOptions,
-    bool? isUploading,FeedPlace? selectedPlace,
+    bool? isUploading,FeedPlace? selectedPlace,String? visibility,
   }) {
     return CreateFeedState(
       pageIndex: pageIndex ?? this.pageIndex,
@@ -54,7 +58,7 @@ class CreateFeedState {
       currentImageIndex: currentImageIndex ?? this.currentImageIndex,
       pollOptions: pollOptions ?? this.pollOptions,
       isUploading: isUploading ?? this.isUploading,
-      selectedPlace: selectedPlace ?? this.selectedPlace,
+      selectedPlace: selectedPlace ?? this.selectedPlace,visibility: visibility ?? this.visibility,
     );
   }
 }

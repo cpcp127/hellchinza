@@ -275,10 +275,54 @@ class _CreateFeedViewState extends ConsumerState<CreateFeedView> {
 
                      _buildPlaceButton(),
                     SizedBox(height: 16),
+                    if (widget.meetId == null) ...[
+                      _buildVisibilitySection(),
+                      const SizedBox(height: 16),
+                    ],
                   ],
                 ),
               )
             : _buildSelectTypeView(state, controller),
+      ),
+    );
+  }
+  Widget _buildVisibilitySection() {
+    final state = ref.watch(createFeedControllerProvider);
+    final controller = ref.read(createFeedControllerProvider.notifier);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '공개 범위',
+            style: AppTextStyle.titleSmallBoldStyle.copyWith(
+              color: AppColors.textDefault,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              CommonChip(
+                label: '모두에게 공개',
+                selected: state.visibility == FeedVisibility.public,
+                onTap: () {
+                  controller.onChangeVisibility(FeedVisibility.public);
+                },
+              ),
+              CommonChip(
+                label: '친구에게만 공개',
+                selected: state.visibility == FeedVisibility.friends,
+                onTap: () {
+                  controller.onChangeVisibility(FeedVisibility.friends);
+                },
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

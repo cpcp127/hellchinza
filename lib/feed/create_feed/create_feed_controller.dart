@@ -213,6 +213,9 @@ class CreateFeedController extends StateNotifier<CreateFeedState> {
       'place': state.selectedPlace?.toJson(),
       'commentCount': 0,
       'meetId': meetId,
+      'visibility': meetId == null
+          ? state.visibility
+          : FeedVisibility.public,
     });
 
     // 2) 이미지 업로드 (있을 때만)
@@ -279,7 +282,7 @@ class CreateFeedController extends StateNotifier<CreateFeedState> {
       newImageFiles: [],
       removedImageUrls: [],
       selectedPlace: feed.place,
-
+      visibility: feed.visibility, // 추가
       // ❗️이미지는 URL → XFile 변환이 어려우므로
       // 수정 시 "기존 이미지 유지 / 새로 추가" 구조로 나중에 분리
     );
@@ -406,7 +409,11 @@ class CreateFeedController extends StateNotifier<CreateFeedState> {
       'poll': _buildPollMapOrNull(state.pollOptions),
       'imageUrls': finalImageUrls.isEmpty ? null : finalImageUrls,
       'updatedAt': FieldValue.serverTimestamp(),
-      'place': state.selectedPlace?.toJson(),
+      'place': state.selectedPlace?.toJson(),'visibility': state.visibility,
     });
+  }
+
+  void onChangeVisibility(String visibility) {
+    state = state.copyWith(visibility: visibility);
   }
 }

@@ -12,19 +12,20 @@ FeedModel _$FeedModelFromJson(Map<String, dynamic> json) => FeedModel(
   mainType: json['mainType'] as String,
   subType: json['subType'] as String?,
   contents: json['contents'] as String?,
-  imageUrls: (json['imageUrls'] as List<dynamic>?)
-      ?.map((e) => e as String)
-      .toList(),
-  poll: json['poll'] == null
-      ? null
-      : PollModel.fromJson(json['poll'] as Map<String, dynamic>),
-  createdAt: FeedModel._timestampFromJson(json['createdAt']),
-  updatedAt: FeedModel._timestampFromJson(json['updatedAt']),
-  meetId: json['meetId'] as String?,
   place: json['place'] == null
       ? null
       : FeedPlace.fromJson(json['place'] as Map<String, dynamic>),
+  imageUrls: (json['imageUrls'] as List<dynamic>?)
+      ?.map((e) => e as String)
+      .toList(),
+  visibility: json['visibility'] as String? ?? 'public',
+  poll: json['poll'] == null
+      ? null
+      : PollModel.fromJson(json['poll'] as Map<String, dynamic>),
   commentCount: (json['commentCount'] as num).toInt(),
+  meetId: json['meetId'] as String?,
+  createdAt: FeedModel._timestampFromJson(json['createdAt']),
+  updatedAt: FeedModel._timestampFromJson(json['updatedAt']),
 );
 
 Map<String, dynamic> _$FeedModelToJson(FeedModel instance) => <String, dynamic>{
@@ -35,6 +36,7 @@ Map<String, dynamic> _$FeedModelToJson(FeedModel instance) => <String, dynamic>{
   'contents': instance.contents,
   'place': instance.place?.toJson(),
   'imageUrls': instance.imageUrls,
+  'visibility': instance.visibility,
   'poll': instance.poll?.toJson(),
   'commentCount': instance.commentCount,
   'meetId': instance.meetId,

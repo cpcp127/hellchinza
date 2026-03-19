@@ -4,6 +4,24 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:hellchinza/feed/feed_list/feed_list_state.dart';
 
+import '../create_feed/create_feed_state.dart';
+
+final myFriendUidsProvider = StreamProvider<List<String>>((ref) {
+  final myUid = FirebaseAuth.instance.currentUser?.uid;
+  if (myUid == null) return Stream.value(const []);
+
+  return FirebaseFirestore.instance
+      .collection('users')
+      .doc(myUid)
+      .collection('friends')
+      .snapshots()
+      .map((snap) {
+    return snap.docs
+        .map((d) => (d.data()['uid'] ?? d.id).toString())
+        .where((e) => e.isNotEmpty)
+        .toList();
+  });
+});
 final myBlockedUidsProvider = StreamProvider<List<String>>((ref) {
   final myUid = FirebaseAuth.instance.currentUser?.uid;
   if (myUid == null) return Stream.value(const []);
@@ -56,21 +74,6 @@ class FeedListController extends StateNotifier<FeedListState> {
 
     query = query.where('meetId', isNull: true);
 
-    // // ✅ 친구 피드만 보기
-    // if (state.onlyFriendFeeds) {
-    //   if (friendUids.isEmpty) {
-    //     // 친구가 없으면 "빈 결과"로
-    //     return query.where('authorUid', isEqualTo: '__none__');
-    //   }
-    //
-    //   // Firestore whereIn 제한(10개)
-    //   if (friendUids.length <= 10) {
-    //     return query.where('authorUid', whereIn: friendUids);
-    //   }
-    //
-    //
-    //   return query;
-    // }
 
     return query;
   }
@@ -97,5 +100,55 @@ class FeedListController extends StateNotifier<FeedListState> {
       onlyFriendFeeds: onlyFriends,
       refreshTick: state.refreshTick + 1, // ✅ pagination 강제 새로고침
     );
+  }
+
+  bool _isPublicVisibility(Map<String, dynamic> data) {
+    final visibility = data['visibility']?.toString();
+    return visibility == null ||
+        visibility.isEmpty ||
+        visibility == FeedVisibility.public;
+  }
+
+  bool _isFriendsVisibility(Map<String, dynamic> data) {
+    final visibility = data['visibility']?.toString();
+    return visibility == FeedVisibility.friends;
+  }
+
+  bool canViewFeed({
+    required Map<String, dynamic> data,
+    required String myUid,
+    required Set<String> blockedUidSet,
+    required Set<String> friendUidSet,
+  }) {
+    final authorUid = (data['authorUid'] ?? '').toString();
+
+    if (authorUid.isEmpty) return false;
+
+    // 차단한 유저 글 제외
+    if (blockedUidSet.contains(authorUid)) return false;
+
+    final isMine = authorUid == myUid;
+    final isFriendAuthor = friendUidSet.contains(authorUid);
+    final isPublic = _isPublicVisibility(data);
+    final isFriendsOnly = _isFriendsVisibility(data);
+
+    // 친구 피드만 보기
+    if (state.onlyFriendFeeds) {
+      // 내 글 또는 친구 글만 허용
+      if (!isMine && !isFriendAuthor) return false;
+
+      // 내 글/친구 글 중 public, friends 둘 다 보여줌
+      if (isPublic) return true;
+      if (isFriendsOnly) return true;
+
+      return false;
+    }
+
+    // 전체 보기
+    if (isMine) return true;
+    if (isPublic) return true;
+    if (isFriendsOnly && isFriendAuthor) return true;
+
+    return false;
   }
 }

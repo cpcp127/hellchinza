@@ -156,40 +156,81 @@ class _FeedFilterWheelSheetState extends State<FeedFilterWheelSheet> {
                     ],
                   ),
                 ),
-                SizedBox(height: 20),
+                const SizedBox(height: 20),
+
                 Expanded(
-                  child: Container(
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: _WheelColumn(
-                            title: '메인',
-                            controller: _mainCtrl,
-                            items: mainTypes,
-                            selectedValue: _main,
-                            onSelectedItemChanged: _onMainChanged,
-                          ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: _WheelColumn(
+                          title: '메인',
+                          controller: _mainCtrl,
+                          items: mainTypes,
+                          selectedValue: _main,
+                          onSelectedItemChanged: _onMainChanged,
                         ),
-                        Container(
-                          width: 1,
-                          height: 260,
-                          color: Colors.white.withOpacity(0.10),
+                      ),
+                      Container(
+                        width: 1,
+                        height: 260,
+                        color: Colors.white.withOpacity(0.10),
+                      ),
+                      Expanded(
+                        child: _WheelColumn(
+                          title: '서브',
+                          controller: _subCtrl,
+                          items: subList,
+                          selectedValue: _sub,
+                          onSelectedItemChanged: _onSubChanged,
                         ),
-                        Expanded(
-                          child: _WheelColumn(
-                            title: '서브',
-                            controller: _subCtrl,
-                            items: subList,
-                            selectedValue: _sub,
-                            onSelectedItemChanged: _onSubChanged,
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
 
                 const SizedBox(height: 8),
+
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 22),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Text(
+                        '공개 범위',
+                        style: AppTextStyle.labelLargeStyle.copyWith(
+                          color: Colors.white.withOpacity(0.72),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          CommonChip(
+                            label: '전체 피드',
+                            selected: !_onlyFriends,
+                            onTap: () {
+                              setState(() {
+                                _onlyFriends = false;
+                              });
+                            },
+                          ),
+                          CommonChip(
+                            label: '친구 피드만',
+                            selected: _onlyFriends,
+                            onTap: () {
+                              setState(() {
+                                _onlyFriends = true;
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 18),
 
                 SafeArea(
                   top: false,
