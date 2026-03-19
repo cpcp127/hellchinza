@@ -332,108 +332,105 @@ class _ScoreGuideSheet extends StatelessWidget {
         color: AppColors.bgWhite,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      child: SafeArea(
-        top: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
 
-            const SizedBox(height: 24),
+          const SizedBox(height: 24),
 
-            Row(
-              children: [
-                Text(
-                  '점수 올리는 방법',
-                  style: AppTextStyle.titleMediumBoldStyle.copyWith(
-                    color: AppColors.textDefault,
-                  ),
-                ),
-                const Spacer(),
-                IconButton(
-                  onPressed: () => Navigator.pop(context),
-                  icon: const Icon(
-                    Icons.close,
-                    color: AppColors.icDefault,
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 4),
-
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                '꾸준한 운동과 건강한 활동에 점수를 드려요',
-                style: AppTextStyle.bodySmallStyle.copyWith(
-                  color: AppColors.textSecondary,
+          Row(
+            children: [
+              Text(
+                '점수 올리는 방법',
+                style: AppTextStyle.titleMediumBoldStyle.copyWith(
+                  color: AppColors.textDefault,
                 ),
               ),
-            ),
-
-            const SizedBox(height: 18),
-
-            Flexible(
-              child: SingleChildScrollView(
-                child: Column(
-                  children: const [
-                    _ScoreGuideItem(
-                      title: '오운완 피드 작성',
-                      pointText: '+20점',
-                      desc: '하루 1회만 인정돼요',
-                    ),
-                    _ScoreGuideItem(
-                      title: '일반 피드 작성',
-                      pointText: '+5점',
-                      desc: '하루 최대 3회까지 인정돼요',
-                    ),
-                    _ScoreGuideItem(
-                      title: '모임 참가',
-                      pointText: '+10점',
-                      desc: '같은 모임은 최초 1회만 인정돼요',
-                    ),
-                    _ScoreGuideItem(
-                      title: '번개 참가',
-                      pointText: '+15점',
-                      desc: '같은 번개는 최초 1회만 인정돼요',
-                    ),
-                    _ScoreGuideItem(
-                      title: '모임 생성',
-                      pointText: '+20점',
-                      desc: '모임 생성 시 1회 지급돼요',
-                    ),
-                    _ScoreGuideItem(
-                      title: '번개 생성',
-                      pointText: '+15점',
-                      desc: '번개 생성 시 1회 지급돼요',
-                    ),
-                    _ScoreGuideItem(
-                      title: '댓글 작성',
-                      pointText: '+2점',
-                      desc: '하루 최대 10회까지 인정돼요',
-                    ),
-                    _ScoreGuideItem(
-                      title: '좋아요 받기',
-                      pointText: '+1점',
-                      desc: '피드당 최대 20점까지 쌓여요',
-                    ),
-                    _ScoreGuideItem(
-                      title: '댓글 받기',
-                      pointText: '+2점',
-                      desc: '피드당 최대 20점까지 쌓여요',
-                    ),
-                    _ScoreGuideItem(
-                      title: '주간 목표 달성',
-                      pointText: '목표일수 × 10점',
-                      desc: '예: 목표 4일 달성 시 +40점',
-                      highlight: true,
-                    ),
-                  ],
+              const Spacer(),
+              IconButton(
+                onPressed: () => Navigator.pop(context),
+                icon: const Icon(
+                  Icons.close,
+                  color: AppColors.icDefault,
                 ),
               ),
+            ],
+          ),
+
+          const SizedBox(height: 4),
+
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              '꾸준한 운동과 건강한 활동에 점수를 드려요',
+              style: AppTextStyle.bodySmallStyle.copyWith(
+                color: AppColors.textSecondary,
+              ),
             ),
-          ],
-        ),
+          ),
+
+          const SizedBox(height: 18),
+
+          Flexible(
+            child: SingleChildScrollView(
+              child: Column(
+                children: const [
+                  _ScoreGuideItem(
+                    title: '오운완 피드 작성',
+                    pointText: '+20점',
+                    desc: '하루 1회만 인정돼요',
+                  ),
+                  _ScoreGuideItem(
+                    title: '일반 피드 작성',
+                    pointText: '+5점',
+                    desc: '하루 최대 3회까지 인정돼요',
+                  ),
+                  _ScoreGuideItem(
+                    title: '모임 참가',
+                    pointText: '+10점',
+                    desc: '같은 모임은 최초 1회만 인정돼요',
+                  ),
+                  _ScoreGuideItem(
+                    title: '번개 참가',
+                    pointText: '+15점',
+                    desc: '같은 번개는 최초 1회만 인정돼요',
+                  ),
+                  _ScoreGuideItem(
+                    title: '모임 생성',
+                    pointText: '+20점',
+                    desc: '모임 생성 시 1회 지급돼요',
+                  ),
+                  _ScoreGuideItem(
+                    title: '번개 생성',
+                    pointText: '+15점',
+                    desc: '번개 생성 시 1회 지급돼요',
+                  ),
+                  _ScoreGuideItem(
+                    title: '댓글 작성',
+                    pointText: '+2점',
+                    desc: '하루 최대 10회까지 인정돼요',
+                  ),
+                  _ScoreGuideItem(
+                    title: '좋아요 받기',
+                    pointText: '+1점',
+                    desc: '피드당 최대 20점까지 쌓여요',
+                  ),
+                  _ScoreGuideItem(
+                    title: '댓글 받기',
+                    pointText: '+2점',
+                    desc: '피드당 최대 20점까지 쌓여요',
+                  ),
+                  _ScoreGuideItem(
+                    title: '주간 목표 달성',
+                    pointText: '목표일수 × 10점',
+                    desc: '예: 목표 4일 달성 시 +40점',
+                    highlight: true,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
