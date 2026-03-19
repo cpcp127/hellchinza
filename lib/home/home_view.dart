@@ -7,6 +7,7 @@ import 'package:hellchinza/common/common_home_app_bar.dart';
 import 'package:hellchinza/feed/create_feed/create_feed_view.dart';
 import 'package:hellchinza/feed/feed_list/feed_list_view.dart';
 import 'package:hellchinza/meet/meet_create/meet_create_view.dart';
+import 'package:hellchinza/meet/meet_home/meet_home_view.dart';
 import 'package:hellchinza/meet/meet_list/meet_list_view.dart';
 import 'package:hellchinza/profile/profile_view.dart';
 import 'package:hellchinza/ranking/ranking_view.dart';
@@ -237,7 +238,7 @@ class _HomeViewState extends ConsumerState<HomeView> {
               children: [
                 WorkoutGoalGateView(),
                 FeedListView(),
-                MeetListView(),
+                MeetHomeView(),
 
                 FirebaseAuth.instance.currentUser == null
                     ? Container()

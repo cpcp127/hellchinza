@@ -3,6 +3,7 @@ import 'package:firebase_pagination/firebase_pagination.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hellchinza/common/common_home_app_bar.dart';
 import 'package:hellchinza/meet/domain/meet_model.dart';
 import 'package:hellchinza/meet/meet_detail/meat_detail_view.dart';
 import 'package:hellchinza/meet/widget/empty_meet_list.dart';
@@ -158,82 +159,87 @@ class _MeetListViewState extends ConsumerState<MeetListView> {
       });
     }
 
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: GestureDetector(
-              onTap: () async {
-                await showGeneralDialog(
-                  context: context,
-                  barrierLabel: 'meet_subtype_filter',
-                  barrierDismissible: true,
-                  barrierColor: Colors.black.withOpacity(0.55),
-                  transitionDuration: const Duration(milliseconds: 220),
-                  pageBuilder: (_, __, ___) {
-                    return MeetSubTypeFilterSheet(
-                      initialValue: state.selectSubType,
-                      items: ['전체', ...workList],
-                      onApply: (value) {
-                        controller.onChangeSubType(value);
-                      },
-                    );
-                  },
-                  transitionBuilder: (context, animation, secondaryAnimation, child) {
-                    final curved = CurvedAnimation(
-                      parent: animation,
-                      curve: Curves.easeOutCubic,
-                    );
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('전체 모임'),
+      ),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: GestureDetector(
+                onTap: () async {
+                  await showGeneralDialog(
+                    context: context,
+                    barrierLabel: 'meet_subtype_filter',
+                    barrierDismissible: true,
+                    barrierColor: Colors.black.withOpacity(0.55),
+                    transitionDuration: const Duration(milliseconds: 220),
+                    pageBuilder: (_, __, ___) {
+                      return MeetSubTypeFilterSheet(
+                        initialValue: state.selectSubType,
+                        items: ['전체', ...workList],
+                        onApply: (value) {
+                          controller.onChangeSubType(value);
+                        },
+                      );
+                    },
+                    transitionBuilder: (context, animation, secondaryAnimation, child) {
+                      final curved = CurvedAnimation(
+                        parent: animation,
+                        curve: Curves.easeOutCubic,
+                      );
 
-                    return FadeTransition(
-                      opacity: curved,
-                      child: child,
-                    );
-                  },
-                );
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                decoration: BoxDecoration(
-                  color: AppColors.bgWhite,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.borderSecondary),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.tune, size: 18, color: AppColors.icDefault),
-                    const SizedBox(width: 8),
-                    Text(
-                      state.selectSubType,
-                      style: AppTextStyle.labelMediumStyle.copyWith(
-                        color: AppColors.textDefault,
-                        fontWeight: FontWeight.w800,
+                      return FadeTransition(
+                        opacity: curved,
+                        child: child,
+                      );
+                    },
+                  );
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: AppColors.bgWhite,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppColors.borderSecondary),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.tune, size: 18, color: AppColors.icDefault),
+                      const SizedBox(width: 8),
+                      Text(
+                        state.selectSubType,
+                        style: AppTextStyle.labelMediumStyle.copyWith(
+                          color: AppColors.textDefault,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 6),
-                    const Icon(Icons.expand_more, color: AppColors.icSecondary),
-                  ],
+                      const SizedBox(width: 6),
+                      const Icon(Icons.expand_more, color: AppColors.icSecondary),
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
-        ),
-        Expanded(
-          child: RefreshIndicator(
-            color: AppColors.sky400,
-            backgroundColor: AppColors.bgWhite,
-            onRefresh: () async {
-              controller.refresh(); // refreshTick++
-              await Future.delayed(const Duration(milliseconds: 250));
-              // ✅ 리셋은 queryKey 감지로 자동
-            },
-            child: _buildBody(state),
+          Expanded(
+            child: RefreshIndicator(
+              color: AppColors.sky400,
+              backgroundColor: AppColors.bgWhite,
+              onRefresh: () async {
+                controller.refresh(); // refreshTick++
+                await Future.delayed(const Duration(milliseconds: 250));
+                // ✅ 리셋은 queryKey 감지로 자동
+              },
+              child: _buildBody(state),
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 

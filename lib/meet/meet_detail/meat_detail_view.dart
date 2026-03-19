@@ -298,7 +298,6 @@ class _MeetDetailViewState extends ConsumerState<MeetDetailView> {
         return ManageMeetSheet(
           meetId: meetId,
           onChanged: () async {
-
             ref.invalidate(meetRequestUidsProvider(meetId));
             ref.invalidate(meetMembersProvider(meetId));
             ref.invalidate(meetMemberCountProvider(meetId));
