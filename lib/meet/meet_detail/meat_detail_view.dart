@@ -24,7 +24,7 @@ import '../domain/meet_model.dart';
 import '../lightning_create/lightning_create_view.dart';
 import '../meet_list/meet_list_view.dart';
 import '../widget/lightning_card.dart';
-import '../widget/manage_request_sheet.dart';
+import '../widget/manage_meet_sheet.dart';
 import '../widget/meet_feed_list_view.dart';
 import '../widget/meet_ligthning_list_view.dart';
 import 'meat_detail_controller.dart';
@@ -295,10 +295,13 @@ class _MeetDetailViewState extends ConsumerState<MeetDetailView> {
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (_) {
-        return ManageRequestsSheet(
+        return ManageMeetSheet(
           meetId: meetId,
           onChanged: () async {
+
             ref.invalidate(meetRequestUidsProvider(meetId));
+            ref.invalidate(meetMembersProvider(meetId));
+            ref.invalidate(meetMemberCountProvider(meetId));
             await controller.init();
           },
         );

@@ -2024,3 +2024,285 @@ export const seedUserScores = functions
       );
     }
   });
+
+export const sendMeetMemberKickedNotification = functions
+  .region("asia-northeast3")
+  .https
+  .onCall(async (data, context) => {
+    if (!context.auth?.uid) {
+      throw new functions.https.HttpsError(
+        "unauthenticated",
+        "로그인이 필요합니다.",
+      );
+    }
+
+    const hostUid = context.auth.uid;
+    const meetId = data.meetId as string | undefined;
+    const targetUid = data.targetUid as string | undefined;
+    const reason = data.reason as string | undefined;
+
+   if (!meetId || !targetUid || !reason || reason.trim().length === 0) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "meetId, targetUid, reason이 필요합니다.",
+      );
+    }
+
+    try {
+      const meetSnap = await db.collection("meets").doc(meetId).get();
+      if (!meetSnap.exists) {
+        throw new functions.https.HttpsError("not-found", "모임이 없어요.");
+      }
+
+      const meet = meetSnap.data()!;
+      if (meet.authorUid !== hostUid) {
+        throw new functions.https.HttpsError(
+          "permission-denied",
+          "호스트만 추방 알림을 보낼 수 있어요.",
+        );
+      }
+
+      const meetTitle =
+        typeof meet.title === "string" && meet.title.trim().length > 0 ?
+          meet.title.trim() :
+          "모임";
+
+      const targetSnap = await db.collection("users").doc(targetUid).get();
+      if (!targetSnap.exists) {
+        throw new functions.https.HttpsError(
+          "not-found",
+          "대상 사용자가 없어요.",
+        );
+      }
+
+      const target = targetSnap.data()!;
+      const tokens: string[] = Array.isArray(target.fcmTokens) ?
+        target.fcmTokens.filter(
+          (e: unknown) => typeof e === "string" && e.trim().length > 0,
+        ) :
+        [];
+
+      const title = "모임에서 제외되었어요";
+      const body = `'${meetTitle}' 모임에서 제외되었어요`;
+
+      const notiRef = db
+        .collection("users")
+        .doc(targetUid)
+        .collection("notifications")
+        .doc();
+
+      await notiRef.set({
+        id: notiRef.id,
+        type: "meet",
+        action: "kicked",
+        meetId,
+        title,
+        body,
+        reason: reason.trim(),
+        isRead: false,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      if (tokens.length > 0) {
+        const response = await messaging.sendEachForMulticast({
+          tokens,
+          notification: {title, body},
+          data: {
+            type: "meet",
+            action: "kicked",
+            meetId,
+            reason: reason.trim(),
+          },
+          android: {
+            priority: "high",
+          },
+          apns: {
+            payload: {
+              aps: {
+                sound: "default",
+              },
+            },
+          },
+        });
+
+        const invalidTokens: string[] = [];
+        response.responses.forEach(
+          (r: admin.messaging.SendResponse, index: number) => {
+            if (!r.success) {
+              const code = r.error?.code ?? "";
+              if (
+                code === "messaging/invalid-registration-token" ||
+                code === "messaging/registration-token-not-registered"
+              ) {
+                invalidTokens.push(tokens[index]);
+              }
+            }
+          },
+        );
+
+        if (invalidTokens.length > 0) {
+          await db.collection("users").doc(targetUid).update({
+            fcmTokens: admin.firestore.FieldValue.arrayRemove(...invalidTokens),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+        }
+      }
+
+      return {ok: true};
+    } catch (e) {
+      functions.logger.error("sendMeetMemberKickedNotification failed", {
+        meetId,
+        targetUid,
+        error: String(e),
+      });
+
+      if (e instanceof functions.https.HttpsError) throw e;
+
+      throw new functions.https.HttpsError(
+        "internal",
+        "추방 알림 전송에 실패했어요.",
+      );
+    }
+  });
+
+export const sendMeetHostTransferredNotification = functions
+  .region("asia-northeast3")
+  .https
+  .onCall(async (data, context) => {
+    if (!context.auth?.uid) {
+      throw new functions.https.HttpsError(
+        "unauthenticated",
+        "로그인이 필요합니다.",
+      );
+    }
+
+    const previousHostUid = context.auth.uid;
+    const meetId = data.meetId as string | undefined;
+    const targetUid = data.targetUid as string | undefined;
+
+    if (!meetId || !targetUid) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "meetId, targetUid가 필요합니다.",
+      );
+    }
+
+    try {
+      const meetSnap = await db.collection("meets").doc(meetId).get();
+      if (!meetSnap.exists) {
+        throw new functions.https.HttpsError("not-found", "모임이 없어요.");
+      }
+
+      const meet = meetSnap.data()!;
+      const currentAuthorUid = meet.authorUid as string | undefined;
+
+      // 이미 authorUid가 targetUid로 바뀐 뒤 호출될 수 있으므로
+      // previousHostUid 체크는 너무 엄격하게 하지 않고,
+      // targetUid가 현재 호스트인지 확인하는 쪽이 더 안전함.
+      if (currentAuthorUid !== targetUid && currentAuthorUid !== previousHostUid) {
+        throw new functions.https.HttpsError(
+          "permission-denied",
+          "호스트 권한 확인에 실패했어요.",
+        );
+      }
+
+      const meetTitle =
+        typeof meet.title === "string" && meet.title.trim().length > 0 ?
+          meet.title.trim() :
+          "모임";
+
+      const targetSnap = await db.collection("users").doc(targetUid).get();
+      if (!targetSnap.exists) {
+        throw new functions.https.HttpsError(
+          "not-found",
+          "대상 사용자가 없어요.",
+        );
+      }
+
+      const target = targetSnap.data()!;
+      const tokens: string[] = Array.isArray(target.fcmTokens) ?
+        target.fcmTokens.filter(
+          (e: unknown) => typeof e === "string" && e.trim().length > 0,
+        ) :
+        [];
+
+      const title = "호스트가 되었어요";
+      const body = `'${meetTitle}' 모임의 새 호스트가 되었어요`;
+
+      const notiRef = db
+        .collection("users")
+        .doc(targetUid)
+        .collection("notifications")
+        .doc();
+
+      await notiRef.set({
+        id: notiRef.id,
+        type: "meet",
+        action: "hostTransferred",
+        meetId,
+        title,
+        body,
+        isRead: false,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      if (tokens.length > 0) {
+        const response = await messaging.sendEachForMulticast({
+          tokens,
+          notification: {title, body},
+          data: {
+            type: "meet",
+            action: "hostTransferred",
+            meetId,
+          },
+          android: {
+            priority: "high",
+          },
+          apns: {
+            payload: {
+              aps: {
+                sound: "default",
+              },
+            },
+          },
+        });
+
+        const invalidTokens: string[] = [];
+        response.responses.forEach(
+          (r: admin.messaging.SendResponse, index: number) => {
+            if (!r.success) {
+              const code = r.error?.code ?? "";
+              if (
+                code === "messaging/invalid-registration-token" ||
+                code === "messaging/registration-token-not-registered"
+              ) {
+                invalidTokens.push(tokens[index]);
+              }
+            }
+          },
+        );
+
+        if (invalidTokens.length > 0) {
+          await db.collection("users").doc(targetUid).update({
+            fcmTokens: admin.firestore.FieldValue.arrayRemove(...invalidTokens),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+        }
+      }
+
+      return {ok: true};
+    } catch (e) {
+      functions.logger.error("sendMeetHostTransferredNotification failed", {
+        meetId,
+        targetUid,
+        error: String(e),
+      });
+
+      if (e instanceof functions.https.HttpsError) throw e;
+
+      throw new functions.https.HttpsError(
+        "internal",
+        "호스트 변경 알림 전송에 실패했어요.",
+      );
+    }
+  });
