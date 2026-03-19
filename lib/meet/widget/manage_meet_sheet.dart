@@ -776,37 +776,110 @@ class _MemberManageRowState extends ConsumerState<_MemberManageRow> {
   Future<void> _showKickDialog(BuildContext context, String nickname) async {
     final textCtrl = TextEditingController();
 
-    final result = await showDialog<String>(
+    final result = await showModalBottomSheet<String>(
       context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
       builder: (context) {
-        return AlertDialog(
-          title: Text('$nickname님을 추방할까요?'),
-          content: TextField(
-            controller: textCtrl,
-            maxLines: 3,
-            decoration: const InputDecoration(
-              hintText: '추방 사유를 입력해주세요',
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+          ),
+          child: Container(
+            decoration: const BoxDecoration(
+              color: AppColors.bgWhite,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 핸들
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: AppColors.gray200,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  Text(
+                    '$nickname님을 추방할까요?',
+                    style: AppTextStyle.titleMediumBoldStyle,
+                  ),
+
+                  const SizedBox(height: 6),
+
+                  Text(
+                    '추방 사유를 입력해야 진행할 수 있어요',
+                    style: AppTextStyle.bodySmallStyle.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+
+                  const SizedBox(height: 14),
+
+                  Container(
+                    decoration: BoxDecoration(
+                      color: AppColors.bgSecondary,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.borderSecondary),
+                    ),
+                    child: TextField(
+                      controller: textCtrl,
+                      maxLines: 3,
+                      style: AppTextStyle.bodyMediumStyle,
+                      decoration: InputDecoration(
+                        hintText: '예: 비매너 행동, 반복적인 광고 등',
+                        hintStyle: AppTextStyle.bodyMediumStyle.copyWith(
+                          color: AppColors.textTeritary,
+                        ),
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.all(12),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 18),
+
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _DialogOutlineButton(
+                          text: '취소',
+                          onTap: () => Navigator.pop(context),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _DialogDangerButton(
+                          text: '추방하기',
+                          onTap: () {
+                            final reason = textCtrl.text.trim();
+                            if (reason.isEmpty) return;
+                            Navigator.pop(context, reason); // ✅ 여기서 닫힘
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('취소'),
-            ),
-            TextButton(
-              onPressed: () {
-                final reason = textCtrl.text.trim();
-                if (reason.isEmpty) return;
-                Navigator.pop(context, reason);
-              },
-              child: const Text('추방'),
-            ),
-          ],
         );
       },
     );
 
     if (result == null || result.isEmpty) return;
+
     await _kickMember(reason: result);
   }
 
@@ -999,6 +1072,70 @@ class _MemberManageRowState extends ConsumerState<_MemberManageRow> {
         setState(() => _busy = false);
       }
     }
+  }
+}
+
+class _DialogDangerButton extends StatelessWidget {
+  const _DialogDangerButton({
+    required this.text,
+    required this.onTap,
+  });
+
+  final String text;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 44,
+      child: ElevatedButton(
+        onPressed: onTap,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppColors.red100,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+        child: Text(
+          text,
+          style: AppTextStyle.labelMediumStyle.copyWith(
+            color: AppColors.white,
+          ),
+        ),
+      ),
+    );
+  }
+}
+class _DialogOutlineButton extends StatelessWidget {
+  const _DialogOutlineButton({
+    required this.text,
+    required this.onTap,
+  });
+
+  final String text;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 44,
+      child: OutlinedButton(
+        onPressed: onTap,
+        style: OutlinedButton.styleFrom(
+          side: BorderSide(color: AppColors.borderSecondary),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+        child: Text(
+          text,
+          style: AppTextStyle.labelMediumStyle.copyWith(
+            color: AppColors.textDefault,
+          ),
+        ),
+      ),
+    );
   }
 }
 class _MemberActionButton extends StatelessWidget {
