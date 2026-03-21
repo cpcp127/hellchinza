@@ -13,6 +13,7 @@ import 'package:hellchinza/feed/feed_list/feed_list_controller.dart';
 import 'package:hellchinza/services/image_service.dart';
 
 import '../../meet/meet_detail/meat_detail_view.dart';
+import '../../oow_step/presentation/oow_step_view.dart';
 import '../../services/snackbar_service.dart';
 import '../../services/storage_upload_service.dart';
 import '../../workout_goal/provider/workout_goal_provider.dart';
@@ -160,7 +161,8 @@ class CreateFeedController extends StateNotifier<CreateFeedState> {
         message: '업로드가 완료되었습니다!',
       );
       if (state.selectMainType == '오운완') {
-        ref.read(workoutGoalControllerProvider.notifier).init(uid: FirebaseAuth.instance.currentUser!.uid);
+       // ref.read(workoutGoalControllerProvider.notifier).init(uid: FirebaseAuth.instance.currentUser!.uid);
+        ref.read(oowRefreshTickProvider(FirebaseAuth.instance.currentUser!.uid).notifier).state++;
       }
       if (meetId == null) {
         ref.read(feedListControllerProvider.notifier).refresh();
@@ -338,7 +340,8 @@ class CreateFeedController extends StateNotifier<CreateFeedState> {
       SnackbarService.dismiss();
       SnackbarService.show(type: AppSnackType.success, message: '수정이 완료되었습니다!');
       if (state.selectMainType == '오운완') {
-        ref.read(workoutGoalControllerProvider.notifier).init(uid: FirebaseAuth.instance.currentUser!.uid);
+        ref.read(oowRefreshTickProvider(FirebaseAuth.instance.currentUser!.uid).notifier).state++;
+        //ref.read(workoutGoalControllerProvider.notifier).init(uid: FirebaseAuth.instance.currentUser!.uid);
       }
       if (meetId == null) {
         ref.read(feedListControllerProvider.notifier).refresh();

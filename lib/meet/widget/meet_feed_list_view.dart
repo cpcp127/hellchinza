@@ -9,6 +9,7 @@ import '../../constants/app_colors.dart';
 import '../../constants/app_text_style.dart';
 import '../../feed/create_feed/create_feed_view.dart';
 import '../../feed/domain/feed_model.dart';
+import '../../oow_step/presentation/oow_step_view.dart';
 import '../../workout_goal/provider/workout_goal_provider.dart';
 import '../meet_detail/meat_detail_view.dart';
 
@@ -218,9 +219,10 @@ class _MeetFeedListViewState extends ConsumerState<MeetFeedListView> {
                   ),
                 );
                 ref.invalidate(meetPhotoFeedSectionProvider(widget.meetId));
-                ref
-                    .read(workoutGoalControllerProvider.notifier)
-                    .init(uid: FirebaseAuth.instance.currentUser!.uid);
+                ref.read(oowRefreshTickProvider(FirebaseAuth.instance.currentUser!.uid).notifier).state++;
+                // ref
+                //     .read(workoutGoalControllerProvider.notifier)
+                //     .init(uid: FirebaseAuth.instance.currentUser!.uid);
                 _triggerRefresh();
               },
               style: ElevatedButton.styleFrom(

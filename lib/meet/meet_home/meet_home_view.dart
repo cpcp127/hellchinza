@@ -427,17 +427,17 @@ class _HeroContent extends ConsumerWidget {
                 ),
               ),
             ),
-            const SizedBox(width: 10),
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.16),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.white.withOpacity(0.18)),
-              ),
-              child: const Icon(CupertinoIcons.heart, color: AppColors.white),
-            ),
+            // const SizedBox(width: 10),
+            // Container(
+            //   width: 48,
+            //   height: 48,
+            //   decoration: BoxDecoration(
+            //     color: Colors.white.withOpacity(0.16),
+            //     borderRadius: BorderRadius.circular(16),
+            //     border: Border.all(color: Colors.white.withOpacity(0.18)),
+            //   ),
+            //   child: const Icon(CupertinoIcons.heart, color: AppColors.white),
+            // ),
           ],
         ),
       ],
@@ -609,6 +609,13 @@ class _MeetMiniCard extends ConsumerWidget {
     return GestureDetector(
       onTap: () {
         // 상세 이동
+        Navigator.push(
+          context,
+          CupertinoPageRoute(
+            fullscreenDialog: true,
+            builder: (_) => MeetDetailView(meetId: meet.id),
+          ),
+        );
       },
       child: Container(
         width: 260,
@@ -632,7 +639,7 @@ class _MeetMiniCard extends ConsumerWidget {
               height: 132,
               width: double.infinity,
               child: imageUrl.isNotEmpty
-                  ? CommonNetworkImage(imageUrl: imageUrl, fit: BoxFit.cover)
+                  ? CommonNetworkImage(imageUrl: imageUrl, fit: BoxFit.cover,enableViewer: false,)
                   : Container(color: AppColors.bgSecondary),
             ),
             Expanded(

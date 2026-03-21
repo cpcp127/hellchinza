@@ -3,12 +3,14 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/svg.dart';
 import 'package:hellchinza/common/common_home_app_bar.dart';
 import 'package:hellchinza/feed/create_feed/create_feed_view.dart';
 import 'package:hellchinza/feed/feed_list/feed_list_view.dart';
 import 'package:hellchinza/meet/meet_create/meet_create_view.dart';
 import 'package:hellchinza/meet/meet_home/meet_home_view.dart';
 import 'package:hellchinza/meet/meet_list/meet_list_view.dart';
+import 'package:hellchinza/oow_step/presentation/oow_step_view.dart';
 import 'package:hellchinza/profile/profile_view.dart';
 import 'package:hellchinza/ranking/ranking_view.dart';
 import 'package:hellchinza/workout_goal/presentation/work_out_goal_gate_view.dart';
@@ -61,15 +63,13 @@ class _HomeViewState extends ConsumerState<HomeView> {
                   onPressed: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(
-                        builder: (_) => RankingView(),
-                      ),
+                      MaterialPageRoute(builder: (_) => RankingView()),
                     );
                   },
-                  icon:  Icon(
-                    Icons.emoji_events_outlined,
-                    size: 24,
-                    color: AppColors.icDefault,
+                  icon: SvgPicture.asset(
+                    'assets/svg/crown.svg',
+                    width: 24,
+                    height: 24,
                   ),
                 ),
                 Stack(
@@ -84,10 +84,10 @@ class _HomeViewState extends ConsumerState<HomeView> {
                           ),
                         );
                       },
-                      icon: const Icon(
-                        Icons.notifications_none,
-                        size: 24,
-                        color: AppColors.icDefault,
+                      icon: SvgPicture.asset(
+                        'assets/svg/bell.svg',
+                        width: 24,
+                        height: 24,
                       ),
                     ),
                     if (hasUnreadAsync.value == true)
@@ -118,10 +118,10 @@ class _HomeViewState extends ConsumerState<HomeView> {
                   icon: Stack(
                     clipBehavior: Clip.none,
                     children: [
-                      const Icon(
-                        Icons.chat_bubble_outline,
-                        size: 24,
-                        color: AppColors.icDefault,
+                      SvgPicture.asset(
+                        'assets/svg/chat.svg',
+                        width: 24,
+                        height: 24,
                       ),
 
                       unreadAsync.when(
@@ -215,20 +215,63 @@ class _HomeViewState extends ConsumerState<HomeView> {
                 currentIndex: _navIndex,
                 items: [
                   BottomNavigationBarItem(
-                    icon: Icon(Icons.fitness_center),
+                    icon: SvgPicture.asset(
+                      'assets/svg/gym.svg',
+                      width: 24,
+                      height: 24,
+                      colorFilter: ColorFilter.mode(
+                        _pageIndex == 0
+                            ? AppColors.icPrimary
+                            : AppColors.gray200,
+                        BlendMode.srcIn,
+                      ),
+                    ),
                     label: '',
                   ),
-                  BottomNavigationBarItem(icon: Icon(Icons.feed), label: ''),
                   BottomNavigationBarItem(
-                    icon: Icon(Icons.add_box_outlined),
+                    icon: SvgPicture.asset(
+                      'assets/svg/document.svg',
+                      width: 24,
+                      height: 24,
+                      colorFilter: ColorFilter.mode(
+                        _pageIndex == 1
+                            ? AppColors.icPrimary
+                            : AppColors.gray200,
+                        BlendMode.srcIn,
+                      ),
+                    ),
                     label: '',
                   ),
+                  BottomNavigationBarItem(icon: Icon(Icons.add), label: ''),
                   BottomNavigationBarItem(
-                    icon: Icon(Icons.people_rounded),
+                    icon: SvgPicture.asset(
+                      'assets/svg/meet.svg',
+                      width: 24,
+                      height: 24,
+                      colorFilter: ColorFilter.mode(
+                        _pageIndex == 2
+                            ? AppColors.icPrimary
+                            : AppColors.gray200,
+                        BlendMode.srcIn,
+                      ),
+                    ),
                     label: '',
                   ),
 
-                  BottomNavigationBarItem(icon: Icon(Icons.person), label: ''),
+                  BottomNavigationBarItem(
+                    icon: SvgPicture.asset(
+                      'assets/svg/user.svg',
+                      width: 24,
+                      height: 24,
+                      colorFilter: ColorFilter.mode(
+                        _pageIndex == 3
+                            ? AppColors.icPrimary
+                            : AppColors.gray200,
+                        BlendMode.srcIn,
+                      ),
+                    ),
+                    label: '',
+                  ),
                 ],
               ),
             ),
@@ -236,7 +279,7 @@ class _HomeViewState extends ConsumerState<HomeView> {
             body: IndexedStack(
               index: _pageIndex,
               children: [
-                WorkoutGoalGateView(),
+                OowStepView(uid: FirebaseAuth.instance.currentUser!.uid),
                 FeedListView(),
                 MeetHomeView(),
 
@@ -259,27 +302,19 @@ class _HomeViewState extends ConsumerState<HomeView> {
     super.initState();
   }
 }
+
 class ChatBadge extends StatelessWidget {
   final int count;
 
-  const ChatBadge({
-    super.key,
-    required this.count,
-  });
+  const ChatBadge({super.key, required this.count});
 
   @override
   Widget build(BuildContext context) {
     final text = count > 99 ? '99+' : '$count';
 
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 4,
-        vertical: 1,
-      ),
-      constraints: const BoxConstraints(
-        minWidth: 16,
-        minHeight: 16,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+      constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
       decoration: const BoxDecoration(
         color: AppColors.red100,
         borderRadius: BorderRadius.all(Radius.circular(8)),

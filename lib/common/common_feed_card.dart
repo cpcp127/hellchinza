@@ -22,6 +22,7 @@ import '../feed/domain/poll_model.dart';
 import '../feed/feed_detail/feed_detail_view.dart';
 import '../feed/feed_list/feed_list_controller.dart';
 import '../meet/meet_detail/meat_detail_view.dart';
+import '../oow_step/presentation/oow_step_view.dart';
 import '../profile/widget/feed_type_pill.dart';
 import '../services/dialog_service.dart';
 import '../services/snackbar_service.dart';
@@ -235,9 +236,10 @@ class _AuthorSection extends ConsumerWidget {
                         );
                         ref.invalidate(feedDocProvider(feed.id));
                         if (feed.mainType == '오운완') {
-                          ref
-                              .read(workoutGoalControllerProvider.notifier)
-                              .init(uid: feed.authorUid);
+                          // ref
+                          //     .read(workoutGoalControllerProvider.notifier)
+                          //     .init(uid: feed.authorUid);
+                          ref.read(oowRefreshTickProvider(FirebaseAuth.instance.currentUser!.uid).notifier).state++;
                         }
                         if (feed.meetId == null) {
                           ref
@@ -261,9 +263,10 @@ class _AuthorSection extends ConsumerWidget {
                         if (!ok) return;
                         await FeedService().deleteFeed(feedId: feed.id);
                         if (feed.mainType == '오운완') {
-                          ref
-                              .read(workoutGoalControllerProvider.notifier)
-                              .init(uid: feed.authorUid);
+                          // ref
+                          //     .read(workoutGoalControllerProvider.notifier)
+                          //     .init(uid: feed.authorUid);
+                          ref.read(oowRefreshTickProvider(FirebaseAuth.instance.currentUser!.uid).notifier).state++;
                         }
                         if (feed.meetId == null) {
                           ref
