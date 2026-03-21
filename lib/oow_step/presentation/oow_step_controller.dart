@@ -5,7 +5,7 @@ import '../data/oow_step_repo.dart';
 import 'oow_step_state.dart';
 
 final oowStepControllerProvider =
-StateNotifierProvider.family<OowStepController, OowStepState, String>(
+StateNotifierProvider.family.autoDispose<OowStepController, OowStepState, String>(
       (ref, uid) {
     final repo = ref.read(oowStepRepoProvider);
     return OowStepController(

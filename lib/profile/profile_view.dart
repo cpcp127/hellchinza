@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hellchinza/auth/domain/user_model.dart';
 import 'package:hellchinza/common/common_chip.dart';
+import 'package:hellchinza/oow_step/presentation/oow_step_view.dart';
 import 'package:hellchinza/profile/profile_controller.dart';
 import 'package:hellchinza/profile/profile_edit_view.dart';
 import 'package:hellchinza/profile/profile_state.dart';
@@ -769,7 +770,7 @@ class _WorkoutGoalButton extends StatelessWidget {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => WorkoutGoalRootView(uid: uid, isHomeWidget: false),
+            builder: (_) => OowStepView(uid: uid),
           ),
         );
       },

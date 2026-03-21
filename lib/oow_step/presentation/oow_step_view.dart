@@ -47,17 +47,18 @@ class _OowStepViewState extends ConsumerState<OowStepView> {
   Widget build(BuildContext context) {
     final state = ref.watch(oowStepControllerProvider(widget.uid));
     final controller = ref.read(oowStepControllerProvider(widget.uid).notifier);
-    ref.listen<int>(
-      oowRefreshTickProvider(widget.uid),
-          (previous, next) {
-        if (previous != next) {
-          ref.read(oowStepControllerProvider(widget.uid).notifier).refresh();
-        }
-      },
-    );
+    ref.listen<int>(oowRefreshTickProvider(widget.uid), (previous, next) {
+      if (previous != next) {
+        ref.read(oowStepControllerProvider(widget.uid).notifier).refresh();
+      }
+    });
     return Scaffold(
       backgroundColor: AppColors.bgSecondary,
-
+      appBar: widget.uid == FirebaseAuth.instance.currentUser!.uid
+          ? null
+          : AppBar(
+        title: Text('오운완'),
+      ),
       body: RefreshIndicator(
         onRefresh: controller.refresh,
         child: Column(
