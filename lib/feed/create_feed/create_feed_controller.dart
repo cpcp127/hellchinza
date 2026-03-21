@@ -16,7 +16,6 @@ import '../../meet/meet_detail/meat_detail_view.dart';
 import '../../oow_step/presentation/oow_step_view.dart';
 import '../../services/snackbar_service.dart';
 import '../../services/storage_upload_service.dart';
-import '../../workout_goal/provider/workout_goal_provider.dart';
 import '../domain/feed_model.dart';
 
 final createFeedControllerProvider =

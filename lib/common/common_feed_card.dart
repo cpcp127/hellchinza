@@ -27,7 +27,6 @@ import '../profile/widget/feed_type_pill.dart';
 import '../services/dialog_service.dart';
 import '../services/snackbar_service.dart';
 import '../utils/date_time_util.dart';
-import '../workout_goal/provider/workout_goal_provider.dart';
 import 'common_action_sheet.dart';
 import 'common_context_menu.dart';
 import 'common_like_user_sheet.dart';

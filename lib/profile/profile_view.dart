@@ -26,7 +26,8 @@ import '../constants/app_text_style.dart';
 import '../meet/domain/meet_model.dart';
 import '../services/dialog_service.dart';
 import '../services/snackbar_service.dart';
-import '../workout_goal/presentation/workout_goal_root_view.dart';
+
+
 final hostedMeetPreviewProvider =
 FutureProvider.autoDispose.family<List<MeetModel>, String>((ref, uid) async {
   final snap = await FirebaseFirestore.instance

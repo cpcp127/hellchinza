@@ -10,7 +10,6 @@ import '../../constants/app_text_style.dart';
 import '../../feed/create_feed/create_feed_view.dart';
 import '../../feed/domain/feed_model.dart';
 import '../../oow_step/presentation/oow_step_view.dart';
-import '../../workout_goal/provider/workout_goal_provider.dart';
 import '../meet_detail/meat_detail_view.dart';
 
 class MeetFeedListView extends ConsumerStatefulWidget {

@@ -13,8 +13,6 @@ import 'package:hellchinza/meet/meet_list/meet_list_view.dart';
 import 'package:hellchinza/oow_step/presentation/oow_step_view.dart';
 import 'package:hellchinza/profile/profile_view.dart';
 import 'package:hellchinza/ranking/ranking_view.dart';
-import 'package:hellchinza/workout_goal/presentation/work_out_goal_gate_view.dart';
-import 'package:hellchinza/workout_goal/presentation/workout_goal_root_view.dart';
 
 import '../chat/chat_list/chat_list_view.dart';
 import '../constants/app_colors.dart';
