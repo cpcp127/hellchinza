@@ -1,7 +1,9 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:hellchinza/common/common_network_image.dart';
+import 'package:hellchinza/feed/feed_detail/feed_detail_view.dart';
 
 import '../../../../../constants/app_colors.dart';
 import '../../../../../constants/app_text_style.dart';
@@ -126,7 +128,15 @@ class OowDayFeedStepPage extends ConsumerWidget {
                           child: OowFeedSwipeCard(
                             item: item,
                             onTap: () {
-                              // TODO: 상세 이동
+                              Navigator.push(
+                                context,
+                                CupertinoPageRoute(
+                                  fullscreenDialog: true,
+                                  builder: (context) {
+                                    return FeedDetailView(feedId: item.id);
+                                  },
+                                ),
+                              );
                             },
                           ),
                         );
@@ -530,7 +540,7 @@ class _NoImageCardBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: AppColors.bgWhite,
+      // color: AppColors.bgWhite,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -623,29 +633,19 @@ class _FeedFallbackBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 132,
-      width: double.infinity,
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            AppColors.sky50,
-            AppColors.bgSecondary,
+    return ClipRRect(
+      borderRadius: BorderRadius.only(topLeft: Radius.circular(24),topRight: Radius.circular(24)),
+      child: Container(
+        height: 132,
+        width: double.infinity,
+        color: AppColors.sky50,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SvgPicture.asset('assets/svg/empty_image.svg'),
+            SizedBox(height: 8),
+            Text('사진이 없어요',style: AppTextStyle.labelSmallStyle,)
           ],
-        ),
-      ),
-      child: Center(
-        child: Container(
-          width: 56,
-          height: 56,
-          decoration: BoxDecoration(
-            color: AppColors.bgWhite.withOpacity(0.72),
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: AppColors.borderSecondary),
-          ),
-
         ),
       ),
     );
