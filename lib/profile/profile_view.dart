@@ -605,6 +605,33 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
 
   /// ✅ 기존 buildProfileCard를 그대로 쓰되 showEdit만 추가
   Widget buildProfileCard(UserModel user, {required bool showEdit}) {
+    Color _getRankColor(int rank) {
+      switch (rank) {
+        case 1:
+          return const Color(0xFFFFC83D); // gold
+        case 2:
+          return const Color(0xFFC9D1D9); // silver
+        case 3:
+          return const Color(0xFFD98B5F); // bronze
+        default:
+          return AppColors.borderSecondary;
+      }
+    }
+
+    IconData _getRankIcon(int rank) {
+      switch (rank) {
+        case 1:
+          return Icons.looks_one_rounded; // 👑 느낌
+        case 2:
+          return Icons.looks_two_rounded;
+        case 3:
+          return Icons.looks_3_rounded;
+        default:
+          return Icons.emoji_events;
+      }
+    }
+    final int? rank = user.lastWeeklyRank;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Container(
@@ -636,29 +663,65 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    user.photoUrl == null
-                        ? Container(
-                            width: 70,
-                            height: 70,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: AppColors.bgSecondary,
+                    Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        user.photoUrl == null
+                            ? Container(
+                          width: 70,
+                          height: 70,
+                          decoration: const BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: AppColors.bgSecondary,
+                          ),
+                          child: const Center(
+                            child: Icon(Icons.person),
+                          ),
+                        )
+                            : Container(
+                          width: 70,
+                          height: 70,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            image: DecorationImage(
+                              image: CachedNetworkImageProvider(user.photoUrl!),
+                              fit: BoxFit.cover,
                             ),
-                            child: Center(child: Icon(Icons.person)),
-                          )
-                        : Container(
-                            width: 70,
-                            height: 70,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              image: DecorationImage(
-                                image: CachedNetworkImageProvider(
-                                  user.photoUrl!,
+                          ),
+                        ),
+
+                        /// ✅ 랭킹 배지
+                        if (rank != null && rank >= 1 && rank <= 3)
+                          Positioned(
+                            right: -2,
+                            bottom: -2,
+                            child: Container(
+                              width: 24,
+                              height: 24,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: _getRankColor(rank),
+                                border: Border.all(
+                                  color: AppColors.bgWhite,
+                                  width: 2,
                                 ),
-                                fit: BoxFit.cover,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: AppColors.black.withOpacity(0.15),
+                                    blurRadius: 6,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Icon(
+                                _getRankIcon(rank),
+                                size: 14,
+                                color: AppColors.white,
                               ),
                             ),
                           ),
+                      ],
+                    ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
