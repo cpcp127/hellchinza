@@ -3,16 +3,21 @@ import 'package:flutter_riverpod/legacy.dart';
 
 class UserNotifier extends StateNotifier<UserModel> {
   UserNotifier()
-    : super(
-        UserModel(uid: '', email: '', nickname: '', profileCompleted: false),
-      );
+      : super(
+    const UserModel(
+      uid: '',
+      email: '',
+      nickname: '',
+      profileCompleted: false,
+    ),
+  );
 
   Future<void> updateUserModel(UserModel userModel) async {
     state = userModel;
   }
 
   Future<void> resetUserModel() async {
-    state = UserModel(
+    state = const UserModel(
       uid: '',
       email: '',
       nickname: '',
@@ -22,8 +27,8 @@ class UserNotifier extends StateNotifier<UserModel> {
 }
 
 final myUserModelProvider = StateNotifierProvider<UserNotifier, UserModel>((
-  ref,
-) {
+    ref,
+    ) {
   return UserNotifier();
 });
 
@@ -37,13 +42,13 @@ class UserModel {
   final bool profileCompleted;
   final DateTime? createdAt;
   final DateTime? updatedAt;
-
   final int? workoutGoal;
-
-  // ✅ 추가
   final int scoreTotal;
   final int scoreWeekly;
   final String? gender;
+
+  // ✅ 추가
+  final int? lastWeeklyRank;
 
   const UserModel({
     required this.uid,
@@ -53,14 +58,13 @@ class UserModel {
     this.description,
     this.category = const [],
     required this.profileCompleted,
-     this.gender,
+    this.gender,
     this.createdAt,
     this.updatedAt,
     this.workoutGoal,
-
-    // ✅ 추가
     this.scoreTotal = 0,
     this.scoreWeekly = 0,
+    this.lastWeeklyRank,
   });
 
   factory UserModel.fromFirestore(Map<String, dynamic> json) {
@@ -83,27 +87,35 @@ class UserModel {
       return 0;
     }
 
+    int? _parseNullableInt(dynamic v) {
+      if (v is int) return v;
+      if (v is num) return v.toInt();
+      return null;
+    }
+
     final goalMap = json['workoutGoal'] as Map?;
     final scoreMap = json['score'] as Map?;
+    final lastWeeklyRankMap = json['lastWeeklyRank'] as Map?;
 
     return UserModel(
       uid: (json['uid'] ?? '') as String,
       email: (json['email'] ?? '') as String,
-      nickname: json['nickname'] as String,
+      nickname: (json['nickname'] ?? '') as String,
       photoUrl: json['photoUrl'] as String?,
       description: json['description'] as String?,
       category:
-          (json['category'] as List?)?.map((e) => e.toString()).toList() ??
+      (json['category'] as List?)?.map((e) => e.toString()).toList() ??
           const [],
       profileCompleted: (json['profileCompleted'] as bool?) ?? false,
       createdAt: _toDate(json['createdAt']),
       updatedAt: _toDate(json['updatedAt']),
-      gender: (json['gender'] ?? '') as String,
+      gender: json['gender'] as String?,
       workoutGoal: _parseGoal(goalMap?['weeklyTarget']),
-
-      // ✅ 여기 추가
       scoreTotal: _parseInt(scoreMap?['total']),
       scoreWeekly: _parseInt(scoreMap?['weekly']),
+
+      // ✅ 추가
+      lastWeeklyRank: _parseNullableInt(lastWeeklyRankMap?['rank']),
     );
   }
 
@@ -117,11 +129,8 @@ class UserModel {
     'profileCompleted': profileCompleted,
     'createdAt': createdAt,
     'updatedAt': updatedAt,
-
-    // ❗ score는 서버에서 관리 추천 (functions)
   };
 
-  // ✅ copyWith 추가 (필수)
   UserModel copyWith({
     String? uid,
     String? email,
@@ -133,9 +142,12 @@ class UserModel {
     DateTime? createdAt,
     DateTime? updatedAt,
     int? workoutGoal,
-
     int? scoreTotal,
     int? scoreWeekly,
+    String? gender,
+
+    // ✅ 추가
+    int? lastWeeklyRank,
   }) {
     return UserModel(
       uid: uid ?? this.uid,
@@ -148,9 +160,10 @@ class UserModel {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       workoutGoal: workoutGoal ?? this.workoutGoal,
-
       scoreTotal: scoreTotal ?? this.scoreTotal,
       scoreWeekly: scoreWeekly ?? this.scoreWeekly,
+      gender: gender ?? this.gender,
+      lastWeeklyRank: lastWeeklyRank ?? this.lastWeeklyRank,
     );
   }
 }

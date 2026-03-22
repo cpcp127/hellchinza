@@ -759,7 +759,7 @@ class _ChatBubble extends StatelessWidget {
               imageUrl: otherUser?.photoUrl,
               size: 32,
               uid: otherUser?.uid ?? senderUid,
-              gender: otherUser?.gender ?? 'unknown',
+              gender: otherUser?.gender ?? 'unknown',lastWeeklyRank: otherUser?.lastWeeklyRank,
             ),
             const SizedBox(width: 8),
 

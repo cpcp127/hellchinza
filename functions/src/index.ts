@@ -250,6 +250,21 @@ async function deleteMeetDoc(
   await meetRef.delete();
 }
 
+function getKstNow(): Date {
+  return new Date(Date.now() + 9 * 60 * 60 * 1000);
+}
+
+function getWeekKeyFromDate(date: Date): string {
+  const d = new Date(date);
+  const day = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - day);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const weekNo = Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+
+  return `${d.getUTCFullYear()}-W${weekNo.toString().padStart(2, '0')}`;
+}
+
+
 async function leaveParticipatedMeets(uid: string): Promise<void> {
   functions.logger.info("query meet members start", {uid});
 
@@ -326,6 +341,91 @@ async function leaveParticipatedMeets(uid: string): Promise<void> {
       });
     }
   }
+}
+
+async function saveWeeklyTop3Snapshot() {
+  const nowKst = getKstNow();
+
+  // 월요일 00:05 실행 시, 방금 끝난 지난 주를 저장
+  const lastWeekDate = new Date(nowKst);
+  lastWeekDate.setDate(lastWeekDate.getDate() - 7);
+  const weekKey = getWeekKeyFromDate(lastWeekDate);
+
+  const topSnap = await db
+    .collection("users")
+    .orderBy("score.weekly", "desc")
+    .limit(3)
+    .get();
+
+  const top3: Array<{
+    rank: number;
+    uid: string;
+    nickname: string;
+    photoUrl: string | null;
+    score: number;
+  }> = [];
+
+  let rank = 1;
+  for (const doc of topSnap.docs) {
+    const data = doc.data() || {};
+    const weeklyScore = Number(data?.score?.weekly ?? 0);
+
+    if (weeklyScore <= 0) continue;
+
+    top3.push({
+      rank,
+      uid: doc.id,
+      nickname: String(data.nickname ?? ""),
+      photoUrl: data.photoUrl ?? null,
+      score: weeklyScore,
+    });
+    rank++;
+  }
+
+  await db.collection("weeklyRankings").doc(weekKey).set(
+    {
+      weekKey,
+      calculatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      top3,
+    },
+    {merge: true},
+  );
+
+  if (top3.length === 0) return;
+
+  const batch = db.batch();
+
+  for (const entry of top3) {
+    const userRef = db.collection("users").doc(entry.uid);
+
+    batch.set(
+      userRef,
+      {
+        lastWeeklyRank: {
+          weekKey,
+          rank: entry.rank,
+          score: entry.score,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+      },
+      {merge: true},
+    );
+
+    batch.set(
+      userRef.collection("weeklyRankHistory").doc(weekKey),
+      {
+        weekKey,
+        rank: entry.rank,
+        score: entry.score,
+        nickname: entry.nickname,
+        photoUrl: entry.photoUrl,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      },
+      {merge: true},
+    );
+  }
+
+  await batch.commit();
 }
 
 async function leaveParticipatedLightnings(uid: string): Promise<void> {
@@ -1945,6 +2045,10 @@ export const resetWeeklyScores = functions
   .schedule("5 0 * * 1")
   .timeZone("Asia/Seoul")
   .onRun(async () => {
+    // 1) 초기화 전에 지난 주 TOP3 저장
+    await saveWeeklyTop3Snapshot();
+
+    // 2) 그 다음 weekly 점수 초기화
     const pageSize = 300;
 
     while (true) {

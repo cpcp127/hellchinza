@@ -120,7 +120,7 @@ class _LikeUserItem extends ConsumerWidget {
             imageUrl: photoUrl,
             size: 40,
             uid: uid,
-            gender: mini!.gender,
+            gender: mini!.gender,lastWeeklyRank: mini.lastWeeklyRank,
           ),
           title: Text(
             nickname,

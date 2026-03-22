@@ -496,7 +496,7 @@ class _RequestRowState extends State<_RequestRow> {
                       imageUrl: photoUrl,
                       size: 40,
                       uid: mini!.uid,
-                      gender: mini.gender,
+                      gender: mini.gender,lastWeeklyRank: mini.lastWeeklyRank,
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -701,7 +701,7 @@ class _MemberManageRowState extends ConsumerState<_MemberManageRow> {
                   imageUrl: mini.photoUrl,
                   size: 40,
                   uid: mini.uid,
-                  gender: mini.gender,
+                  gender: mini.gender,lastWeeklyRank: mini.lastWeeklyRank,
                 ),
                 const SizedBox(width: 12),
                 Expanded(

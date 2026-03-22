@@ -209,7 +209,7 @@ class _TopRankCard extends StatelessWidget {
                   imageUrl: user.photoUrl,
                   size: highlight ? 72 : 60,
                   gender: user.gender,
-                  uid: user.uid,
+                  uid: user.uid,lastWeeklyRank: user.lastWeeklyRank,
                 ),
                 const SizedBox(height: 12),
                 Text(
@@ -294,7 +294,7 @@ class _RankingListItem extends StatelessWidget {
             imageUrl: user.photoUrl,
             gender: user.gender,
             size: 42,
-            uid: user.uid,
+            uid: user.uid,lastWeeklyRank: user.lastWeeklyRank,
           ),
           const SizedBox(width: 12),
           Expanded(

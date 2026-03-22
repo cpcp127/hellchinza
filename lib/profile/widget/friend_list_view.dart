@@ -90,7 +90,7 @@ class FriendListView extends ConsumerWidget {
                           imageUrl: mini.photoUrl,
                           size: 44,
                           uid: friendUid,
-                          gender: mini.gender,
+                          gender: mini.gender,lastWeeklyRank: mini.lastWeeklyRank,
                         ),
                         const SizedBox(width: 12),
                         Expanded(

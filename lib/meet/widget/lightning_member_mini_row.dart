@@ -80,7 +80,15 @@ class _LightningMemberMiniRowState extends State<LightningMemberMiniRow> {
               // 닉네임은 지금 UI에 안 쓰고 있으니 그대로 둠
               return Padding(
                 padding: const EdgeInsets.only(right: 4),
-                child: CommonProfileAvatar(imageUrl: photoUrl, size: 22,uid: u['uid'],gender: u['gender'],),
+                child: CommonProfileAvatar(
+                  imageUrl: photoUrl,
+                  size: 22,
+                  uid: u['uid'],
+                  gender: u['gender'],
+                  lastWeeklyRank:
+                      (u['lastWeeklyRank'] as Map<String, dynamic>?)?['rank']
+                          as int?,
+                ),
               );
             }),
             if (widget.userUids.length > 3)
@@ -105,7 +113,6 @@ class _LightningMemberMiniRowState extends State<LightningMemberMiniRow> {
     return true;
   }
 }
-
 
 class _CircleSkeleton extends StatelessWidget {
   @override

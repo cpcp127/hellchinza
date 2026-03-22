@@ -1155,7 +1155,7 @@ class _MemberPreviewRowState extends State<_MemberPreviewRow> {
             imageUrl: user.photoUrl,
             size: 40,
             uid: user.uid,
-            gender: user.gender,
+            gender: user.gender,lastWeeklyRank: user.lastWeeklyRank,
           ),
           const SizedBox(height: 6),
           Row(

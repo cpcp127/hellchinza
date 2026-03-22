@@ -29,9 +29,7 @@ final unreadChatCountProvider = StreamProvider<int>((ref) {
     for (final doc in snap.docs) {
       final data = doc.data();
 
-      final map = Map<String, dynamic>.from(
-        data['unreadCountMap'] ?? {},
-      );
+      final map = Map<String, dynamic>.from(data['unreadCountMap'] ?? {});
 
       total += (map[uid] ?? 0) as int;
     }
@@ -259,6 +257,7 @@ class _ChatRoomRow extends ConsumerWidget {
           uidForAvatar: uid,
           onTap: onTap,
           unreadCount: unreadCount,
+          lastWeeklyRank: mini.lastWeeklyRank,
         );
       },
       loading: () => const Center(child: CupertinoActivityIndicator()),
@@ -283,6 +282,7 @@ class _BaseChatRoomTile extends StatelessWidget {
 
     this.uidForAvatar,
     this.gender,
+    this.lastWeeklyRank,
   });
 
   final String title;
@@ -295,6 +295,7 @@ class _BaseChatRoomTile extends StatelessWidget {
   // dm에서만 쓰는 값(프로필 기본이미지 처리용)
   final String? uidForAvatar;
   final String? gender;
+  final int? lastWeeklyRank;
 
   @override
   Widget build(BuildContext context) {
@@ -315,6 +316,7 @@ class _BaseChatRoomTile extends StatelessWidget {
               imageUrl: imageUrl,
               uid: uidForAvatar,
               gender: gender,
+              lastWeeklyRank: lastWeeklyRank,
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -400,11 +402,17 @@ class _UnreadBadge extends StatelessWidget {
 }
 
 class _LeadingAvatar extends StatelessWidget {
-  const _LeadingAvatar({required this.imageUrl, this.uid, this.gender});
+  const _LeadingAvatar({
+    required this.imageUrl,
+    this.uid,
+    this.gender,
+    this.lastWeeklyRank,
+  });
 
   final String? imageUrl;
   final String? uid;
   final String? gender;
+  final int? lastWeeklyRank;
 
   @override
   Widget build(BuildContext context) {
@@ -415,6 +423,7 @@ class _LeadingAvatar extends StatelessWidget {
         size: 44,
         uid: uid!,
         gender: gender,
+        lastWeeklyRank: lastWeeklyRank,
       );
     }
 

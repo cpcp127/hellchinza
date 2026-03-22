@@ -27,6 +27,20 @@ import '../meet/domain/meet_model.dart';
 import '../services/dialog_service.dart';
 import '../services/snackbar_service.dart';
 
+final isFriendProvider = FutureProvider.family<bool, String>((ref, targetUid) async {
+  final myUid = FirebaseAuth.instance.currentUser?.uid;
+  if (myUid == null) return false;
+  if (myUid == targetUid) return true;
+
+  final doc = await FirebaseFirestore.instance
+      .collection('users')
+      .doc(myUid)
+      .collection('friends')
+      .doc(targetUid)
+      .get();
+
+  return doc.exists;
+});
 
 final hostedMeetPreviewProvider =
 FutureProvider.autoDispose.family<List<MeetModel>, String>((ref, uid) async {
@@ -424,34 +438,65 @@ class _ProfileViewState extends ConsumerState<ProfileView> {
 
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Builder(
-                builder: (context) {
-                  final myFeedPreviewQuery = FirebaseFirestore.instance
-                      .collection('feeds')
-                      .where('authorUid', isEqualTo: uid)
-                      .where('meetId', isNull: true)
-                      .orderBy('createdAt', descending: true)
-                      .limit(3);
+              child: Consumer(
+                builder: (context, ref, child) {
+                  final myUid = FirebaseAuth.instance.currentUser?.uid ?? '';
+                  final isFriendAsync = ref.watch(isFriendProvider(uid));
 
-                  final myFeedAllQuery = FirebaseFirestore.instance
-                      .collection('feeds')
-                      .where('authorUid', isEqualTo: uid)
-                      .where('meetId', isNull: true)
-                      .orderBy('createdAt', descending: true);
+                  return isFriendAsync.when(
+                    loading: () => const SizedBox.shrink(),
+                    error: (_, __) => const SizedBox.shrink(),
+                    data: (isFriend) {
+                      Query<Map<String, dynamic>> baseQuery = FirebaseFirestore.instance
+                          .collection('feeds')
+                          .where('authorUid', isEqualTo: uid)
+                          .where('meetId', isNull: true);
 
-                  return FeedPreviewSection(
-                    title: isMe ? '내가 작성한 피드' : '작성한 피드',
-                    query: myFeedPreviewQuery,
-                    emptyText: '아직 작성한 피드가 없어요',
-                    onTapAll: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => MyFeedsListView(
-                            title: isMe ? '내가 작성한 피드' : '작성한 피드',
-                            query: myFeedAllQuery,
-                          ),
-                        ),
+                      Query<Map<String, dynamic>> myFeedPreviewQuery;
+                      Query<Map<String, dynamic>> myFeedAllQuery;
+
+                      if (isMe || myUid == uid) {
+                        myFeedPreviewQuery = baseQuery
+                            .orderBy('createdAt', descending: true)
+                            .limit(3);
+
+                        myFeedAllQuery = baseQuery
+                            .orderBy('createdAt', descending: true);
+                      } else if (isFriend) {
+                        myFeedPreviewQuery = baseQuery
+                            .where('visibility', whereIn: ['public', 'friends'])
+                            .orderBy('createdAt', descending: true)
+                            .limit(3);
+
+                        myFeedAllQuery = baseQuery
+                            .where('visibility', whereIn: ['public', 'friends'])
+                            .orderBy('createdAt', descending: true);
+                      } else {
+                        myFeedPreviewQuery = baseQuery
+                            .where('visibility', isEqualTo: 'public')
+                            .orderBy('createdAt', descending: true)
+                            .limit(3);
+
+                        myFeedAllQuery = baseQuery
+                            .where('visibility', isEqualTo: 'public')
+                            .orderBy('createdAt', descending: true);
+                      }
+
+                      return FeedPreviewSection(
+                        title: isMe ? '내가 작성한 피드' : '작성한 피드',
+                        query: myFeedPreviewQuery,
+                        emptyText: '아직 작성한 피드가 없어요',
+                        onTapAll: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => MyFeedsListView(
+                                title: isMe ? '내가 작성한 피드' : '작성한 피드',
+                                query: myFeedAllQuery,
+                              ),
+                            ),
+                          );
+                        },
                       );
                     },
                   );

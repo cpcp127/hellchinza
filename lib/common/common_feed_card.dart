@@ -179,7 +179,7 @@ class FeedAuthorRow extends ConsumerWidget {
               imageUrl: photoUrl,
               size: 40,
               uid: mini!.uid,
-              gender: mini.gender,
+              gender: mini.gender,lastWeeklyRank: mini.lastWeeklyRank,
             ),
             const SizedBox(width: 8),
             Text(
@@ -981,7 +981,7 @@ class _FeedCommentBottomSheetState
                     imageUrl: mini.photoUrl,
                     size: 40,
                     uid: data['authorUid'],
-                    gender: mini.gender,
+                    gender: mini.gender,lastWeeklyRank: mini.lastWeeklyRank,
                   ),
                   const SizedBox(width: 10),
                   Expanded(
