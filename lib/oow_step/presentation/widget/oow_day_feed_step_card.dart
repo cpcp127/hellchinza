@@ -182,157 +182,8 @@ class _EmptyDayFeeds extends StatelessWidget {
   }
 }
 
-class _FeedPreviewCard extends StatelessWidget {
-  const _FeedPreviewCard({required this.item, required this.onTap});
-
-  final OowFeedItem item;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final hasImage = item.imageUrls.isNotEmpty;
-    final imageUrl = hasImage ? item.imageUrls.first : null;
-
-    return InkWell(
-      borderRadius: BorderRadius.circular(20),
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: AppColors.bgWhite,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: AppColors.borderSecondary),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(child: _FeedPreviewTextSection(item: item)),
-            if (hasImage) ...[
-              const SizedBox(width: 12),
-              _FeedPreviewThumbnail(imageUrl: imageUrl!),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _FeedPreviewTextSection extends StatelessWidget {
-  const _FeedPreviewTextSection({required this.item});
-
-  final OowFeedItem item;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 100,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (item.subType.isNotEmpty)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: AppColors.sky50,
-                borderRadius: BorderRadius.circular(999),
-              ),
-              child: Text(
-                item.subType,
-                style: AppTextStyle.labelXSmallStyle.copyWith(
-                  color: AppColors.textPrimary,
-                ),
-              ),
-            ),
-          if (item.subType.isNotEmpty) const SizedBox(height: 8),
-          Text(
-            item.text.isEmpty ? '오운완 기록' : item.text,
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
-            style: AppTextStyle.bodyMediumStyle.copyWith(
-              color: AppColors.textDefault,
-            ),
-          ),
-          const Spacer(),
-          Row(
-            children: [
-              Icon(
-                Icons.schedule_rounded,
-                size: 14,
-                color: AppColors.icSecondary,
-              ),
-              const SizedBox(width: 4),
-              Text(
-                _timeText(item.createdAt),
-                style: AppTextStyle.labelXSmallStyle.copyWith(
-                  color: AppColors.textTeritary,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _timeText(DateTime date) {
-    final h = date.hour.toString().padLeft(2, '0');
-    final m = date.minute.toString().padLeft(2, '0');
-    return '$h:$m';
-  }
-}
-
-class _FeedPreviewThumbnail extends StatelessWidget {
-  const _FeedPreviewThumbnail({required this.imageUrl});
-
-  final String imageUrl;
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        width: 88,
-        height: 88,
-        color: AppColors.bgSecondary,
-        child: Image.network(
-          imageUrl,
-          fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) {
-            return Container(
-              color: AppColors.bgSecondary,
-              alignment: Alignment.center,
-              child: Icon(
-                Icons.image_not_supported_outlined,
-                size: 20,
-                color: AppColors.icDisabled,
-              ),
-            );
-          },
-          loadingBuilder: (context, child, progress) {
-            if (progress == null) return child;
-            return Container(
-              color: AppColors.bgSecondary,
-              alignment: Alignment.center,
-              child: const SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-            );
-          },
-        ),
-      ),
-    );
-  }
-}
-
 class OowFeedSwipeCard extends StatelessWidget {
-  const OowFeedSwipeCard({
-    super.key,
-    required this.item,
-    this.onTap,
-  });
+  const OowFeedSwipeCard({super.key, required this.item, this.onTap});
 
   final OowFeedItem item;
   final VoidCallback? onTap;
@@ -341,10 +192,10 @@ class OowFeedSwipeCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final hasImage = item.imageUrls.isNotEmpty;
     final imageUrl = hasImage ? item.imageUrls.first : '';
-    final title =
-    item.text.trim().isEmpty ? '오운완 기록' : item.text.trim();
-    final typeText =
-    item.subType.trim().isEmpty ? '운동 기록' : item.subType.trim();
+    final title = item.text.trim().isEmpty ? '오운완 기록' : item.text.trim();
+    final typeText = item.subType.trim().isEmpty
+        ? '운동 기록'
+        : item.subType.trim();
 
     return GestureDetector(
       onTap: onTap,
@@ -365,152 +216,155 @@ class OowFeedSwipeCard extends StatelessWidget {
         clipBehavior: Clip.antiAlias,
         child: hasImage
             ? Stack(
-          children: [
-            Positioned.fill(
-              child: Image.network(
-                imageUrl,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) {
-                  return _FeedFallbackBackground(subType: item.subType);
-                },
-              ),
-            ),
-
-            // 하단 오버레이
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: Container(
-                height: 118,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.transparent,
-                      Colors.black.withOpacity(0.45),
-                      Colors.black.withOpacity(0.78),
-                    ],
-                    stops: const [0.0, 0.55, 1.0],
-                  ),
-                ),
-              ),
-            ),
-
-            // 상단 사진 수 pill
-            if (item.imageUrls.length > 1)
-              Positioned(
-                top: 12,
-                right: 12,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.45),
-                    borderRadius: BorderRadius.circular(999),
-                    border: Border.all(
-                      color: Colors.white.withOpacity(0.12),
-                    ),
-                  ),
-                  child: Text(
-                    '${item.imageUrls.length}장',
-                    style: AppTextStyle.labelXSmallStyle.copyWith(
-                      color: AppColors.white,
-                    ),
-                  ),
-                ),
-              ),
-
-            Positioned(
-              left: 14,
-              right: 14,
-              bottom: 14,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTextStyle.titleSmallBoldStyle.copyWith(
-                      color: AppColors.white,
-                      shadows: [
-                        Shadow(
-                          color: Colors.black.withOpacity(0.6),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
+                  Positioned.fill(
+                    // child: Image.network(
+                    //   imageUrl,
+                    //   fit: BoxFit.cover,
+                    //   errorBuilder: (_, __, ___) {
+                    //     return _FeedFallbackBackground(subType: item.subType);
+                    //   },
+                    // ),
+                    child: CommonNetworkImage(
+                      imageUrl: imageUrl,
+                      fit: BoxFit.cover,
+                      enableViewer: false,
+                    ),
+                  ),
+
+                  // 하단 오버레이
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    child: Container(
+                      height: 118,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.transparent,
+                            Colors.black.withOpacity(0.45),
+                            Colors.black.withOpacity(0.78),
+                          ],
+                          stops: const [0.0, 0.55, 1.0],
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  // 상단 사진 수 pill
+                  if (item.imageUrls.length > 1)
+                    Positioned(
+                      top: 12,
+                      right: 12,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.45),
+                          borderRadius: BorderRadius.circular(999),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.12),
+                          ),
+                        ),
+                        child: Text(
+                          '${item.imageUrls.length}장',
+                          style: AppTextStyle.labelXSmallStyle.copyWith(
+                            color: AppColors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+
+                  Positioned(
+                    left: 14,
+                    right: 14,
+                    bottom: 14,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTextStyle.titleSmallBoldStyle.copyWith(
+                            color: AppColors.white,
+                            shadows: [
+                              Shadow(
+                                color: Colors.black.withOpacity(0.6),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            const Icon(
+                              CupertinoIcons.time_solid,
+                              size: 14,
+                              color: AppColors.white,
+                            ),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                _formatCreatedAt(item.createdAt),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: AppTextStyle.labelSmallStyle.copyWith(
+                                  color: AppColors.white,
+                                  shadows: [
+                                    Shadow(
+                                      color: Colors.black.withOpacity(0.55),
+                                      blurRadius: 6,
+                                      offset: const Offset(0, 1),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            const Icon(
+                              CupertinoIcons.flame_fill,
+                              size: 14,
+                              color: AppColors.white,
+                            ),
+                            const SizedBox(width: 4),
+                            Flexible(
+                              child: Text(
+                                typeText,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: AppTextStyle.labelSmallStyle.copyWith(
+                                  color: AppColors.white,
+                                  shadows: [
+                                    Shadow(
+                                      color: Colors.black.withOpacity(0.55),
+                                      blurRadius: 6,
+                                      offset: const Offset(0, 1),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      const Icon(
-                        CupertinoIcons.time_solid,
-                        size: 14,
-                        color: AppColors.white,
-                      ),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          _formatCreatedAt(item.createdAt),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style:
-                          AppTextStyle.labelSmallStyle.copyWith(
-                            color: AppColors.white,
-                            shadows: [
-                              Shadow(
-                                color: Colors.black.withOpacity(0.55),
-                                blurRadius: 6,
-                                offset: const Offset(0, 1),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      const Icon(
-                        CupertinoIcons.flame_fill,
-                        size: 14,
-                        color: AppColors.white,
-                      ),
-                      const SizedBox(width: 4),
-                      Flexible(
-                        child: Text(
-                          typeText,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style:
-                          AppTextStyle.labelSmallStyle.copyWith(
-                            color: AppColors.white,
-                            shadows: [
-                              Shadow(
-                                color: Colors.black.withOpacity(0.55),
-                                blurRadius: 6,
-                                offset: const Offset(0, 1),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
                 ],
-              ),
-            ),
-          ],
-        )
+              )
             : _NoImageCardBody(
-          title: title,
-          typeText: typeText,
-          createdAt: item.createdAt,
-          subType: item.subType,
-        ),
+                title: title,
+                typeText: typeText,
+                createdAt: item.createdAt,
+                subType: item.subType,
+              ),
       ),
     );
   }
@@ -625,16 +479,17 @@ class _NoImageCardBody extends StatelessWidget {
 }
 
 class _FeedFallbackBackground extends StatelessWidget {
-  const _FeedFallbackBackground({
-    required this.subType,
-  });
+  const _FeedFallbackBackground({required this.subType});
 
   final String subType;
 
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
-      borderRadius: BorderRadius.only(topLeft: Radius.circular(24),topRight: Radius.circular(24)),
+      borderRadius: BorderRadius.only(
+        topLeft: Radius.circular(24),
+        topRight: Radius.circular(24),
+      ),
       child: Container(
         height: 132,
         width: double.infinity,
@@ -644,11 +499,10 @@ class _FeedFallbackBackground extends StatelessWidget {
           children: [
             SvgPicture.asset('assets/svg/empty_image.svg'),
             SizedBox(height: 8),
-            Text('사진이 없어요',style: AppTextStyle.labelSmallStyle,)
+            Text('사진이 없어요', style: AppTextStyle.labelSmallStyle),
           ],
         ),
       ),
     );
   }
-
 }
