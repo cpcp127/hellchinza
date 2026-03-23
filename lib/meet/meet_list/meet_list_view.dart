@@ -10,6 +10,7 @@ import 'package:hellchinza/meet/widget/empty_meet_list.dart';
 import 'package:hellchinza/meet/widget/meet_card.dart';
 
 import '../../common/common_chip.dart';
+import '../../common/common_text_field.dart';
 import '../../constants/app_colors.dart';
 import '../../constants/app_constants.dart';
 import '../../constants/app_text_style.dart';
@@ -38,7 +39,7 @@ class MeetListView extends ConsumerStatefulWidget {
 
 class _MeetListViewState extends ConsumerState<MeetListView> {
   final _scrollCtrl = ScrollController();
-
+  final _searchCtrl = TextEditingController();
   final List<DocumentSnapshot<Map<String, dynamic>>> _docs = [];
   DocumentSnapshot<Map<String, dynamic>>? _lastDoc;
 
@@ -65,6 +66,7 @@ class _MeetListViewState extends ConsumerState<MeetListView> {
   void dispose() {
     _scrollCtrl.removeListener(_onScroll);
     _scrollCtrl.dispose();
+    _searchCtrl.dispose();
     super.dispose();
   }
 
@@ -80,7 +82,7 @@ class _MeetListViewState extends ConsumerState<MeetListView> {
 
   String _makeQueryKey(MeetListState state) {
     // ✅ FirestorePagination key와 동일 개념
-    return '${state.selectSubType}_${state.refreshTick}';
+    return '${state.selectSubType}_${state.searchText}_${state.refreshTick}';
   }
 
   Future<void> _resetAndFetch() async {
@@ -167,63 +169,89 @@ class _MeetListViewState extends ConsumerState<MeetListView> {
         children: [
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: GestureDetector(
-                onTap: () async {
-                  await showGeneralDialog(
-                    context: context,
-                    barrierLabel: 'meet_subtype_filter',
-                    barrierDismissible: true,
-                    barrierColor: Colors.black.withOpacity(0.55),
-                    transitionDuration: const Duration(milliseconds: 220),
-                    pageBuilder: (_, __, ___) {
-                      return MeetSubTypeFilterSheet(
-                        initialValue: state.selectSubType,
-                        items: ['전체', ...workList],
-                        onApply: (value) {
-                          controller.onChangeSubType(value);
-                        },
-                      );
-                    },
-                    transitionBuilder: (context, animation, secondaryAnimation, child) {
-                      final curved = CurvedAnimation(
-                        parent: animation,
-                        curve: Curves.easeOutCubic,
-                      );
+            child: Row(
+              children: [
+                GestureDetector(
+                  onTap: () async {
+                    await showGeneralDialog(
+                      context: context,
+                      barrierLabel: 'meet_subtype_filter',
+                      barrierDismissible: true,
+                      barrierColor: Colors.black.withOpacity(0.55),
+                      transitionDuration: const Duration(milliseconds: 220),
+                      pageBuilder: (_, __, ___) {
+                        return MeetSubTypeFilterSheet(
+                          initialValue: state.selectSubType,
+                          items: ['전체', ...workList],
+                          onApply: (value) {
+                            controller.onChangeSubType(value);
+                          },
+                        );
+                      },
+                      transitionBuilder: (context, animation, secondaryAnimation, child) {
+                        final curved = CurvedAnimation(
+                          parent: animation,
+                          curve: Curves.easeOutCubic,
+                        );
 
-                      return FadeTransition(
-                        opacity: curved,
-                        child: child,
-                      );
-                    },
-                  );
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: AppColors.bgWhite,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppColors.borderSecondary),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.tune, size: 18, color: AppColors.icDefault),
-                      const SizedBox(width: 8),
-                      Text(
-                        state.selectSubType,
-                        style: AppTextStyle.labelMediumStyle.copyWith(
-                          color: AppColors.textDefault,
-                          fontWeight: FontWeight.w800,
+                        return FadeTransition(
+                          opacity: curved,
+                          child: child,
+                        );
+                      },
+                    );
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: AppColors.bgWhite,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppColors.borderSecondary),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.tune, size: 18, color: AppColors.icDefault),
+                        const SizedBox(width: 8),
+                        Text(
+                          state.selectSubType,
+                          style: AppTextStyle.labelMediumStyle.copyWith(
+                            color: AppColors.textDefault,
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 6),
-                      const Icon(Icons.expand_more, color: AppColors.icSecondary),
-                    ],
+                        const SizedBox(width: 6),
+                        const Icon(Icons.expand_more, color: AppColors.icSecondary),
+                      ],
+                    ),
                   ),
                 ),
-              ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: CommonTextField(
+                    controller: _searchCtrl,
+                    hintText: '모임 검색',
+                    onChanged: (value) {
+                      controller.setSearchText(value);
+                    },
+                    suffixIcon: state.searchText.isNotEmpty
+                        ? GestureDetector(
+                      onTap: () {
+                        _searchCtrl.clear();
+                        controller.setSearchText('');
+                      },
+                      child: const Icon(
+                        Icons.close,
+                        color: AppColors.icSecondary,
+                      ),
+                    )
+                        : const Icon(
+                      Icons.search,
+                      color: AppColors.icSecondary,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
           Expanded(

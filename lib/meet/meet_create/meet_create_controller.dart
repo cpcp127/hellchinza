@@ -178,6 +178,7 @@ class MeetCreateController extends StateNotifier<MeetCreateState> {
         'maxMembers': maxMembers,
         'needApproval': state.needApproval,
         'updatedAt': FieldValue.serverTimestamp(),
+        'searchKeywords': _buildSearchKeywords(),
       };
 
       // ✅ 썸네일 처리(교체/삭제/유지)
@@ -313,5 +314,32 @@ class MeetCreateController extends StateNotifier<MeetCreateState> {
     try {
       await ref.delete();
     } catch (_) {}
+  }
+
+  List<String> _buildSearchKeywords() {
+    final title = state.title.trim();
+    final intro = state.intro.trim();
+    final category = state.category;
+    final regions = state.regions.map((e) => e.fullName).toList();
+
+    final text = '$title $intro $category ${regions.join(" ")}'.toLowerCase();
+
+    final words = text.split(RegExp(r'\s+'));
+
+    final result = <String>{};
+
+    for (final word in words) {
+      if (word.isEmpty) continue;
+
+      // 단어 자체
+      result.add(word);
+
+      // prefix 검색 (헬, 헬스)
+      for (int i = 1; i <= word.length; i++) {
+        result.add(word.substring(0, i));
+      }
+    }
+
+    return result.toList();
   }
 }

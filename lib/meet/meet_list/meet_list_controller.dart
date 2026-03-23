@@ -6,7 +6,7 @@ import '../domain/meet_summary_model.dart';
 import 'meet_list_state.dart';
 
 final meetListControllerProvider =
-StateNotifierProvider<MeetListController, MeetListState>((ref) {
+StateNotifierProvider.autoDispose<MeetListController, MeetListState>((ref) {
   return MeetListController(ref)..init();
 });
 
@@ -80,15 +80,23 @@ class MeetListController extends StateNotifier<MeetListState> {
   }
 
   Query<Map<String, dynamic>> buildQuery() {
-    final base = FirebaseFirestore.instance
+    Query<Map<String, dynamic>> query = FirebaseFirestore.instance
         .collection('meets')
-        .where('status', isEqualTo: 'open')
-        .orderBy('createdAt', descending: true);
+        .where('status', isEqualTo: 'open');
 
-    if (state.selectSubType == '전체') return base;
+    if (state.selectSubType != '전체') {
+      query = query.where('category', isEqualTo: state.selectSubType);
+    }
 
-    // ✅ category 필터
-    return base.where('category', isEqualTo: state.selectSubType);
+    final keyword = state.searchText.trim().toLowerCase();
+    if (keyword.isNotEmpty) {
+      query = query.where(
+        'searchKeywords',
+        arrayContains: keyword,
+      );
+    }
+
+    return query.orderBy('createdAt', descending: true);
   }
 
   Future<void> onChangeSubType(String type) async {
@@ -98,4 +106,12 @@ class MeetListController extends StateNotifier<MeetListState> {
   void refresh() {
     state = state.copyWith(refreshTick: state.refreshTick + 1);
   }
+
+  void setSearchText(String v) {
+    state = state.copyWith(
+      searchText: v,
+      refreshTick: state.refreshTick + 1, // 🔥 중요
+    );
+  }
+
 }
