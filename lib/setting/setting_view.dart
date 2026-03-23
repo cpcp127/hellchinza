@@ -6,7 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../constants/app_colors.dart';
 import '../constants/app_text_style.dart';
-import '../inquiry/inquiry_view.dart';
+import '../inquiry/presentation/inquiry_view.dart';
 import '../notice/notice_list_view.dart';
 import '../services/dialog_service.dart';
 import '../services/snackbar_service.dart';
@@ -59,7 +59,7 @@ class _SettingViewState extends ConsumerState<SettingView> {
                       SnackbarService.show(
                         type: AppSnackType.error,
                         message:
-                        ref.read(settingControllerProvider).errorMessage ??
+                            ref.read(settingControllerProvider).errorMessage ??
                             '로그아웃 실패',
                       );
                     }
@@ -72,9 +72,7 @@ class _SettingViewState extends ConsumerState<SettingView> {
                   onTap: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(
-                        builder: (_) => const WithdrawView(),
-                      ),
+                      MaterialPageRoute(builder: (_) => const WithdrawView()),
                     );
                   },
                 ),
@@ -93,9 +91,7 @@ class _SettingViewState extends ConsumerState<SettingView> {
                   onTap: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(
-                        builder: (_) => const NoticeListView(),
-                      ),
+                      MaterialPageRoute(builder: (_) => const NoticeListView()),
                     );
                   },
                 ),
@@ -106,9 +102,7 @@ class _SettingViewState extends ConsumerState<SettingView> {
                   onTap: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(
-                        builder: (_) => const InquiryView(),
-                      ),
+                      MaterialPageRoute(builder: (_) => const InquiryView()),
                     );
                   },
                 ),
@@ -222,25 +216,19 @@ class _SettingViewState extends ConsumerState<SettingView> {
 
   Future<void> _openUrl(String url) async {
     final uri = Uri.parse(url);
-    final ok = await launchUrl(
-      uri,
-      mode: LaunchMode.externalApplication,
-    );
+    final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
 
     if (!ok) {
-      SnackbarService.show(
-        type: AppSnackType.error,
-        message: '페이지를 열 수 없어요',
-      );
+      SnackbarService.show(type: AppSnackType.error, message: '페이지를 열 수 없어요');
     }
   }
 
   Future<bool> _confirm(
-      BuildContext context, {
-        required String title,
-        required String message,
-        required bool destructive,
-      }) async {
+    BuildContext context, {
+    required String title,
+    required String message,
+    required bool destructive,
+  }) async {
     final result = await DialogService.showConfirm(
       context: context,
       title: title,
@@ -265,10 +253,7 @@ class _SettingSection extends StatelessWidget {
   final String title;
   final List<Widget> children;
 
-  const _SettingSection({
-    required this.title,
-    required this.children,
-  });
+  const _SettingSection({required this.title, required this.children});
 
   @override
   Widget build(BuildContext context) {
@@ -344,10 +329,7 @@ class _SettingTile extends StatelessWidget {
                 ],
               ),
             ),
-            const Icon(
-              Icons.chevron_right,
-              color: AppColors.icSecondary,
-            ),
+            const Icon(Icons.chevron_right, color: AppColors.icSecondary),
           ],
         ),
       ),

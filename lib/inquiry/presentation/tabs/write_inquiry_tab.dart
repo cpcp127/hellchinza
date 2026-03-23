@@ -1,38 +1,37 @@
 import 'dart:io';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:hellchinza/common/common_text_field.dart';
+import 'package:hellchinza/constants/app_colors.dart';
+import 'package:hellchinza/constants/app_text_style.dart';
+import 'package:hellchinza/inquiry/providers/inquiry_provider.dart';
+import 'package:hellchinza/services/dialog_service.dart';
 import 'package:hellchinza/services/image_service.dart';
+import 'package:hellchinza/services/snackbar_service.dart';
 
-import '../common/common_text_field.dart';
-import '../constants/app_colors.dart';
-import '../constants/app_text_style.dart';
-import '../services/dialog_service.dart';
-import '../services/snackbar_service.dart';
-
-class WriteInquiryTab extends StatefulWidget {
+class WriteInquiryTab extends ConsumerStatefulWidget {
   const WriteInquiryTab({
-    required this.uid,
+    super.key,
     required this.controller,
     required this.onSubmitted,
   });
 
-  final String uid;
   final TextEditingController controller;
-  final VoidCallback onSubmitted; // 제출 성공 후 탭 이동 등
+  final VoidCallback onSubmitted;
 
   @override
-  State<WriteInquiryTab> createState() => _WriteInquiryTabState();
+  ConsumerState<WriteInquiryTab> createState() => _WriteInquiryTabState();
 }
 
-class _WriteInquiryTabState extends State<WriteInquiryTab> {
+class _WriteInquiryTabState extends ConsumerState<WriteInquiryTab> {
   XFile? _picked;
-  bool _isSubmitting = false;
 
-  bool get _canSubmit =>
-      widget.controller.text.trim().isNotEmpty && !_isSubmitting;
+  bool get _canSubmit {
+    final isSubmitting = ref.read(inquiryControllerProvider).isSubmitting;
+    return widget.controller.text.trim().isNotEmpty && !isSubmitting;
+  }
 
   @override
   void initState() {
@@ -47,34 +46,17 @@ class _WriteInquiryTabState extends State<WriteInquiryTab> {
   }
 
   void _onTextChanged() {
-    // 버튼 활성/비활성 갱신
     if (mounted) setState(() {});
   }
 
   Future<void> _pickImage() async {
     final x = await ImageService().showImagePicker(context);
+    if (x == null || !mounted) return;
+
+    final webpImage = await ImageService().convertToWebp(File(x.path));
     if (!mounted) return;
-    final webpImage = await ImageService().convertToWebp(File(x!.path));
+
     setState(() => _picked = webpImage);
-  }
-
-  Future<String?> _uploadInquiryImage({
-    required String inquiryId,
-    required XFile file,
-  }) async {
-    final ref = FirebaseStorage.instance
-        .ref()
-        .child('inquiries')
-        .child(widget.uid)
-        .child('$inquiryId.webp');
-
-    // XFile -> File
-    final f = File(file.path);
-    final task = await ref.putFile(
-      f,
-      SettableMetadata(contentType: 'image/webp'),
-    );
-    return task.ref.getDownloadURL();
   }
 
   Future<void> _submit() async {
@@ -89,51 +71,31 @@ class _WriteInquiryTabState extends State<WriteInquiryTab> {
     );
     if (ok != true) return;
 
-    setState(() => _isSubmitting = true);
-
     try {
-      final db = FirebaseFirestore.instance;
-      final docRef = db.collection('inquiries').doc(); // id 먼저 생성
-
-      String? imageUrl;
-      if (_picked != null) {
-        imageUrl = await _uploadInquiryImage(
-          inquiryId: docRef.id,
-          file: _picked!,
-        );
-      }
-
-      await docRef.set({
-        'id': docRef.id,
-        'authorUid': widget.uid,
-        'message': text,
-        'status': 'open',
-        // 사진(선택)
-        'imageUrls': imageUrl == null ? [] : [imageUrl],
-        'createdAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-        'answer': '',
-      });
+      await ref
+          .read(inquiryControllerProvider.notifier)
+          .submit(message: text, image: _picked);
 
       widget.controller.clear();
-      setState(() {
-        _picked = null;
-        _isSubmitting = false;
-      });
+
+      if (mounted) {
+        setState(() => _picked = null);
+      }
 
       SnackbarService.show(type: AppSnackType.success, message: '문의가 접수되었습니다');
 
       widget.onSubmitted();
     } catch (e) {
-      setState(() => _isSubmitting = false);
       SnackbarService.show(type: AppSnackType.error, message: '문의 접수에 실패했어요');
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final state = ref.watch(inquiryControllerProvider);
+
     return Scaffold(
-      bottomNavigationBar: buildSubmitButton(),
+      bottomNavigationBar: _buildSubmitButton(state.isSubmitting),
       body: Padding(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
         child: SingleChildScrollView(
@@ -155,8 +117,6 @@ class _WriteInquiryTabState extends State<WriteInquiryTab> {
                 ),
               ),
               const SizedBox(height: 14),
-
-              // ✅ 첨부 영역(선택)
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
@@ -178,7 +138,7 @@ class _WriteInquiryTabState extends State<WriteInquiryTab> {
                         ),
                         const Spacer(),
                         GestureDetector(
-                          onTap: _isSubmitting ? null : _pickImage,
+                          onTap: state.isSubmitting ? null : _pickImage,
                           child: Row(
                             children: [
                               const Icon(
@@ -216,7 +176,7 @@ class _WriteInquiryTabState extends State<WriteInquiryTab> {
                             top: 8,
                             right: 8,
                             child: GestureDetector(
-                              onTap: _isSubmitting
+                              onTap: state.isSubmitting
                                   ? null
                                   : () => setState(() => _picked = null),
                               child: Container(
@@ -239,10 +199,7 @@ class _WriteInquiryTabState extends State<WriteInquiryTab> {
                   ],
                 ),
               ),
-
               const SizedBox(height: 12),
-
-              // ✅ 텍스트 입력
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
@@ -258,8 +215,6 @@ class _WriteInquiryTabState extends State<WriteInquiryTab> {
                   onChanged: (_) {},
                 ),
               ),
-
-
             ],
           ),
         ),
@@ -267,7 +222,7 @@ class _WriteInquiryTabState extends State<WriteInquiryTab> {
     );
   }
 
-  Widget buildSubmitButton() {
+  Widget _buildSubmitButton(bool isSubmitting) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: SizedBox(
@@ -283,7 +238,7 @@ class _WriteInquiryTabState extends State<WriteInquiryTab> {
             ),
             elevation: 0,
           ),
-          child: _isSubmitting
+          child: isSubmitting
               ? const SizedBox(
                   width: 18,
                   height: 18,

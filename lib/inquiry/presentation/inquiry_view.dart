@@ -1,14 +1,10 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:hellchinza/inquiry/write_inquiry_tab.dart';
-
-import '../constants/app_colors.dart';
-import '../constants/app_text_style.dart';
-import '../services/dialog_service.dart';
-import '../services/snackbar_service.dart';
-import 'my_inquiry_tab.dart';
+import 'package:hellchinza/constants/app_colors.dart';
+import 'package:hellchinza/constants/app_text_style.dart';
+import 'package:hellchinza/inquiry/presentation/tabs/my_inquiry_tab.dart';
+import 'package:hellchinza/inquiry/presentation/tabs/write_inquiry_tab.dart';
+import 'package:hellchinza/inquiry/providers/inquiry_provider.dart';
 
 class InquiryView extends ConsumerStatefulWidget {
   const InquiryView({super.key});
@@ -37,7 +33,7 @@ class _InquiryViewState extends ConsumerState<InquiryView>
 
   @override
   Widget build(BuildContext context) {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final uid = ref.watch(inquiryUidProvider);
 
     return Scaffold(
       backgroundColor: AppColors.bgWhite,
@@ -60,28 +56,25 @@ class _InquiryViewState extends ConsumerState<InquiryView>
       ),
       body: uid == null
           ? Center(
-        child: Text(
-          '로그인이 필요해요',
-          style: AppTextStyle.bodyMediumStyle.copyWith(
-            color: AppColors.textSecondary,
-          ),
-        ),
-      )
+              child: Text(
+                '로그인이 필요해요',
+                style: AppTextStyle.bodyMediumStyle.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            )
           : TabBarView(
-        controller: _tabCtrl,
-        children: [
-          MyInquiryTab(uid: uid),
-          // uid != null 가정
-          WriteInquiryTab(
-            uid: uid,
-            controller: _msgCtrl,
-            onSubmitted: () {
-              // ✅ 제출 후 "내 문의" 탭으로 이동
-              _tabCtrl.animateTo(0);
-            },
-          ),
-        ],
-      ),
+              controller: _tabCtrl,
+              children: [
+                MyInquiryTab(uid: uid),
+                WriteInquiryTab(
+                  controller: _msgCtrl,
+                  onSubmitted: () {
+                    _tabCtrl.animateTo(0);
+                  },
+                ),
+              ],
+            ),
     );
   }
 }

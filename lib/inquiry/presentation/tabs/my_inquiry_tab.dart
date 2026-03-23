@@ -1,13 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_pagination/firebase_pagination.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hellchinza/common/common_network_image.dart';
-
-import '../constants/app_colors.dart';
-import '../constants/app_text_style.dart';
-import 'inquiry_detail_view.dart';
+import 'package:hellchinza/constants/app_colors.dart';
+import 'package:hellchinza/constants/app_text_style.dart';
+import 'package:hellchinza/inquiry/presentation/inquiry_detail_view.dart';
+import 'package:hellchinza/inquiry/providers/inquiry_provider.dart';
 
 class MyInquiryTab extends ConsumerWidget {
   const MyInquiryTab({super.key, required this.uid});
@@ -16,10 +15,7 @@ class MyInquiryTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final query = FirebaseFirestore.instance
-        .collection('inquiries')
-        .where('authorUid', isEqualTo: uid)
-        .orderBy('createdAt', descending: true);
+    final query = ref.read(inquiryRepoProvider).getMyInquiryQuery(uid);
 
     return FirestorePagination(
       query: query,
@@ -62,13 +58,14 @@ class MyInquiryTab extends ConsumerWidget {
         final imageUrls =
             (data['imageUrls'] as List?)?.map((e) => e.toString()).toList() ??
             [];
+
         DateTime? createdAt;
         final ts = data['createdAt'];
         if (ts is Timestamp) createdAt = ts.toDate();
 
         final dateText = createdAt == null
             ? ''
-            : '${createdAt!.year}.${createdAt!.month.toString().padLeft(2, '0')}.${createdAt!.day.toString().padLeft(2, '0')}';
+            : '${createdAt.year}.${createdAt.month.toString().padLeft(2, '0')}.${createdAt.day.toString().padLeft(2, '0')}';
 
         return Padding(
           padding: const EdgeInsets.only(bottom: 10),
@@ -116,21 +113,19 @@ class MyInquiryTab extends ConsumerWidget {
                   const SizedBox(height: 10),
                   Row(
                     children: [
-                      imageUrls.isEmpty
-                          ? Container()
-                          : Padding(
-                              padding: const EdgeInsets.only(right: 8.0),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(8),
-                                child: CommonNetworkImage(
-                                  imageUrl: imageUrls.first,
-                                  width: 50,
-                                  height: 50,
-                                  fit: BoxFit.cover,
-                                ),
-                              )
+                      if (imageUrls.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: CommonNetworkImage(
+                              imageUrl: imageUrls.first,
+                              width: 50,
+                              height: 50,
+                              fit: BoxFit.cover,
                             ),
-
+                          ),
+                        ),
                       Expanded(
                         child: Text(
                           message,
@@ -160,7 +155,6 @@ class _InquiryStatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // open / answered / closed
     late final String text;
     late final Color bg;
     late final Color fg;
