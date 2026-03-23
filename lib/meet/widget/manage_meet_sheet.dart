@@ -4,8 +4,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../auth/domain/user_mini_provider.dart';
-import '../../auth/domain/user_model.dart';
+import '../../auth/providers/user_provider.dart';
 import '../../common/common_action_sheet.dart';
 import '../../common/common_profile_avatar.dart';
 import '../../constants/app_colors.dart';

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/legacy.dart';
 import 'package:hellchinza/ranking/ranking_state.dart';
 
 import '../auth/domain/user_model.dart';
+import '../auth/providers/user_provider.dart';
 
 final rankingControllerProvider =
 StateNotifierProvider.autoDispose<RankingController, RankingState>((ref) {

@@ -8,7 +8,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../auth/domain/user_mini.dart';
-import '../../auth/domain/user_mini_provider.dart';
+import '../../auth/providers/user_provider.dart';
 import '../../claim/claim_view.dart';
 import '../../claim/domain/claim_model.dart';
 import '../../common/common_action_sheet.dart';

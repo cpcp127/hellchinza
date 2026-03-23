@@ -1,36 +1,4 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter_riverpod/legacy.dart';
-
-class UserNotifier extends StateNotifier<UserModel> {
-  UserNotifier()
-      : super(
-    const UserModel(
-      uid: '',
-      email: '',
-      nickname: '',
-      profileCompleted: false,
-    ),
-  );
-
-  Future<void> updateUserModel(UserModel userModel) async {
-    state = userModel;
-  }
-
-  Future<void> resetUserModel() async {
-    state = const UserModel(
-      uid: '',
-      email: '',
-      nickname: '',
-      profileCompleted: false,
-    );
-  }
-}
-
-final myUserModelProvider = StateNotifierProvider<UserNotifier, UserModel>((
-    ref,
-    ) {
-  return UserNotifier();
-});
 
 class UserModel {
   final String uid;
@@ -46,8 +14,6 @@ class UserModel {
   final int scoreTotal;
   final int scoreWeekly;
   final String? gender;
-
-  // ✅ 추가
   final int? lastWeeklyRank;
 
   const UserModel({
@@ -67,27 +33,36 @@ class UserModel {
     this.lastWeeklyRank,
   });
 
+  factory UserModel.empty() {
+    return const UserModel(
+      uid: '',
+      email: '',
+      nickname: '',
+      profileCompleted: false,
+    );
+  }
+
   factory UserModel.fromFirestore(Map<String, dynamic> json) {
-    DateTime? _toDate(dynamic v) {
+    DateTime? toDate(dynamic v) {
       if (v == null) return null;
       if (v is Timestamp) return v.toDate();
       if (v is DateTime) return v;
       return null;
     }
 
-    int? _parseGoal(dynamic goal) {
+    int? parseGoal(dynamic goal) {
       if (goal is int) return goal;
       if (goal is num) return goal.toInt();
       return null;
     }
 
-    int _parseInt(dynamic v) {
+    int parseInt(dynamic v) {
       if (v is int) return v;
       if (v is num) return v.toInt();
       return 0;
     }
 
-    int? _parseNullableInt(dynamic v) {
+    int? parseNullableInt(dynamic v) {
       if (v is int) return v;
       if (v is num) return v.toInt();
       return null;
@@ -104,18 +79,16 @@ class UserModel {
       photoUrl: json['photoUrl'] as String?,
       description: json['description'] as String?,
       category:
-      (json['category'] as List?)?.map((e) => e.toString()).toList() ??
+          (json['category'] as List?)?.map((e) => e.toString()).toList() ??
           const [],
       profileCompleted: (json['profileCompleted'] as bool?) ?? false,
-      createdAt: _toDate(json['createdAt']),
-      updatedAt: _toDate(json['updatedAt']),
+      createdAt: toDate(json['createdAt']),
+      updatedAt: toDate(json['updatedAt']),
       gender: json['gender'] as String?,
-      workoutGoal: _parseGoal(goalMap?['weeklyTarget']),
-      scoreTotal: _parseInt(scoreMap?['total']),
-      scoreWeekly: _parseInt(scoreMap?['weekly']),
-
-      // ✅ 추가
-      lastWeeklyRank: _parseNullableInt(lastWeeklyRankMap?['rank']),
+      workoutGoal: parseGoal(goalMap?['weeklyTarget']),
+      scoreTotal: parseInt(scoreMap?['total']),
+      scoreWeekly: parseInt(scoreMap?['weekly']),
+      lastWeeklyRank: parseNullableInt(lastWeeklyRankMap?['rank']),
     );
   }
 
@@ -129,6 +102,7 @@ class UserModel {
     'profileCompleted': profileCompleted,
     'createdAt': createdAt,
     'updatedAt': updatedAt,
+    'gender': gender,
   };
 
   UserModel copyWith({
@@ -145,8 +119,6 @@ class UserModel {
     int? scoreTotal,
     int? scoreWeekly,
     String? gender,
-
-    // ✅ 추가
     int? lastWeeklyRank,
   }) {
     return UserModel(

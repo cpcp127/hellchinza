@@ -1,57 +1,42 @@
-import 'dart:math';
-
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
-import 'package:hellchinza/auth/presentation/extra_info/extra_info_state.dart';
 
-final extraInfoControllerProvider =
-StateNotifierProvider.autoDispose<ExtraInfoController, ExtraInfoState>((ref) {
-  return ExtraInfoController(ref);
-});
+import 'package:hellchinza/auth/presentation/extra_info/extra_info_state.dart';
+import 'package:hellchinza/auth/providers/auth_provider.dart';
+import 'package:hellchinza/auth/providers/user_provider.dart';
 
 class ExtraInfoController extends StateNotifier<ExtraInfoState> {
+  ExtraInfoController(this.ref) : super(const ExtraInfoState());
+
   final Ref ref;
 
-  ExtraInfoController(this.ref) : super(ExtraInfoState());
-
-
-  void onChangeNickname(String nickname){
-    state = state.copyWith(nickname: nickname);
+  void onChangeNickname(String nickname) {
+    state = state.copyWith(
+      nickname: nickname,
+      clearNicknameError: true,
+      clearError: true,
+    );
   }
 
-  void onChangeNicknameErrorText(String errorText){
+  void onChangeNicknameErrorText(String errorText) {
     state = state.copyWith(nicknameErrorText: errorText);
   }
 
   void submitNickname(GlobalKey<FormState> formKey) {
     final isValid = formKey.currentState?.validate() ?? false;
+    if (!isValid) return;
 
-    if (!isValid) {
-      // ❌ 검증 실패 → 아무것도 안 함 (에러는 TextFormField가 표시)
-      return;
-    }else{
-      FocusManager.instance.primaryFocus?.unfocus();
-      state = state.copyWith(currentIndex: 1);
-    }
-
-    // ✅ 검증 통과
-    // 다음 단계 로직 실행
-    // 예: Firestore 저장, 다음 페이지 이동 등
+    FocusManager.instance.primaryFocus?.unfocus();
+    state = state.copyWith(currentIndex: 1, clearNicknameError: true);
   }
 
   void toggleCategory(String category) {
-    final current = state.selectedCategory ?? [];
-
-    final List<String> updated = List.from(current);
+    final updated = List<String>.from(state.selectedCategory);
 
     if (updated.contains(category)) {
-      // ✅ 이미 선택 → 제거
       updated.remove(category);
     } else {
-      // ✅ 미선택 → 추가
       updated.add(category);
     }
 
@@ -59,24 +44,20 @@ class ExtraInfoController extends StateNotifier<ExtraInfoState> {
   }
 
   Future<void> completeSignup() async {
-    state = state.copyWith(isLoading: true);
-    try{
-     final user = FirebaseAuth.instance.currentUser;
+    state = state.copyWith(isLoading: true, clearError: true);
 
-      // ✅ Firestore upsert
-      final firebaseRef = FirebaseFirestore.instance.collection('users').doc(user!.uid);
-      await firebaseRef.update({
-        'category':state.selectedCategory!,
-        'nickname': state.nickname,
-        'profileCompleted': true,
-        'gender':state.gender,
-      });
-
-    }catch(e){
-      print('에러 발생');
+    try {
+      await ref.read(userRepoProvider).updateExtraInfo(
+        nickname: state.nickname,
+        category: state.selectedCategory,
+        gender: state.gender ?? '',
+      );
+    } catch (e) {
+      state = state.copyWith(errorMessage: e.toString());
+      rethrow;
+    } finally {
       state = state.copyWith(isLoading: false);
     }
-
   }
 
   void prevStep() {
@@ -87,16 +68,16 @@ class ExtraInfoController extends StateNotifier<ExtraInfoState> {
   void onSelectGender(String gender) {
     state = state.copyWith(gender: gender);
   }
-  void submitGender() {
 
+  void submitGender() {
     state = state.copyWith(currentIndex: 2);
   }
 
   Future<void> back() async {
-    if(state.currentIndex==0){
-      await FirebaseAuth.instance.signOut();
-    }else{
-      prevStep();
+    if (state.currentIndex == 0) {
+      await ref.read(authRepoProvider).signOut();
+      return;
     }
+    prevStep();
   }
 }

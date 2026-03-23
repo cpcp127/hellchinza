@@ -7,13 +7,13 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:hellchinza/auth/domain/user_mini_provider.dart';
 import 'package:hellchinza/common/common_chip.dart';
 import 'package:hellchinza/constants/app_constants.dart';
 import 'package:hellchinza/services/image_service.dart';
 import 'package:hellchinza/services/storage_upload_service.dart';
 
 import '../auth/domain/user_model.dart';
+import '../auth/providers/user_provider.dart';
 import '../common/common_back_appbar.dart';
 import '../common/common_bottom_button.dart';
 import '../common/common_text_field.dart';
@@ -72,7 +72,7 @@ class _ProfileEditViewState extends ConsumerState<ProfileEditView> {
           .read(homeControllerProvider.notifier)
           .fetchUser(FirebaseAuth.instance.currentUser!.uid);
       ref.read(myUserModelProvider.notifier).updateUserModel(userModel!);
-      ref.read(userMiniRepoProvider).clear(userModel.uid);
+      ref.read(userRepoProvider).clear(userModel.uid);
       ref.invalidate(userMiniProvider(userModel.uid));
       Navigator.pop(context);
     } catch (e) {

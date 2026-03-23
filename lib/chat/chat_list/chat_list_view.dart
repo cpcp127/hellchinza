@@ -8,7 +8,7 @@ import 'package:hellchinza/chat/chat_room/chat_room_view.dart';
 import 'package:hellchinza/common/common_home_app_bar.dart';
 import 'package:hellchinza/common/common_network_image.dart';
 
-import '../../auth/domain/user_mini_provider.dart';
+import '../../auth/providers/user_provider.dart';
 import '../../common/common_profile_avatar.dart';
 import '../../constants/app_colors.dart';
 import '../../constants/app_text_style.dart';

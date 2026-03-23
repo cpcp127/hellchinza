@@ -9,8 +9,8 @@ import 'package:hellchinza/common/common_back_appbar.dart';
 import 'package:hellchinza/common/common_place_widget.dart';
 import 'package:hellchinza/services/feed_service.dart';
 
-import '../auth/domain/user_mini_provider.dart';
 import '../auth/presentation/auth_controller.dart';
+import '../auth/providers/user_provider.dart';
 import '../claim/claim_view.dart';
 import '../claim/domain/claim_model.dart';
 import '../constants/app_colors.dart';

@@ -7,6 +7,7 @@ import 'package:hellchinza/home/home_state.dart';
 import 'package:hellchinza/services/push_token_service.dart';
 
 import '../auth/domain/user_model.dart';
+import '../auth/providers/user_provider.dart';
 import '../common/common_action_sheet.dart';
 
 final homeControllerProvider =

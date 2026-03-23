@@ -8,6 +8,7 @@ import 'package:hellchinza/auth/domain/user_model.dart';
 import 'package:hellchinza/meet/meet_create/meet_create_view.dart';
 import 'package:hellchinza/meet/meet_list/meet_list_controller.dart';
 
+import '../../auth/providers/user_provider.dart';
 import '../../services/snackbar_service.dart';
 import '../domain/meet_model.dart';
 import 'meat_detail_state.dart';

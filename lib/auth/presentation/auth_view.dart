@@ -1,67 +1,43 @@
-import 'dart:async';
 import 'package:flutter/gestures.dart';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/svg.dart';
-import 'package:hellchinza/auth/presentation/auth_controller.dart';
+
+import 'package:hellchinza/auth/providers/auth_provider.dart';
 import 'package:hellchinza/constants/app_border_radius.dart';
+import 'package:hellchinza/constants/app_colors.dart';
+import 'package:hellchinza/constants/app_text_style.dart';
+import 'package:hellchinza/constants/social_login_style.dart';
 import 'package:hellchinza/services/policy_link_service.dart';
 
-import '../../constants/app_colors.dart';
-import '../../constants/app_text_style.dart';
-import '../../constants/social_login_style.dart';
-
-class AuthView extends ConsumerStatefulWidget {
+class AuthView extends ConsumerWidget {
   const AuthView({super.key});
 
   @override
-  ConsumerState createState() => _AuthViewState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(authControllerProvider);
+    final controller = ref.read(authControllerProvider.notifier);
 
-class _AuthViewState extends ConsumerState<AuthView> {
-  late final PageController pageController;
-  int pageIndex = 0;
-  Timer? timer;
-  List<String> imagePath = [
-    'assets/images/auth_health.png',
-    'assets/images/auth_climing.png',
-    'assets/images/auth_running.png',
-    'assets/images/auth_badminton.png',
-    'assets/images/auth_bowling.png',
-  ];
-
-  @override
-  Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
             final horizontalPadding = 16.0;
             final contentWidth = constraints.maxWidth - (horizontalPadding * 2);
-
-            // 화면이 작으면 더 작게, 크면 최대 400
-            final imageSize = contentWidth.clamp(
-              160.0,
-              400.0,
-            );
+            final imageSize = contentWidth.clamp(160.0, 400.0);
 
             return SingleChildScrollView(
               physics: const ClampingScrollPhysics(),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    minHeight: constraints.maxHeight,
-                  ),
+                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const SizedBox(height: 24),
-
                       const UnchinLoginHeader(),
                       const SizedBox(height: 20),
-
                       Center(
                         child: SizedBox(
                           width: imageSize,
@@ -77,53 +53,48 @@ class _AuthViewState extends ConsumerState<AuthView> {
                           ),
                         ),
                       ),
-
                       const SizedBox(height: 24),
-
                       Column(
                         children: [
                           SocialLoginButton(
                             type: SocialLoginType.apple,
-                            onTap: () {
-                              ref
-                                  .read(authControllerProvider.notifier)
-                                  .signInWithApple();
-                            },
+                            enabled: !state.isLoading,
+                            onTap: controller.signInWithApple,
                           ),
                           const SizedBox(height: 12),
                           SocialLoginButton(
                             type: SocialLoginType.google,
-                            onTap: () {
-                              ref
-                                  .read(authControllerProvider.notifier)
-                                  .signInWithGoogle();
-                            },
+                            enabled: !state.isLoading,
+                            onTap: controller.signInWithGoogle,
                           ),
                           const SizedBox(height: 12),
                           SocialLoginButton(
                             type: SocialLoginType.kakao,
-                            onTap: () {
-                              ref
-                                  .read(authControllerProvider.notifier)
-                                  .signInWithKakao();
-                            },
+                            enabled: !state.isLoading,
+                            onTap: controller.signInWithKakao,
                           ),
                         ],
                       ),
-
                       const SizedBox(height: 16),
-
+                      if (state.errorMessage != null &&
+                          state.errorMessage!.isNotEmpty) ...[
+                        Center(
+                          child: Text(
+                            state.errorMessage!,
+                            style: AppTextStyle.labelSmallStyle.copyWith(
+                              color: AppColors.red100,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                      ],
                       Center(
                         child: _AuthAgreementSection(
-                          onTapPrivacy: () {
-                            PolicyLinkService.openPrivacy();
-                          },
-                          onTapTerms: () {
-                            PolicyLinkService.openTerms();
-                          },
+                          onTapPrivacy: PolicyLinkService.openPrivacy,
+                          onTapTerms: PolicyLinkService.openTerms,
                         ),
                       ),
-
                       const SizedBox(height: 12),
                     ],
                   ),
@@ -134,48 +105,6 @@ class _AuthViewState extends ConsumerState<AuthView> {
         ),
       ),
     );
-  }
-
-  Widget buildSocialButton({
-    required String title,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 150,
-        height: 40,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(99),
-          color: Colors.blue,
-        ),
-        child: Center(child: Text(title)),
-      ),
-    );
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    pageController = PageController();
-
-    timer = Timer.periodic(const Duration(seconds: 4), (_) {
-      if (!pageController.hasClients) return;
-
-      pageIndex = (pageIndex + 1) % imagePath.length;
-      pageController.animateToPage(
-        pageIndex,
-        duration: const Duration(milliseconds: 600),
-        curve: Curves.easeInOut,
-      );
-    });
-  }
-
-  @override
-  void dispose() {
-    timer?.cancel();
-    pageController.dispose();
-    super.dispose();
   }
 }
 
@@ -269,10 +198,7 @@ class UnchinLoginHeader extends StatelessWidget {
             color: AppColors.textDefault,
           ),
         ),
-
         const SizedBox(height: 10),
-
-        // 보조 문장(2줄까지 자연스럽게)
         Text(
           '하루 한 번의 운동\n오늘도 기록해볼까요?',
           style: AppTextStyle.headlineSmallMediumStyle.copyWith(
@@ -285,10 +211,16 @@ class UnchinLoginHeader extends StatelessWidget {
 }
 
 class SocialLoginButton extends StatelessWidget {
-  const SocialLoginButton({super.key, required this.type, required this.onTap});
+  const SocialLoginButton({
+    super.key,
+    required this.type,
+    required this.onTap,
+    this.enabled = true,
+  });
 
   final SocialLoginType type;
   final VoidCallback onTap;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
@@ -301,42 +233,40 @@ class SocialLoginButton extends StatelessWidget {
         color: style.background,
         borderRadius: BorderRadius.circular(16),
         child: InkWell(
-          onTap: onTap,
+          onTap: enabled ? onTap : null,
           borderRadius: BorderRadius.circular(16),
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              border: style.borderColor != null
-                  ? Border.all(color: style.borderColor!)
-                  : null,
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 18),
-            child: Row(
-              children: [
-                /// SVG 아이콘
-                SvgPicture.asset(
-                  style.assetPath,
-                  width: 22,
-                  height: 22,
-                  colorFilter: type == SocialLoginType.apple
-                      ? ColorFilter.mode(style.iconColor, BlendMode.srcIn)
-                      : null,
-                ),
-
-                const SizedBox(width: 14),
-
-                /// 텍스트
-                Expanded(
-                  child: Text(
-                    _buttonText(type),
-                    style: AppTextStyle.titleMediumBoldStyle.copyWith(
-                      color: style.textColor,
+          child: Opacity(
+            opacity: enabled ? 1 : 0.55,
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                border: style.borderColor != null
+                    ? Border.all(color: style.borderColor!)
+                    : null,
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 18),
+              child: Row(
+                children: [
+                  SvgPicture.asset(
+                    style.assetPath,
+                    width: 22,
+                    height: 22,
+                    colorFilter: type == SocialLoginType.apple
+                        ? ColorFilter.mode(style.iconColor, BlendMode.srcIn)
+                        : null,
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Text(
+                      _buttonText(type),
+                      style: AppTextStyle.titleMediumBoldStyle.copyWith(
+                        color: style.textColor,
+                      ),
                     ),
                   ),
-                ),
-
-                Icon(Icons.chevron_right, color: style.iconColor),
-              ],
+                  Icon(Icons.chevron_right, color: style.iconColor),
+                ],
+              ),
             ),
           ),
         ),
