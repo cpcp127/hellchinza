@@ -1,15 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
-import 'package:hellchinza/ranking/ranking_state.dart';
+import 'package:hellchinza/ranking/presentation/ranking_state.dart';
 
-import '../auth/domain/user_model.dart';
-import '../auth/providers/user_provider.dart';
+import '../../auth/domain/user_model.dart';
+import '../../auth/providers/user_provider.dart';
 
-final rankingControllerProvider =
-StateNotifierProvider.autoDispose<RankingController, RankingState>((ref) {
-  return RankingController(ref)..init();
-});
+
 
 class RankingController extends StateNotifier<RankingState> {
   RankingController(this.ref) : super(const RankingState.initial());

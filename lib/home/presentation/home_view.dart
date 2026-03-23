@@ -14,7 +14,7 @@ import 'package:hellchinza/home/providers/home_provider.dart';
 import 'package:hellchinza/notification/notification_list_view.dart';
 import 'package:hellchinza/oow_step/presentation/oow_step_view.dart';
 import 'package:hellchinza/profile/profile_view.dart';
-import 'package:hellchinza/ranking/ranking_view.dart';
+import 'package:hellchinza/ranking/presentation/ranking_view.dart';
 import 'package:hellchinza/setting/setting_view.dart';
 
 import '../../chat/chat_list/chat_list_view.dart';

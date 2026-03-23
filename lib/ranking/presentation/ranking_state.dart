@@ -1,4 +1,4 @@
-import '../auth/domain/user_model.dart';
+import '../../auth/domain/user_model.dart';
 
 class RankingState {
   final bool isLoading;

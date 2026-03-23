@@ -7,6 +7,7 @@ import 'package:hellchinza/common/common_profile_avatar.dart';
 import 'package:hellchinza/constants/app_colors.dart';
 import 'package:hellchinza/constants/app_text_style.dart';
 
+import '../providers/ranking_provider.dart';
 import 'ranking_controller.dart';
 
 class RankingView extends ConsumerWidget {
