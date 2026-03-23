@@ -6,12 +6,12 @@ import 'claim_state.dart';
 import 'claim_service.dart';
 import 'domain/claim_model.dart';
 
-// 서비스 provider
+// 서비스 providers
 final claimServiceProvider = Provider<ClaimService>((ref) {
   return ClaimService(FirebaseFirestore.instance);
 });
 
-// 화면용 controller provider (target을 인자로 받음)
+// 화면용 controller providers (target을 인자로 받음)
 final claimControllerProvider =
 StateNotifierProvider.autoDispose.family<ClaimController, ClaimState, ClaimTarget>(
       (ref, target) => ClaimController(ref, target),

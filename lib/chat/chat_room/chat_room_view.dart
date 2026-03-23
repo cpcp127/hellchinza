@@ -1,33 +1,33 @@
 import 'dart:io';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_pagination/firebase_pagination.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 
-import '../../auth/domain/user_mini.dart';
-import '../../auth/providers/user_provider.dart';
-import '../../claim/claim_view.dart';
-import '../../claim/domain/claim_model.dart';
-import '../../common/common_action_sheet.dart';
-import '../../common/common_network_image.dart';
-import '../../common/common_profile_avatar.dart';
-import '../../common/common_text_field.dart';
-import '../../constants/app_colors.dart';
-import '../../constants/app_text_style.dart';
-import '../../services/dialog_service.dart';
-import '../../services/snackbar_service.dart';
+import '../../../auth/domain/user_mini.dart';
+import '../../../claim/claim_view.dart';
+import '../../../claim/domain/claim_model.dart';
+import '../../../common/common_action_sheet.dart';
+import '../../../common/common_network_image.dart';
+import '../../../common/common_profile_avatar.dart';
+import '../../../common/common_text_field.dart';
+import '../../../constants/app_colors.dart';
+import '../../../constants/app_text_style.dart';
+import '../../../services/dialog_service.dart';
+import '../../../services/snackbar_service.dart';
+import '../providers/chat_provider.dart';
 import 'chat_room_controller.dart';
 
 class ChatView extends ConsumerStatefulWidget {
   const ChatView({
     super.key,
     required this.roomId,
-    required this.roomType, // ✅ 추가: 'dm' | 'group'
-    this.otherUid, // ✅ dm일 때만
-    this.meetId, // ✅ group일 때만(없으면 roomId==meetId로 처리 가능)
+    required this.roomType,
+    this.otherUid,
+    this.meetId,
   });
 
   final String roomId;
@@ -48,18 +48,16 @@ class _ChatViewState extends ConsumerState<ChatView>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
 
-    // ✅ 프레임 이후 실행(컨텍스트/리버팟 안정)
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final controller = ref.read(
         chatControllerProvider(widget.roomId).notifier,
       );
 
-      await controller.enterRoom(); // unread 0 + activeAt 세팅
-      controller.startHeartbeat(); // 15초마다 activeAt 갱신
+      await controller.enterRoom();
+      controller.startHeartbeat();
     });
   }
 
-  // ✅ 앱이 백그라운드/비활성화 되면 active 처리도 같이 정리(중요)
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     final controller = ref.read(chatControllerProvider(widget.roomId).notifier);
@@ -67,7 +65,7 @@ class _ChatViewState extends ConsumerState<ChatView>
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.inactive ||
         state == AppLifecycleState.detached) {
-      controller.leaveActive(); // 백그라운드로 가면 active 해제
+      controller.leaveActive();
     } else if (state == AppLifecycleState.resumed) {
       controller.enterRoom();
       controller.startHeartbeat();
@@ -85,32 +83,24 @@ class _ChatViewState extends ConsumerState<ChatView>
   Widget build(BuildContext context) {
     final state = ref.watch(chatControllerProvider(widget.roomId));
     final controller = ref.read(chatControllerProvider(widget.roomId).notifier);
-
     final roomAsync = ref.watch(chatRoomProvider(widget.roomId));
 
-    // 메시지 쿼리
-    final query = FirebaseFirestore.instance
-        .collection('chatRooms')
-        .doc(widget.roomId)
-        .collection('messages')
-        .orderBy('createdAt', descending: true);
-
+    final query = ref.read(chatRepoProvider).buildMessagesQuery(widget.roomId);
     final otherUid = ref.watch(otherUidProvider(widget.roomId));
-    final otherAsync = (otherUid == null)
-        ? const AsyncValue<UserMini?>.data(null)
-        : ref.watch(userMiniProvider(otherUid));
     final usersMapAsync = ref.watch(chatRoomUsersMapProvider(widget.roomId));
+
     return Scaffold(
       appBar: AppBar(
         title: Text('채팅', style: AppTextStyle.titleMediumBoldStyle),
-
         actions: [
           roomAsync.when(
             data: (doc) {
               final data = doc.data() as Map<String, dynamic>;
+              final myUid = ref.read(chatRepoProvider).currentUid;
+              if (myUid == null) return const SizedBox();
+
               final map = data['chatPushOffMap'] ?? {};
-              final muted =
-                  map[FirebaseAuth.instance.currentUser!.uid] == false;
+              final muted = map[myUid] == false;
 
               return IconButton(
                 icon: Icon(
@@ -118,10 +108,7 @@ class _ChatViewState extends ConsumerState<ChatView>
                   color: AppColors.icDefault,
                 ),
                 onPressed: () {
-                  controller.toggleRoomPush(
-                    roomId: widget.roomId,
-                    uid: FirebaseAuth.instance.currentUser!.uid,
-                  );
+                  controller.toggleRoomPush(roomId: widget.roomId, uid: myUid);
                 },
               );
             },
@@ -147,10 +134,8 @@ class _ChatViewState extends ConsumerState<ChatView>
                         builder: (_) => ClaimView(
                           target: ClaimTarget(
                             type: ClaimTargetType.user,
-                            // ✅ 없으면 추가
-                            targetId: otherUid!,
-                            targetOwnerUid: otherUid,
-                            // 상대 uid
+                            targetId: other,
+                            targetOwnerUid: other,
                             title: '유저 신고',
                             parentId: null,
                           ),
@@ -177,7 +162,6 @@ class _ChatViewState extends ConsumerState<ChatView>
                     await showLeaveRoomDialog(
                       context: context,
                       controller: controller,
-
                       roomType: widget.roomType,
                     );
                   },
@@ -203,11 +187,11 @@ class _ChatViewState extends ConsumerState<ChatView>
             );
           }
 
-          // ✅ state.roomData도 갱신(선택: 화면에서 즉시 쓰고 싶으면)
           if (state.roomData != roomData) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
-              ref.read(chatControllerProvider(widget.roomId).notifier).state =
-                  state.copyWith(roomData: roomData);
+              ref
+                  .read(chatControllerProvider(widget.roomId).notifier)
+                  .setRoomData(roomData);
             });
           }
 
@@ -221,18 +205,17 @@ class _ChatViewState extends ConsumerState<ChatView>
                   limit: 20,
                   isLive: true,
                   reverse: true,
-                  // 최근이 아래로 가게(패키지 옵션 없으면 직접 처리)
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-
-                  /// ⚠️ 너가 말한 시그니처:
-                  /// {required Widget Function(BuildContext, List<DocumentSnapshot<Object?>>, int) itemBuilder}
                   itemBuilder: (context, docs, index) {
                     final doc = docs[index];
                     final data = (doc.data() as Map<String, dynamic>? ?? {});
                     final msgId = (data['id'] ?? doc.id).toString();
-                    final pendingPath = ref
-                        .watch(chatControllerProvider(widget.roomId))
-                        .pendingImageLocalPathByMsgId[msgId];
+
+                    final pendingPath = ref.watch(
+                      chatControllerProvider(
+                        widget.roomId,
+                      ).select((s) => s.pendingImageLocalPathByMsgId[msgId]),
+                    );
 
                     final currAt = controller.createdAtFrom(data);
                     DateTime? prevAt;
@@ -244,21 +227,22 @@ class _ChatViewState extends ConsumerState<ChatView>
                       prevAt = controller.createdAtFrom(nextData);
                     }
 
-                    // ✅ 날짜 구분선 조건:
-                    // - 이전 메시지와 "날짜가 다르면" 표시
                     final showDateDivider =
                         currAt != null &&
                         (prevAt == null ||
                             !controller.isSameDay(currAt, prevAt));
+
                     final authorUid = (data['authorUid'] ?? '').toString();
+
                     return usersMapAsync.when(
                       loading: () => const SizedBox.shrink(),
                       error: (e, _) => Text('유저 로딩 실패: $e'),
                       data: (usersMap) {
-                        final authorMini = usersMap[authorUid]; // ✅ 보낸 사람 미니
+                        final authorMini = usersMap[authorUid];
+
                         return Column(
                           children: [
-                            if (showDateDivider) _buildDateDivider(currAt),
+                            if (showDateDivider) _buildDateDivider(currAt!),
                             Padding(
                               padding: const EdgeInsets.only(bottom: 10),
                               child: _ChatBubble(
@@ -267,7 +251,6 @@ class _ChatViewState extends ConsumerState<ChatView>
                                 data: data,
                                 otherUser: authorMini,
                                 pendingLocalPath: pendingPath,
-                                // ✅ 추가
                                 onAccept: () async {
                                   try {
                                     await controller.acceptFriendRequest(
@@ -318,10 +301,9 @@ class _ChatViewState extends ConsumerState<ChatView>
                   },
                 ),
               ),
-
               _ChatInputBar(
                 enabled: canSend,
-                controller: _textCtrl,
+                textController: _textCtrl,
                 roomId: widget.roomId,
                 chatController: controller,
                 onSend: () async {
@@ -421,43 +403,11 @@ class _ChatViewState extends ConsumerState<ChatView>
     );
   }
 
-  Future<void> _showChatMoreSheet({
-    required BuildContext context,
-    required ChatController controller,
-    required String roomId,
-    required String otherUid,
-    VoidCallback? onLeave,
-    VoidCallback? onReport,
-  }) async {
-    final items = <CommonActionSheetItem>[
-      CommonActionSheetItem(
-        icon: Icons.delete_outline,
-        title: '나가기',
-        onTap: onLeave ?? () {},
-        isDestructive: true,
-      ),
-
-      CommonActionSheetItem(
-        icon: Icons.flag_outlined,
-        title: '신고하기',
-        onTap: onReport ?? () {},
-        isDestructive: true,
-      ),
-    ];
-
-    await showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (_) => CommonActionSheet(title: '채팅', items: items),
-    );
-  }
-
   Future<void> showLeaveRoomDialog({
     required BuildContext context,
     required ChatController controller,
     required String roomType,
-    String? otherUid, // DM에서만 필요
+    String? otherUid,
   }) async {
     final isDm = roomType == 'dm';
 
@@ -473,15 +423,18 @@ class _ChatViewState extends ConsumerState<ChatView>
 
     if (ok != true) return;
 
-    final controller = ref.read(chatControllerProvider(widget.roomId).notifier);
+    final chatController = ref.read(
+      chatControllerProvider(widget.roomId).notifier,
+    );
+
     if (isDm) {
       if (otherUid == null) return;
-      await controller.leaveRoomAndUnfriend(otherUid: otherUid);
+      await chatController.leaveRoomAndUnfriend(otherUid: otherUid);
     } else {
-      await controller.leaveGroupRoomAndMeet();
+      await chatController.leaveGroupRoomAndMeet();
     }
 
-    if (mounted) Navigator.pop(context); // 방 화면 닫기
+    if (mounted) Navigator.pop(context);
   }
 }
 
@@ -497,11 +450,11 @@ class _ChatBubble extends StatelessWidget {
   });
 
   final String roomId;
-  final String roomType; // 'dm' | 'group'
+  final String roomType;
   final Map<String, dynamic> data;
   final Future<void> Function() onAccept;
   final Future<void> Function() onReject;
-  final UserMini? otherUser; // ⚠️ DM 기준 상대. 그룹은 senderUid별로 따로 주입하는 게 정답
+  final UserMini? otherUser;
   final String? pendingLocalPath;
 
   @override
@@ -511,7 +464,6 @@ class _ChatBubble extends StatelessWidget {
     final type = (data['type'] ?? 'text').toString();
     final isMine = myUid != null && senderUid == myUid;
 
-    // 시간
     String timeText = '';
     final ts = data['createdAt'];
     if (ts is Timestamp) {
@@ -521,7 +473,6 @@ class _ChatBubble extends StatelessWidget {
       timeText = '$hh:$mm';
     }
 
-    // system
     if (type == 'system') {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 6),
@@ -544,11 +495,9 @@ class _ChatBubble extends StatelessWidget {
       );
     }
 
-    // ✅ 그룹일 때만 상대 닉네임 노출(카톡 스타일)
     final showName = !isMine && roomType == 'group';
     final displayName = (otherUser?.nickname ?? '').trim();
 
-    // ✅ 메시지 본문 위젯 만들기(텍스트/이미지/친구요청)
     Widget messageWidget;
 
     if (type == 'friend_request') {
@@ -616,14 +565,14 @@ class _ChatBubble extends StatelessWidget {
                   Expanded(
                     child: _SmallOutlineButton(
                       text: '거절',
-                      onTap: () async => await onReject(),
+                      onTap: () async => onReject(),
                     ),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: _SmallPrimaryButton(
                       text: '수락',
-                      onTap: () async => await onAccept(),
+                      onTap: () async => onAccept(),
                     ),
                   ),
                 ],
@@ -663,7 +612,6 @@ class _ChatBubble extends StatelessWidget {
         child: Stack(
           children: [
             SizedBox(width: 220, height: 220, child: imageWidget),
-
             if (isUploading)
               Positioned.fill(
                 child: Container(
@@ -672,7 +620,6 @@ class _ChatBubble extends StatelessWidget {
                   child: const CircularProgressIndicator(),
                 ),
               ),
-
             if (uploadStatus == 'failed')
               Positioned.fill(
                 child: Container(
@@ -691,7 +638,6 @@ class _ChatBubble extends StatelessWidget {
         ),
       );
     } else {
-      // text 기본
       final text = (data['text'] ?? '').toString();
 
       messageWidget = Container(
@@ -710,9 +656,6 @@ class _ChatBubble extends StatelessWidget {
       );
     }
 
-    // ✅ 카톡 스타일 레이아웃
-    // - 내 메시지: (버블) (시간)
-    // - 상대 메시지: (프로필) (닉네임) (버블) (시간)
     if (isMine) {
       return Padding(
         padding: const EdgeInsets.only(top: 2, bottom: 8),
@@ -722,7 +665,6 @@ class _ChatBubble extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              // 시간 (카톡은 버블 옆 아래)
               Padding(
                 padding: const EdgeInsets.only(right: 6, bottom: 2),
                 child: Text(
@@ -732,8 +674,6 @@ class _ChatBubble extends StatelessWidget {
                   ),
                 ),
               ),
-
-              // 버블
               ConstrainedBox(
                 constraints: BoxConstraints(
                   maxWidth: MediaQuery.of(context).size.width * 0.72,
@@ -746,7 +686,6 @@ class _ChatBubble extends StatelessWidget {
       );
     }
 
-    // 상대 메시지
     return Padding(
       padding: const EdgeInsets.only(top: 2, bottom: 8),
       child: Align(
@@ -754,16 +693,14 @@ class _ChatBubble extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 프로필
             CommonProfileAvatar(
               imageUrl: otherUser?.photoUrl,
               size: 32,
               uid: otherUser?.uid ?? senderUid,
-              gender: otherUser?.gender ?? 'unknown',lastWeeklyRank: otherUser?.lastWeeklyRank,
+              gender: otherUser?.gender ?? 'unknown',
+              lastWeeklyRank: otherUser?.lastWeeklyRank,
             ),
             const SizedBox(width: 8),
-
-            // 닉네임 + 버블
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -779,7 +716,6 @@ class _ChatBubble extends StatelessWidget {
                       ),
                     ),
                   ],
-
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     mainAxisSize: MainAxisSize.min,
@@ -793,7 +729,6 @@ class _ChatBubble extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 6),
-                      // 시간
                       Padding(
                         padding: const EdgeInsets.only(bottom: 2),
                         child: Text(
@@ -818,14 +753,14 @@ class _ChatBubble extends StatelessWidget {
 class _ChatInputBar extends ConsumerWidget {
   const _ChatInputBar({
     required this.enabled,
-    required this.controller,
+    required this.textController,
     required this.onSend,
     required this.chatController,
     required this.roomId,
   });
 
   final bool enabled;
-  final TextEditingController controller;
+  final TextEditingController textController;
   final VoidCallback onSend;
   final ChatController chatController;
   final String roomId;
@@ -833,7 +768,7 @@ class _ChatInputBar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(chatControllerProvider(roomId));
-    final chatController = ref.read(chatControllerProvider(roomId).notifier);
+    final controller = ref.read(chatControllerProvider(roomId).notifier);
 
     return SafeArea(
       top: false,
@@ -845,24 +780,22 @@ class _ChatInputBar extends ConsumerWidget {
         ),
         child: Row(
           children: [
-            // ✅ 이미지 버튼
             IconButton(
               onPressed: state.canSend
-                  ? () => chatController.pickAndSendOneImage(context)
+                  ? () => controller.pickAndSendOneImage(context)
                   : null,
               icon: const Icon(
                 Icons.image_outlined,
                 color: AppColors.icDefault,
               ),
             ),
-
             Expanded(
               child: IgnorePointer(
                 ignoring: !enabled,
                 child: Opacity(
                   opacity: enabled ? 1 : 0.55,
                   child: CommonTextField(
-                    controller: controller,
+                    controller: textController,
                     hintText: enabled ? '메시지를 입력하세요' : '친구가 되어야 메시지를 보낼 수 있어요',
                     maxLines: 1,
                     onChanged: (_) {},

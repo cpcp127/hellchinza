@@ -1,8 +1,6 @@
 class ChatListState {
   final bool isLoading;
   final String? errorMessage;
-
-  // pull-to-refresh / 수동 리셋용
   final int refreshTick;
 
   const ChatListState({
@@ -12,9 +10,9 @@ class ChatListState {
   });
 
   const ChatListState.initial()
-      : isLoading = false,
-        errorMessage = null,
-        refreshTick = 0;
+    : isLoading = false,
+      errorMessage = null,
+      refreshTick = 0;
 
   ChatListState copyWith({
     bool? isLoading,
@@ -23,7 +21,7 @@ class ChatListState {
   }) {
     return ChatListState(
       isLoading: isLoading ?? this.isLoading,
-      errorMessage: errorMessage,
+      errorMessage: errorMessage ?? this.errorMessage,
       refreshTick: refreshTick ?? this.refreshTick,
     );
   }

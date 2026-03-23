@@ -9,12 +9,12 @@ import 'package:hellchinza/feed/create_feed/create_feed_view.dart';
 import 'package:hellchinza/feed/feed_list/feed_list_view.dart';
 import 'package:hellchinza/meet/meet_create/meet_create_view.dart';
 import 'package:hellchinza/meet/meet_home/meet_home_view.dart';
-import 'package:hellchinza/meet/meet_list/meet_list_view.dart';
 import 'package:hellchinza/oow_step/presentation/oow_step_view.dart';
 import 'package:hellchinza/profile/profile_view.dart';
 import 'package:hellchinza/ranking/ranking_view.dart';
 
 import '../chat/chat_list/chat_list_view.dart';
+import '../chat/providers/chat_provider.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_text_style.dart';
 import '../notification/notification_list_view.dart';

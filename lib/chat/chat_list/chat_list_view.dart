@@ -1,42 +1,18 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_pagination/firebase_pagination.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:hellchinza/chat/chat_room/chat_room_view.dart';
-import 'package:hellchinza/common/common_home_app_bar.dart';
-import 'package:hellchinza/common/common_network_image.dart';
 
-import '../../auth/providers/user_provider.dart';
-import '../../common/common_profile_avatar.dart';
-import '../../constants/app_colors.dart';
-import '../../constants/app_text_style.dart';
-import '../../meet/domain/meet_summary_model.dart';
-import '../../utils/date_time_util.dart';
-import 'chat_list_controller.dart';
-
-final unreadChatCountProvider = StreamProvider<int>((ref) {
-  final uid = FirebaseAuth.instance.currentUser!.uid;
-
-  final q = FirebaseFirestore.instance
-      .collection('chatRooms')
-      .where('userUids', arrayContains: uid);
-
-  return q.snapshots().map((snap) {
-    int total = 0;
-
-    for (final doc in snap.docs) {
-      final data = doc.data();
-
-      final map = Map<String, dynamic>.from(data['unreadCountMap'] ?? {});
-
-      total += (map[uid] ?? 0) as int;
-    }
-
-    return total;
-  });
-});
+import '../../../auth/providers/user_provider.dart';
+import '../../../common/common_network_image.dart';
+import '../../../common/common_profile_avatar.dart';
+import '../../../constants/app_colors.dart';
+import '../../../constants/app_text_style.dart';
+import '../../../meet/domain/meet_summary_model.dart';
+import '../../../utils/date_time_util.dart';
+import '../chat_room/chat_room_view.dart';
+import '../providers/chat_provider.dart';
 
 class ChatListView extends ConsumerWidget {
   const ChatListView({super.key});
@@ -45,8 +21,8 @@ class ChatListView extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(chatListControllerProvider);
     final controller = ref.read(chatListControllerProvider.notifier);
+    final uid = ref.read(chatRepoProvider).currentUid;
 
-    final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) {
       return Scaffold(
         body: Center(
@@ -60,10 +36,10 @@ class ChatListView extends ConsumerWidget {
       );
     }
 
-    final query = controller.buildQuery();
+    final query = ref.read(chatRepoProvider).buildChatListQuery();
 
     return Scaffold(
-      appBar: AppBar(title: Text('채팅')),
+      appBar: AppBar(title: const Text('채팅')),
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: () async {
@@ -105,21 +81,18 @@ class ChatListView extends ConsumerWidget {
             ),
             itemBuilder: (context, docs, index) {
               final doc = docs[index];
-
               final data =
                   (doc.data() as Map?)?.cast<String, dynamic>() ??
                   <String, dynamic>{};
 
               final roomId = (data['id'] ?? doc.id).toString();
-              final roomType = (data['type'] ?? 'dm').toString(); // ✅ 추가
-
+              final roomType = (data['type'] ?? 'dm').toString();
               final userUids =
                   (data['userUids'] as List?)
                       ?.map((e) => e.toString())
                       .toList() ??
                   [];
-
-              final meetId = data['meetId']?.toString(); // ✅ group일 때 사용
+              final meetId = data['meetId']?.toString();
 
               final otherUid = roomType == 'dm'
                   ? userUids.firstWhere((e) => e != uid, orElse: () => '')
@@ -132,22 +105,19 @@ class ChatListView extends ConsumerWidget {
               DateTime? lastAt;
               final ts = data['lastMessageAt'];
               if (ts is Timestamp) lastAt = ts.toDate();
+
               final unreadMap =
                   (data['unreadCountMap'] as Map?)?.cast<String, dynamic>() ??
                   {};
-              final myUid = FirebaseAuth.instance.currentUser!.uid;
+              final unreadCount = ((unreadMap[uid] ?? 0) as num).toInt();
 
-              final unreadCount = (unreadMap[myUid] ?? 0) as int;
               return Padding(
                 padding: const EdgeInsets.only(bottom: 10),
                 child: _ChatRoomRow(
                   roomId: roomId,
                   roomType: roomType,
-                  // ✅ 추가
                   otherUid: otherUid,
-                  // dm만 사용
                   meetId: meetId,
-                  // group만 사용
                   lastMessage: lastMessage,
                   lastType: lastType,
                   status: status,
@@ -159,9 +129,9 @@ class ChatListView extends ConsumerWidget {
                       MaterialPageRoute(
                         builder: (_) => ChatView(
                           roomId: roomId,
-                          roomType: roomType, // ✅ 추가
-                          otherUid: otherUid, // dm이면 값 있음, group이면 null
-                          meetId: meetId, // group이면 넣고, 없으면 null
+                          roomType: roomType,
+                          otherUid: otherUid,
+                          meetId: meetId,
                         ),
                       ),
                     );
@@ -179,9 +149,9 @@ class ChatListView extends ConsumerWidget {
 class _ChatRoomRow extends ConsumerWidget {
   const _ChatRoomRow({
     required this.roomId,
-    required this.roomType, // ✅ 추가: 'dm' | 'group'
-    this.otherUid, // ✅ dm에서만 필요
-    this.meetId, // ✅ group에서만 필요
+    required this.roomType,
+    this.otherUid,
+    this.meetId,
     required this.lastMessage,
     required this.lastType,
     required this.status,
@@ -199,7 +169,6 @@ class _ChatRoomRow extends ConsumerWidget {
   final String lastType;
   final String status;
   final DateTime? lastAt;
-
   final VoidCallback onTap;
 
   @override
@@ -213,7 +182,7 @@ class _ChatRoomRow extends ConsumerWidget {
         : DateTimeUtil.formatRelative(lastAt!);
 
     if (roomType == 'group') {
-      final id = meetId ?? roomId; // ✅ 너 설계에서 roomId=meetId면 이걸로 OK
+      final id = meetId ?? roomId;
       final asyncMeet = ref.watch(meetSummaryProvider(id));
 
       return asyncMeet.when(
@@ -224,7 +193,9 @@ class _ChatRoomRow extends ConsumerWidget {
             title: meet.title,
             subtitle: subtitle,
             timeText: timeText,
-            imageUrl: meet.imageUrls!.first,
+            imageUrl: meet.imageUrls?.isNotEmpty == true
+                ? meet.imageUrls!.first
+                : null,
             onTap: onTap,
             unreadCount: unreadCount,
           );
@@ -239,9 +210,8 @@ class _ChatRoomRow extends ConsumerWidget {
       );
     }
 
-    // ✅ dm
     final uid = otherUid;
-    if (uid == null) return const SizedBox.shrink();
+    if (uid == null || uid.isEmpty) return const SizedBox.shrink();
 
     final asyncMini = ref.watch(userMiniProvider(uid));
     return asyncMini.when(
@@ -279,7 +249,6 @@ class _BaseChatRoomTile extends StatelessWidget {
     required this.imageUrl,
     required this.onTap,
     required this.unreadCount,
-
     this.uidForAvatar,
     this.gender,
     this.lastWeeklyRank,
@@ -291,8 +260,6 @@ class _BaseChatRoomTile extends StatelessWidget {
   final String? imageUrl;
   final VoidCallback onTap;
   final int unreadCount;
-
-  // dm에서만 쓰는 값(프로필 기본이미지 처리용)
   final String? uidForAvatar;
   final String? gender;
   final int? lastWeeklyRank;
@@ -311,7 +278,6 @@ class _BaseChatRoomTile extends StatelessWidget {
         ),
         child: Row(
           children: [
-            // ✅ dm이면 CommonProfileAvatar 그대로, group이면 썸네일 아바타로
             _LeadingAvatar(
               imageUrl: imageUrl,
               uid: uidForAvatar,
@@ -358,7 +324,7 @@ class _BaseChatRoomTile extends StatelessWidget {
                         ),
                       ),
                       if (unreadCount > 0) ...[
-                        const SizedBox(height: 6),
+                        const SizedBox(width: 6),
                         _UnreadBadge(count: unreadCount),
                       ],
                     ],
@@ -416,7 +382,6 @@ class _LeadingAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // uid가 있으면 DM 아바타로 취급
     if (uid != null) {
       return CommonProfileAvatar(
         imageUrl: imageUrl,
@@ -427,25 +392,16 @@ class _LeadingAvatar extends StatelessWidget {
       );
     }
 
-    // 그룹(모임) 썸네일
-    // return ClipRRect(
-    //   borderRadius: BorderRadius.circular(12),
-    //   child: Container(
-    //     width: 44,
-    //     height: 44,
-    //     decoration: BoxDecoration(
-    //       color: AppColors.bgSecondary,
-    //       border: Border.all(color: AppColors.borderSecondary),
-    //     ),
-    //     child: (imageUrl == null || imageUrl!.isEmpty)
-    //         ? const Icon(Icons.groups, color: AppColors.icSecondary, size: 22)
-    //         : Image.network(imageUrl!, fit: BoxFit.cover),
-    //   ),
-    // );
     return ClipRRect(
       borderRadius: BorderRadius.circular(16),
-      child: imageUrl == null
-          ? Container()
+      child: imageUrl == null || imageUrl!.isEmpty
+          ? Container(
+              width: 44,
+              height: 44,
+              color: AppColors.bgSecondary,
+              alignment: Alignment.center,
+              child: const Icon(Icons.groups, color: AppColors.icSecondary),
+            )
           : CommonNetworkImage(
               imageUrl: imageUrl!,
               width: 44,

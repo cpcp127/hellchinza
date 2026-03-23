@@ -147,7 +147,7 @@ class AuthRepo {
         'profileCompleted': false,
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
-        'provider': provider,
+        'providers': provider,
         'notificationSettings': {
           'like': true,
           'comment': true,
