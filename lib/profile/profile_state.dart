@@ -1,8 +1,8 @@
 enum FriendRelation {
-  none,       // 신청 가능
-  pendingOut, // 내가 신청함(대기중)
-  pendingIn,  // 상대가 나에게 신청함(대기중) - 다음 단계에서 수락/거절로 확장
-  friends,    // 친구
+  none,
+  pendingOut,
+  pendingIn,
+  friends,
 }
 
 class ProfileState {
@@ -45,12 +45,14 @@ class ProfileState {
 
   bool get isMe => myUid != null && myUid == targetUid;
 
-  // 버튼 노출/상태
   bool get showFriendButton => !isMe;
-  bool get canSendFriendRequest => !isMe && relation == FriendRelation.none && !isBusy;
+
+  bool get canSendFriendRequest =>
+      !isMe && relation == FriendRelation.none && !isBusy;
 
   String get friendButtonTitle {
     if (isBusy) return '처리중...';
+
     switch (relation) {
       case FriendRelation.none:
         return '친구 신청';
@@ -65,7 +67,6 @@ class ProfileState {
 
   bool get friendButtonEnabled {
     if (isBusy) return false;
-    // 지금 단계에서는 "친구 신청"만 가능하게.
     return relation == FriendRelation.none;
   }
 }

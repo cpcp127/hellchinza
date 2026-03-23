@@ -1,26 +1,20 @@
 import 'dart:io';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hellchinza/auth/domain/user_model.dart';
+import 'package:hellchinza/auth/providers/user_provider.dart';
+import 'package:hellchinza/common/common_back_appbar.dart';
 import 'package:hellchinza/common/common_chip.dart';
+import 'package:hellchinza/common/common_text_field.dart';
+import 'package:hellchinza/constants/app_colors.dart';
 import 'package:hellchinza/constants/app_constants.dart';
+import 'package:hellchinza/constants/app_text_style.dart';
+import 'package:hellchinza/home/providers/home_provider.dart';
+import 'package:hellchinza/profile/providers/profile_provider.dart';
 import 'package:hellchinza/services/image_service.dart';
-import 'package:hellchinza/services/storage_upload_service.dart';
-
-import '../auth/domain/user_model.dart';
-import '../auth/providers/user_provider.dart';
-import '../common/common_back_appbar.dart';
-import '../common/common_bottom_button.dart';
-import '../common/common_text_field.dart';
-import '../constants/app_colors.dart';
-import '../constants/app_text_style.dart';
-import '../home/presentation/home_controller.dart';
-import '../home/providers/home_provider.dart';
 
 class ProfileEditView extends ConsumerStatefulWidget {
   const ProfileEditView({super.key});
@@ -30,8 +24,6 @@ class ProfileEditView extends ConsumerStatefulWidget {
 }
 
 class _ProfileEditViewState extends ConsumerState<ProfileEditView> {
-  final _formKey = GlobalKey<FormState>();
-
   late final TextEditingController _nickCtrl;
   late final TextEditingController _descCtrl;
 
@@ -44,10 +36,8 @@ class _ProfileEditViewState extends ConsumerState<ProfileEditView> {
   void initState() {
     super.initState();
 
-    // 전역 유저 모델
     final my = ref.read(myUserModelProvider);
-
-    _nickCtrl = TextEditingController(text: my.nickname ?? '');
+    _nickCtrl = TextEditingController(text: my.nickname);
     _descCtrl = TextEditingController(text: my.description ?? '');
     _selected = List<String>.from(my.category);
   }
@@ -61,78 +51,30 @@ class _ProfileEditViewState extends ConsumerState<ProfileEditView> {
 
   Future<void> _save() async {
     setState(() => _saving = true);
+
     try {
-      await saveProfile(
+      await ref.read(profileRepoProvider).saveProfile(
         selectedImage: selectImage,
         nickname: _nickCtrl.text.trim(),
         description: _descCtrl.text.trim(),
         category: _selected,
         deletePhoto: deletePhoto,
       );
-      UserModel? userModel = await ref
-          .read(homeRepoProvider)
-          .fetchUser(FirebaseAuth.instance.currentUser!.uid);
-      ref.read(myUserModelProvider.notifier).updateUserModel(userModel!);
-      ref.read(userRepoProvider).clear(userModel.uid);
-      ref.invalidate(userMiniProvider(userModel.uid));
+
+      final uid = ref.read(profileRepoProvider).currentUid!;
+      final userModel = await ref.read(homeRepoProvider).fetchUser(uid);
+
+      if (userModel != null) {
+        ref.read(myUserModelProvider.notifier).updateUserModel(userModel);
+        ref.read(userRepoProvider).clear(userModel.uid);
+        ref.invalidate(userMiniProvider(userModel.uid));
+      }
+
+      if (!mounted) return;
       Navigator.pop(context);
-    } catch (e) {
-      // TODO: 스낵바/토스트
+    } catch (_) {
     } finally {
       if (mounted) setState(() => _saving = false);
-    }
-  }
-
-  Future<void> saveProfile({
-    required XFile? selectedImage,
-    required String nickname,
-    required String description,
-    required List<String> category,
-    required bool deletePhoto,
-  }) async {
-    final uid = FirebaseAuth.instance.currentUser!.uid;
-    final userRef = FirebaseFirestore.instance.collection('users').doc(uid);
-    final snap = await userRef.get();
-    final prevPath = snap.data()?['photoPath'] as String?;
-    UploadResult? uploaded;
-
-    if (selectedImage != null) {
-      uploaded = await const StorageUploadService().uploadProfileImage(
-        uid: uid,
-        file: selectedImage,
-      );
-    }
-
-    final data = <String, dynamic>{
-      'nickname': nickname,
-      'description': description,
-      'category': category,
-      'updatedAt': FieldValue.serverTimestamp(),
-    };
-
-    // 3) 삭제 요청이면 photoUrl/photoPath null
-    if (deletePhoto) {
-      data['photoUrl'] = null;
-      data['photoPath'] = null;
-    }
-
-    if (uploaded != null) {
-      data['photoUrl'] = uploaded.url;
-      data['photoPath'] = uploaded.path; // ✅ 추가
-    }
-
-    await userRef.set(data, SetOptions(merge: true));
-    // 5) Storage 이전 파일 삭제 조건
-    // - 새 이미지 업로드했다면 이전 파일 삭제
-    // - deletePhoto=true면 이전 파일 삭제
-    final shouldDeletePrev = (uploaded != null) || deletePhoto;
-
-    if (shouldDeletePrev && prevPath != null && prevPath.isNotEmpty) {
-      try {
-        await FirebaseStorage.instance.ref(prevPath).delete();
-      } catch (_) {
-        // 삭제 실패해도 앱 흐름은 유지
-      }
     }
   }
 
@@ -148,10 +90,7 @@ class _ProfileEditViewState extends ConsumerState<ProfileEditView> {
 
   bool get _isValid {
     final nick = _nickCtrl.text.trim();
-
-    return nick.isNotEmpty &&
-        _selected.isNotEmpty && // ⭐ 관심 카테고리 1개 이상
-        !_saving;
+    return nick.isNotEmpty && _selected.isNotEmpty && !_saving;
   }
 
   String? networkUrlToShow(UserModel my) {
@@ -164,8 +103,7 @@ class _ProfileEditViewState extends ConsumerState<ProfileEditView> {
   @override
   Widget build(BuildContext context) {
     final my = ref.watch(myUserModelProvider);
-    final hasNetworkPhoto = (my.photoUrl ?? '').trim().isNotEmpty;
-    final hasSelected = selectImage != null;
+
     return Scaffold(
       backgroundColor: AppColors.bgWhite,
       appBar: CommonBackAppbar(
@@ -179,13 +117,13 @@ class _ProfileEditViewState extends ConsumerState<ProfileEditView> {
                 child: _saving
                     ? const CupertinoActivityIndicator()
                     : Text(
-                        '저장',
-                        style: AppTextStyle.titleSmallBoldStyle.copyWith(
-                          color: _isValid
-                              ? AppColors.textPrimary
-                              : AppColors.textDisabled,
-                        ),
-                      ),
+                  '저장',
+                  style: AppTextStyle.titleSmallBoldStyle.copyWith(
+                    color: _isValid
+                        ? AppColors.textPrimary
+                        : AppColors.textDisabled,
+                  ),
+                ),
               ),
             ),
           ),
@@ -196,13 +134,9 @@ class _ProfileEditViewState extends ConsumerState<ProfileEditView> {
           padding: const EdgeInsets.only(top: 16, bottom: 24),
           child: Column(
             children: [
-              // 1) 프로필 이미지 카드
               _ProfileTopCard(
-                // ✅ 선택된 이미지가 있으면 그것을 우선으로 보여줌
                 selectedImage: selectImage,
-                // ✅ 선택된 이미지가 없으면 기존 photoUrl 보여줌
                 photoUrl: networkUrlToShow(my),
-
                 onTapPhoto: () {
                   FocusManager.instance.primaryFocus?.unfocus();
 
@@ -210,9 +144,7 @@ class _ProfileEditViewState extends ConsumerState<ProfileEditView> {
                     context: context,
                     hasImage: true,
                     onCamera: () async {
-                      XFile? imageFile = await ImageService().takePicture(
-                        context,
-                      );
+                      final imageFile = await ImageService().takePicture(context);
                       if (imageFile == null) return;
                       final webpImage = await ImageService().convertToWebp(
                         File(imageFile.path),
@@ -220,35 +152,31 @@ class _ProfileEditViewState extends ConsumerState<ProfileEditView> {
 
                       setState(() {
                         selectImage = webpImage;
-                        deletePhoto = false; // 새 이미지 선택하면 삭제 예약 해제
+                        deletePhoto = false;
                       });
                     },
                     onGallery: () async {
-                      XFile? imageFile = await ImageService().showImagePicker(
-                        context,
-                      );
+                      final imageFile = await ImageService().showImagePicker(context);
                       if (imageFile == null) return;
                       final webpImage = await ImageService().convertToWebp(
                         File(imageFile.path),
                       );
+
                       setState(() {
                         selectImage = webpImage;
-                        deletePhoto = false; // 새 이미지 선택하면 삭제 예약 해제
+                        deletePhoto = false;
                       });
                     },
                     onDelete: () {
                       setState(() {
                         selectImage = null;
-                        deletePhoto = true; // 기존 네트워크 이미지도 삭제 예약
+                        deletePhoto = true;
                       });
                     },
                   );
                 },
               ),
-
               const SizedBox(height: 16),
-
-              // 2) 입력 폼 카드 (닉네임/소개)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: _Card(
@@ -267,19 +195,13 @@ class _ProfileEditViewState extends ConsumerState<ProfileEditView> {
                         maxLength: 8,
                         controller: _nickCtrl,
                         validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return ''; // 에러텍스트 숨기는 방식이면 '' 유지
-                          }
-                          if (RegExp(r'\s').hasMatch(value)) {
-                            return '';
-                          }
+                          if (value == null || value.trim().isEmpty) return '';
+                          if (RegExp(r'\s').hasMatch(value)) return '';
                           return null;
                         },
                         onChanged: (_) => setState(() {}),
                       ),
-
                       const SizedBox(height: 14),
-
                       Text(
                         '소개',
                         style: AppTextStyle.titleMediumBoldStyle.copyWith(
@@ -299,10 +221,7 @@ class _ProfileEditViewState extends ConsumerState<ProfileEditView> {
                   ),
                 ),
               ),
-
               const SizedBox(height: 16),
-
-              // 3) 카테고리 카드
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: _Card(
@@ -319,9 +238,7 @@ class _ProfileEditViewState extends ConsumerState<ProfileEditView> {
                       CommonChipWrap(
                         items: workList,
                         selectedItems: _selected,
-                        onTap: (str) {
-                          _toggleCategory(str);
-                        },
+                        onTap: _toggleCategory,
                       ),
                     ],
                   ),
@@ -336,8 +253,8 @@ class _ProfileEditViewState extends ConsumerState<ProfileEditView> {
 }
 
 class _ProfileTopCard extends StatelessWidget {
-  final String? photoUrl; // 기존 네트워크 이미지
-  final XFile? selectedImage; // 새로 선택된 이미지
+  final String? photoUrl;
+  final XFile? selectedImage;
   final VoidCallback onTapPhoto;
 
   const _ProfileTopCard({
@@ -398,19 +315,18 @@ class _ProfileTopCard extends StatelessWidget {
                           color: AppColors.gray100,
                           child: hasSelected
                               ? Image.file(
-                                  File(selectedImage!.path),
-                                  fit: BoxFit.cover,
-                                )
+                            File(selectedImage!.path),
+                            fit: BoxFit.cover,
+                          )
                               : hasNetwork
                               ? Image.network(photoUrl!, fit: BoxFit.cover)
                               : Icon(
-                                  Icons.person,
-                                  size: 44,
-                                  color: AppColors.icSecondary,
-                                ),
+                            Icons.person,
+                            size: 44,
+                            color: AppColors.icSecondary,
+                          ),
                         ),
                       ),
-
                       Positioned(
                         right: -2,
                         bottom: -2,
@@ -447,7 +363,6 @@ class _ProfileTopCard extends StatelessWidget {
   }
 }
 
-/// 공통 카드(흰색 + 보더 + 그림자)
 class _Card extends StatelessWidget {
   final Widget child;
 
@@ -476,7 +391,10 @@ class _Card extends StatelessWidget {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(16),
-        child: Padding(padding: const EdgeInsets.all(16), child: child),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: child,
+        ),
       ),
     );
   }
