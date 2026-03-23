@@ -150,7 +150,8 @@ class _FeedListViewState extends ConsumerState<FeedListView> {
               },
             ),
           ),
-          const CommonBannerAd(),
+          // google admob 나중에
+          // const CommonBannerAd(),
         ],
       ),
     );
