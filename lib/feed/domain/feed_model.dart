@@ -1,12 +1,24 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:hellchinza/feed/domain/poll_model.dart';
-import 'package:json_annotation/json_annotation.dart';
 
-import '../create_feed/create_feed_state.dart';
+import 'feed_place.dart';
+import 'poll_model.dart';
 
-part 'feed_model.g.dart';
+enum FeedMainType {
+  workout('오운완'),
+  meal('식단'),
+  question('질문'),
+  review('후기');
 
-@JsonSerializable(explicitToJson: true)
+  final String label;
+
+  const FeedMainType(this.label);
+}
+
+class FeedVisibility {
+  static const String public = 'public';
+  static const String friends = 'friends';
+}
+
 class FeedModel {
   final String id;
   final String authorUid;
@@ -14,29 +26,12 @@ class FeedModel {
   final String? subType;
   final String? contents;
   final FeedPlace? place;
-
-  /// 이미지 없으면 null
-  final List<String>? imageUrls;
-
-  /// 기존 문서에 필드가 없거나 null이면 public 취급
-  @JsonKey(defaultValue: FeedVisibility.public)
+  final List<String> imageUrls;
   final String visibility;
-
-  /// 투표 (없으면 null)
   final PollModel? poll;
   final int commentCount;
   final String? meetId;
-
-  @JsonKey(
-    fromJson: _timestampFromJson,
-    toJson: _timestampToJson,
-  )
   final DateTime createdAt;
-
-  @JsonKey(
-    fromJson: _timestampFromJson,
-    toJson: _timestampToJson,
-  )
   final DateTime updatedAt;
 
   const FeedModel({
@@ -46,7 +41,7 @@ class FeedModel {
     this.subType,
     this.contents,
     this.place,
-    this.imageUrls,
+    this.imageUrls = const [],
     this.visibility = FeedVisibility.public,
     this.poll,
     required this.commentCount,
@@ -55,19 +50,49 @@ class FeedModel {
     required this.updatedAt,
   });
 
-  factory FeedModel.fromJson(Map<String, dynamic> json) =>
-      _$FeedModelFromJson(json);
+  factory FeedModel.fromJson(Map<String, dynamic> json) {
+    return FeedModel(
+      id: (json['id'] ?? '') as String,
+      authorUid: (json['authorUid'] ?? '') as String,
+      mainType: (json['mainType'] ?? '') as String,
+      subType: json['subType'] as String?,
+      contents: json['contents'] as String?,
+      place: json['place'] == null
+          ? null
+          : FeedPlace.fromJson(Map<String, dynamic>.from(json['place'])),
+      imageUrls:
+          (json['imageUrls'] as List?)?.map((e) => e.toString()).toList() ??
+          const [],
+      visibility: (json['visibility'] as String?) ?? FeedVisibility.public,
+      poll: json['poll'] == null
+          ? null
+          : PollModel.fromJson(Map<String, dynamic>.from(json['poll'])),
+      commentCount: ((json['commentCount'] ?? 0) as num).toInt(),
+      meetId: json['meetId'] as String?,
+      createdAt: _timestampFromJson(json['createdAt']),
+      updatedAt: _timestampFromJson(json['updatedAt']),
+    );
+  }
 
-  Map<String, dynamic> toJson() => _$FeedModelToJson(this);
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'authorUid': authorUid,
+    'mainType': mainType,
+    'subType': subType,
+    'contents': contents,
+    'place': place?.toJson(),
+    'imageUrls': imageUrls.isEmpty ? null : imageUrls,
+    'visibility': visibility,
+    'poll': poll?.toJson(),
+    'commentCount': commentCount,
+    'meetId': meetId,
+    'createdAt': Timestamp.fromDate(createdAt),
+    'updatedAt': Timestamp.fromDate(updatedAt),
+  };
 
   static DateTime _timestampFromJson(dynamic value) {
-    if (value == null) return DateTime.fromMillisecondsSinceEpoch(0);
     if (value is Timestamp) return value.toDate();
     if (value is DateTime) return value;
     return DateTime.fromMillisecondsSinceEpoch(0);
-  }
-
-  static dynamic _timestampToJson(DateTime value) {
-    return Timestamp.fromDate(value);
   }
 }

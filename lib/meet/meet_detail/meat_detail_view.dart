@@ -5,7 +5,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hellchinza/chat/chat_room/chat_room_view.dart';
-import 'package:hellchinza/claim/claim_view.dart';
+import 'package:hellchinza/claim/presentation/claim_view.dart';
 import 'package:hellchinza/common/common_chip.dart';
 import 'package:hellchinza/common/common_network_image.dart';
 import 'package:hellchinza/common/common_profile_avatar.dart';

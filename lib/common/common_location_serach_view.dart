@@ -6,6 +6,7 @@ import 'package:proj4dart/proj4dart.dart' as proj4;
 import '../constants/app_colors.dart';
 import '../constants/app_text_style.dart';
 import '../feed/create_feed/create_feed_state.dart';
+import '../feed/domain/feed_place.dart';
 import '../services/naver_location_service.dart';
 import '../services/snackbar_service.dart';
 import 'common_text_field.dart';
@@ -66,8 +67,9 @@ class _CommonLocationSearchViewState extends State<CommonLocationSearchView> {
             await _search(_controller.text);
           },
           child: Container(
-              color: Colors.transparent,
-              child: Icon(Icons.search, color: AppColors.icSecondary)),
+            color: Colors.transparent,
+            child: Icon(Icons.search, color: AppColors.icSecondary),
+          ),
         ),
       ),
     );
@@ -153,26 +155,24 @@ class _CommonLocationSearchViewState extends State<CommonLocationSearchView> {
       });
     }
   }
-  LatLng tm128ToWgs84({
-    required double mapx,
-    required double mapy,
-  }) {
+
+  LatLng tm128ToWgs84({required double mapx, required double mapy}) {
     final katech = proj4.Projection.parse(
       '+proj=tmerc +lat_0=38 +lon_0=128 '
-          '+k=0.9999 +x_0=400000 +y_0=600000 '
-          '+ellps=bessel +units=m +no_defs',
+      '+k=0.9999 +x_0=400000 +y_0=600000 '
+      '+ellps=bessel +units=m +no_defs',
     );
 
     final wgs84 = proj4.Projection.parse(
       '+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs',
     );
 
-    final pt = proj4.Point(
-      x: mapx / 1e7,
-      y: mapy / 1e7,
-    );
+    final pt = proj4.Point(x: mapx / 1e7, y: mapy / 1e7);
 
-    final out = proj4.ProjectionTuple(fromProj: katech, toProj: wgs84).forward(pt);
+    final out = proj4.ProjectionTuple(
+      fromProj: katech,
+      toProj: wgs84,
+    ).forward(pt);
 
     return LatLng(lat: out.y, lng: out.x);
   }

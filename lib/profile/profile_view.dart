@@ -17,7 +17,7 @@ import 'package:hellchinza/profile/widget/my_feed_list_view.dart';
 import 'package:hellchinza/profile/widget/my_meets_list_view.dart';
 
 import '../auth/providers/user_provider.dart';
-import '../claim/claim_view.dart';
+import '../claim/presentation/claim_view.dart';
 import '../claim/domain/claim_model.dart';
 import '../common/common_action_sheet.dart';
 import '../common/common_bottom_button.dart';

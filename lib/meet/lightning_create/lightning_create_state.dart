@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../feed/create_feed/create_feed_state.dart';
-
+import '../../feed/domain/feed_place.dart';
 
 class LightningCreateState {
   final int stepIndex; // 0~4
@@ -32,15 +32,15 @@ class LightningCreateState {
   });
 
   const LightningCreateState.initial()
-      : stepIndex = 0,
-        isLoading = false,
-        errorMessage = null,
-        title = '',
-        category = null,
-        dateTime = null,
-        maxMembersText = null,
-        selectedPlace = null,
-        thumbnail = null;
+    : stepIndex = 0,
+      isLoading = false,
+      errorMessage = null,
+      title = '',
+      category = null,
+      dateTime = null,
+      maxMembersText = null,
+      selectedPlace = null,
+      thumbnail = null;
 
   LightningCreateState copyWith({
     int? stepIndex,
@@ -76,7 +76,10 @@ class LightningCreateState {
       case 1:
         return category != null && category!.isNotEmpty;
       case 2:
-        return dateTime != null && dateTime!.isAfter(DateTime.now().subtract(const Duration(minutes: 1)));
+        return dateTime != null &&
+            dateTime!.isAfter(
+              DateTime.now().subtract(const Duration(minutes: 1)),
+            );
       case 3:
         final v = maxMembersText;
         return v != null && v >= 2 && v <= 200;

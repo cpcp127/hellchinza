@@ -8,7 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../auth/domain/user_mini.dart';
-import '../../../claim/claim_view.dart';
+import '../../claim/presentation/claim_view.dart';
 import '../../../claim/domain/claim_model.dart';
 import '../../../common/common_action_sheet.dart';
 import '../../../common/common_network_image.dart';

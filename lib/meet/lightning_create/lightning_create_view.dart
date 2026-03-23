@@ -11,6 +11,7 @@ import '../../constants/app_colors.dart';
 import '../../constants/app_constants.dart';
 import '../../constants/app_text_style.dart';
 import '../../feed/create_feed/create_feed_state.dart';
+import '../../feed/domain/feed_place.dart';
 import 'lightning_create_controller.dart';
 import 'lightning_create_state.dart';
 
@@ -313,10 +314,9 @@ class _StepCategoryPick extends StatelessWidget {
         const SizedBox(height: 10),
         CommonChipWrap(
           items: workList,
-          selectedItems: selected==null?[]:[selected!],
+          selectedItems: selected == null ? [] : [selected!],
           onTap: (str) => onSelect(str),
         ),
-
       ],
     );
   }
@@ -533,91 +533,85 @@ class _StepPlaceAndThumb extends StatelessWidget {
           },
           child: state.selectedPlace == null
               ? Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(
-              horizontal: 14,
-              vertical: 14,
-            ),
-            decoration: BoxDecoration(
-              color: AppColors.bgSecondary,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.borderSecondary),
-            ),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.place_outlined,
-                  size: 20,
-                  color: AppColors.icSecondary,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    '어디서 만날까요?',
-                    style: AppTextStyle.bodyMediumStyle.copyWith(
-                      color: AppColors.textSecondary,
-                    ),
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 14,
                   ),
-                ),
-                const Icon(
-                  Icons.chevron_right,
-                  size: 20,
-                  color: AppColors.icSecondary,
-                ),
-              ],
-            ),
-          )
-              : Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: AppColors.bgWhite,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.borderSecondary),
-            ),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.place_outlined,
-                  color: AppColors.icSecondary,
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  decoration: BoxDecoration(
+                    color: AppColors.bgSecondary,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.borderSecondary),
+                  ),
+                  child: Row(
                     children: [
-                      Text(
-                        state.selectedPlace!.title,
-                        style: AppTextStyle.titleSmallBoldStyle,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                      const Icon(
+                        Icons.place_outlined,
+                        size: 20,
+                        color: AppColors.icSecondary,
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        state.selectedPlace!.address,
-                        style: AppTextStyle.bodySmallStyle.copyWith(
-                          color: AppColors.textSecondary,
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          '어디서 만날까요?',
+                          style: AppTextStyle.bodyMediumStyle.copyWith(
+                            color: AppColors.textSecondary,
+                          ),
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const Icon(
+                        Icons.chevron_right,
+                        size: 20,
+                        color: AppColors.icSecondary,
+                      ),
+                    ],
+                  ),
+                )
+              : Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: AppColors.bgWhite,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.borderSecondary),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.place_outlined,
+                        color: AppColors.icSecondary,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              state.selectedPlace!.title,
+                              style: AppTextStyle.titleSmallBoldStyle,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              state.selectedPlace!.address,
+                              style: AppTextStyle.bodySmallStyle.copyWith(
+                                color: AppColors.textSecondary,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(
+                        Icons.chevron_right,
+                        color: AppColors.icSecondary,
                       ),
                     ],
                   ),
                 ),
-                const Icon(
-                  Icons.chevron_right,
-                  color: AppColors.icSecondary,
-                ),
-              ],
-            ),
-          ),
         ),
-
-
       ],
     );
   }
-
 }
-
-
-

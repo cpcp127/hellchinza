@@ -1,32 +1,52 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hellchinza/claim/presentation/claim_controller.dart';
+import 'package:hellchinza/claim/providers/claim_provider.dart';
 import 'package:hellchinza/common/common_chip.dart';
 import 'package:hellchinza/common/common_text_field.dart';
 
-import '../../services/snackbar_service.dart'; // 너꺼 경로에 맞춰
+import '../../../constants/app_colors.dart';
+import '../../../constants/app_text_style.dart';
+import '../../../services/snackbar_service.dart';
 
-import '../constants/app_colors.dart';
-import '../constants/app_text_style.dart';
-import 'claim_controller.dart';
-import 'domain/claim_model.dart';
+import '../domain/claim_model.dart';
 
-class ClaimView extends ConsumerWidget {
-  ClaimView({super.key, required this.target});
+class ClaimView extends ConsumerStatefulWidget {
+  const ClaimView({super.key, required this.target});
 
   final ClaimTarget target;
-  TextEditingController textEditingController = TextEditingController();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(claimControllerProvider(target));
-    final controller = ref.read(claimControllerProvider(target).notifier);
+  ConsumerState<ClaimView> createState() => _ClaimViewState();
+}
+
+class _ClaimViewState extends ConsumerState<ClaimView> {
+  late final TextEditingController textEditingController;
+
+  @override
+  void initState() {
+    super.initState();
+    textEditingController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    textEditingController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final state = ref.watch(claimControllerProvider(widget.target));
+    final controller = ref.read(
+      claimControllerProvider(widget.target).notifier,
+    );
 
     return Scaffold(
       backgroundColor: AppColors.bgWhite,
       appBar: AppBar(
         title: Text(
-          '${target.type.label} 신고',
+          '${widget.target.type.label} 신고',
           style: AppTextStyle.titleMediumBoldStyle,
         ),
         backgroundColor: AppColors.bgWhite,
@@ -39,32 +59,26 @@ class ClaimView extends ConsumerWidget {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
                 children: [
-                  _TargetHeader(target: target),
+                  _TargetHeader(target: widget.target),
                   const SizedBox(height: 14),
-
                   Text('사유 선택', style: AppTextStyle.titleSmallBoldStyle),
                   const SizedBox(height: 10),
-
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
-                    children: ClaimController.reasonPool.map((r) {
-                      final selected = state.selectedReasons.contains(r);
+                    children: ClaimController.reasonPool.map((reason) {
+                      final selected = state.selectedReasons.contains(reason);
 
                       return CommonChip(
-                        label: r,
+                        label: reason,
                         selected: selected,
-                        onTap: () => controller.toggleReason(r),
+                        onTap: () => controller.toggleReason(reason),
                       );
                     }).toList(),
                   ),
-
                   const SizedBox(height: 16),
-
                   Text('추가 설명 (선택)', style: AppTextStyle.titleSmallBoldStyle),
                   const SizedBox(height: 10),
-
-                  // 너가 쓰는 CommonTextField가 있으면 그걸로 교체
                   CommonTextField(
                     minLines: 4,
                     maxLines: 8,
@@ -73,8 +87,8 @@ class ClaimView extends ConsumerWidget {
                     scrollPadding: 300,
                     hintText: '상세 내용을 적어주세요 (선택)',
                   ),
-
-                  if (state.errorMessage != null) ...[
+                  if (state.errorMessage != null &&
+                      state.errorMessage!.isNotEmpty) ...[
                     const SizedBox(height: 12),
                     Text(
                       state.errorMessage!,
@@ -95,15 +109,14 @@ class ClaimView extends ConsumerWidget {
                   onPressed: state.canSubmit
                       ? () async {
                           try {
-                            await controller.submit(
-                              reporterUid:
-                                  FirebaseAuth.instance.currentUser!.uid,
-                            );
+                            await controller.submit();
                             SnackbarService.show(
                               type: AppSnackType.success,
                               message: '신고가 접수되었습니다',
                             );
-                            Navigator.pop(context, true);
+                            if (context.mounted) {
+                              Navigator.pop(context, true);
+                            }
                           } catch (_) {
                             SnackbarService.show(
                               type: AppSnackType.error,
@@ -128,7 +141,7 @@ class ClaimView extends ConsumerWidget {
                 ),
               ),
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
           ],
         ),
       ),
@@ -197,40 +210,3 @@ class _TargetHeader extends StatelessWidget {
     );
   }
 }
-
-// class _ReasonChip extends StatelessWidget {
-//   const _ReasonChip({
-//     required this.label,
-//     required this.selected,
-//     required this.onTap,
-//   });
-//
-//   final String label;
-//   final bool selected;
-//   final VoidCallback onTap;
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     return InkWell(
-//       onTap: onTap,
-//       borderRadius: BorderRadius.circular(999),
-//       child: Container(
-//         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-//         decoration: BoxDecoration(
-//           color: selected ? AppColors.sky50 : AppColors.bgWhite,
-//           borderRadius: BorderRadius.circular(999),
-//           border: Border.all(
-//             color: selected ? AppColors.borderPrimary : AppColors.borderSecondary,
-//           ),
-//         ),
-//         child: Text(
-//           label,
-//           style: AppTextStyle.labelSmallStyle.copyWith(
-//             color: selected ? AppColors.textPrimary : AppColors.textSecondary,
-//             fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-//           ),
-//         ),
-//       ),
-//     );
-//   }
-// }

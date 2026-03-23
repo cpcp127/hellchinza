@@ -1,22 +1,22 @@
-import 'package:json_annotation/json_annotation.dart';
-
-part 'poll_model.g.dart';
-
-@JsonSerializable()
 class PollModel {
   final List<PollOptionModel> options;
 
-  const PollModel({
-    required this.options,
-  });
+  const PollModel({required this.options});
 
-  factory PollModel.fromJson(Map<String, dynamic> json) =>
-      _$PollModelFromJson(json);
+  factory PollModel.fromJson(Map<String, dynamic> json) {
+    final raw = (json['options'] as List?) ?? const [];
+    return PollModel(
+      options: raw
+          .map((e) => PollOptionModel.fromJson(Map<String, dynamic>.from(e)))
+          .toList(),
+    );
+  }
 
-  Map<String, dynamic> toJson() => _$PollModelToJson(this);
+  Map<String, dynamic> toJson() => {
+    'options': options.map((e) => e.toJson()).toList(),
+  };
 }
 
-@JsonSerializable()
 class PollOptionModel {
   final String id;
   final String text;
@@ -28,8 +28,19 @@ class PollOptionModel {
     required this.voterUids,
   });
 
-  factory PollOptionModel.fromJson(Map<String, dynamic> json) =>
-      _$PollOptionModelFromJson(json);
+  factory PollOptionModel.fromJson(Map<String, dynamic> json) {
+    return PollOptionModel(
+      id: (json['id'] ?? '') as String,
+      text: (json['text'] ?? '') as String,
+      voterUids:
+          (json['voterUids'] as List?)?.map((e) => e.toString()).toList() ??
+          const [],
+    );
+  }
 
-  Map<String, dynamic> toJson() => _$PollOptionModelToJson(this);
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'text': text,
+    'voterUids': voterUids,
+  };
 }

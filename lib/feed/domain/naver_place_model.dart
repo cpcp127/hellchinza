@@ -4,8 +4,8 @@ class NaverLocalPlace {
   final String title;
   final String address;
   final String roadAddress;
-  final double mapx; // 경도
-  final double mapy; // 위도
+  final double mapx;
+  final double mapy;
 
   NaverLocalPlace({
     required this.title,
@@ -17,19 +17,16 @@ class NaverLocalPlace {
 
   factory NaverLocalPlace.fromJson(Map<String, dynamic> json) {
     return NaverLocalPlace(
-      title: decodeNaverHtml(json['title']),
-      address: json['address'],
-      roadAddress: json['roadAddress'],
-      mapx: double.parse(json['mapx']),
-      mapy: double.parse(json['mapy']),
+      title: decodeNaverHtml((json['title'] ?? '') as String),
+      address: (json['address'] ?? '') as String,
+      roadAddress: (json['roadAddress'] ?? '') as String,
+      mapx: double.parse((json['mapx'] ?? '0').toString()),
+      mapy: double.parse((json['mapy'] ?? '0').toString()),
     );
   }
 
-static  String decodeNaverHtml(String text) {
-    // 1. HTML 태그 제거 (<b> 등)
+  static String decodeNaverHtml(String text) {
     final noTag = text.replaceAll(RegExp(r'<[^>]*>'), '');
-
-    // 2. HTML 엔티티 디코딩
     return HtmlUnescape().convert(noTag);
   }
 }

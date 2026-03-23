@@ -2,31 +2,26 @@ import 'dart:io';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:hellchinza/common/common_back_appbar.dart';
-import 'package:hellchinza/common/common_bottom_button.dart';
-import 'package:hellchinza/common/common_location_serach_view.dart';
-import 'package:hellchinza/common/common_text_field.dart';
 import 'package:hellchinza/feed/create_feed/create_feed_controller.dart';
-import 'package:hellchinza/feed/domain/naver_place_model.dart';
-import 'package:hellchinza/services/image_service.dart';
+import 'package:image_picker/image_picker.dart';
 
-import '../../common/common_chip.dart';
-import '../../common/common_network_image.dart';
-import '../../common/common_poll_builder.dart';
-import '../../constants/app_colors.dart';
-import '../../constants/app_constants.dart';
-import '../../constants/app_text_style.dart';
-import 'package:hellchinza/feed/create_feed/create_feed_state.dart';
+import '../../../common/common_back_appbar.dart';
+import '../../../common/common_chip.dart';
+import '../../../common/common_location_serach_view.dart';
+import '../../../common/common_network_image.dart';
+import '../../../common/common_poll_builder.dart';
+import '../../../common/common_text_field.dart';
+import '../../../constants/app_colors.dart';
+import '../../../constants/app_constants.dart';
+import '../../../constants/app_text_style.dart';
 
-import '../domain/feed_model.dart';
+import '../domain/feed_model.dart' hide FeedMainType;
+import '../domain/feed_place.dart';
+import '../providers/feed_provider.dart';
+import 'create_feed_state.dart';
 
 class CreateFeedView extends ConsumerStatefulWidget {
-  final String mode;
-  final FeedModel? feed; // edit일 때만 필요
-  final String? meetId;
-
   const CreateFeedView({
     super.key,
     this.mode = 'create',
@@ -34,37 +29,58 @@ class CreateFeedView extends ConsumerStatefulWidget {
     this.meetId,
   });
 
+  final String mode;
+  final FeedModel? feed;
+  final String? meetId;
+
   @override
-  ConsumerState createState() => _CreateFeedViewState();
+  ConsumerState<CreateFeedView> createState() => _CreateFeedViewState();
 }
 
 class _CreateFeedViewState extends ConsumerState<CreateFeedView> {
-  PageController pageController = PageController();
-  TextEditingController textEditingController = TextEditingController();
+  final PageController pageController = PageController();
+  final TextEditingController textEditingController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+
+    if (widget.mode == 'update' && widget.feed != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref
+            .read(createFeedControllerProvider.notifier)
+            .initForEdit(widget.feed!);
+        textEditingController.text = widget.feed!.contents ?? '';
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    pageController.dispose();
+    textEditingController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(createFeedControllerProvider);
     final controller = ref.read(createFeedControllerProvider.notifier);
-    final bool hasImage =
-        (state.existingImageUrls?.isNotEmpty ?? false) ||
-        (state.newImageFiles?.isNotEmpty ?? false);
 
-    final bool hasText = (state.contents ?? '').trim().isNotEmpty;
-
-    final bool isSubmitEnabled = hasImage || hasText;
-    final bool hasMainType =
+    final hasImage =
+        state.existingImageUrls.isNotEmpty || state.newImageFiles.isNotEmpty;
+    final hasText = state.contents.trim().isNotEmpty;
+    final isSubmitEnabled = hasImage || hasText;
+    final hasMainType =
         state.selectMainType != null && state.selectMainType!.isNotEmpty;
-    final bool hasSubType =
+    final hasSubType =
         state.selectSubType != null && state.selectSubType!.isNotEmpty;
-
     final isNextEnabled = hasMainType && hasSubType;
-    final bool isCreate = widget.mode == 'create';
-    final bool isEdit = widget.mode == 'update';
-    final bool showEmptyImage = isCreate
-        ? (state.newImageFiles?.isEmpty ?? true)
-        : ((state.existingImageUrls?.isEmpty ?? true) &&
-              (state.newImageFiles?.isEmpty ?? true));
+    final isCreate = widget.mode == 'create';
+
+    final showEmptyImage =
+        state.existingImageUrls.isEmpty && state.newImageFiles.isEmpty;
+
     return Scaffold(
       appBar: state.pageIndex == 0
           ? CommonCloseAppbar(
@@ -73,19 +89,14 @@ class _CreateFeedViewState extends ConsumerState<CreateFeedView> {
                 Padding(
                   padding: const EdgeInsets.only(right: 8),
                   child: GestureDetector(
-                    onTap: isNextEnabled
-                        ? () {
-                            controller.onTapNext();
-                          }
-                        : null,
+                    onTap: isNextEnabled ? controller.onTapNext : null,
                     behavior: HitTestBehavior.translucent,
                     child: Text(
                       '다음',
                       style: AppTextStyle.titleSmallBoldStyle.copyWith(
                         color: isNextEnabled
-                            ? AppColors
-                                  .textPrimary // sky400
-                            : AppColors.textDisabled, // gray100
+                            ? AppColors.textPrimary
+                            : AppColors.textDisabled,
                       ),
                     ),
                   ),
@@ -104,29 +115,28 @@ class _CreateFeedViewState extends ConsumerState<CreateFeedView> {
                   child: GestureDetector(
                     onTap: isSubmitEnabled
                         ? () {
-                            if (widget.mode == 'create') {
+                            if (isCreate) {
                               controller.submitFeed(context, widget.meetId);
                             } else {
-                              //편집 로직
                               controller.updateFeed(
                                 context,
-                                feedId: widget.feed!.id,meetId: widget.meetId
+                                feedId: widget.feed!.id,
+                                meetId: widget.meetId,
                               );
                             }
                           }
                         : null,
                     behavior: HitTestBehavior.translucent,
-                    child: state.isUploading == false
-                        ? Text(
+                    child: state.isUploading
+                        ? const CupertinoActivityIndicator()
+                        : Text(
                             '완료',
                             style: AppTextStyle.titleSmallBoldStyle.copyWith(
                               color: isSubmitEnabled
-                                  ? AppColors
-                                        .textPrimary // sky400
-                                  : AppColors.textDisabled, // gray100
+                                  ? AppColors.textPrimary
+                                  : AppColors.textDisabled,
                             ),
-                          )
-                        : CupertinoActivityIndicator(),
+                          ),
                   ),
                 ),
               ],
@@ -148,7 +158,6 @@ class _CreateFeedViewState extends ConsumerState<CreateFeedView> {
                             ),
                           ),
                           const Spacer(),
-
                           GestureDetector(
                             onTap: () async {
                               await controller.pickMultiImage(context);
@@ -183,7 +192,7 @@ class _CreateFeedViewState extends ConsumerState<CreateFeedView> {
                         ],
                       ),
                     ),
-                    SizedBox(height: 10),
+                    const SizedBox(height: 10),
                     showEmptyImage
                         ? GestureDetector(
                             onTap: () async {
@@ -195,7 +204,7 @@ class _CreateFeedViewState extends ConsumerState<CreateFeedView> {
                                 child: Column(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Icon(
+                                    const Icon(
                                       Icons.photo_outlined,
                                       size: 36,
                                       color: AppColors.icSecondary,
@@ -222,7 +231,7 @@ class _CreateFeedViewState extends ConsumerState<CreateFeedView> {
                             ),
                           )
                         : _buildImagePageView(controller),
-                    SizedBox(height: 10),
+                    const SizedBox(height: 10),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: Text(
@@ -242,39 +251,34 @@ class _CreateFeedViewState extends ConsumerState<CreateFeedView> {
                         minLines: 6,
                         maxLines: 10,
                         scrollPadding: 300,
-                        onChanged: (str) {
-                          controller.onChangeText(str);
-                        },
+                        onChanged: controller.onChangeText,
                       ),
                     ),
                     const SizedBox(height: 18),
-                    state.selectMainType == '질문'
-                        ? Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  '투표 만들기',
-                                  style: AppTextStyle.titleSmallBoldStyle
-                                      .copyWith(color: AppColors.textDefault),
-                                ),
-                                const SizedBox(height: 10),
-                                PollBuilder(
-                                  options:
-                                      state.pollOptions ??
-                                      const [], // List<String>
-                                  onAdd: controller.addPollOption,
-                                  onRemove: controller.removePollOptionAt,
-                                  onChange: controller.changePollOption,
-                                ),
-                              ],
+                    if (state.selectMainType == '질문')
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '투표 만들기',
+                              style: AppTextStyle.titleSmallBoldStyle.copyWith(
+                                color: AppColors.textDefault,
+                              ),
                             ),
-                          )
-                        : Container(),
-
-                     _buildPlaceButton(),
-                    SizedBox(height: 16),
+                            const SizedBox(height: 10),
+                            PollBuilder(
+                              options: state.pollOptions,
+                              onAdd: controller.addPollOption,
+                              onRemove: controller.removePollOptionAt,
+                              onChange: controller.changePollOption,
+                            ),
+                          ],
+                        ),
+                      ),
+                    _buildPlaceButton(),
+                    const SizedBox(height: 16),
                     if (widget.meetId == null) ...[
                       _buildVisibilitySection(),
                       const SizedBox(height: 16),
@@ -286,6 +290,7 @@ class _CreateFeedViewState extends ConsumerState<CreateFeedView> {
       ),
     );
   }
+
   Widget _buildVisibilitySection() {
     final state = ref.watch(createFeedControllerProvider);
     final controller = ref.read(createFeedControllerProvider.notifier);
@@ -330,6 +335,7 @@ class _CreateFeedViewState extends ConsumerState<CreateFeedView> {
   Padding _buildPlaceButton() {
     final controller = ref.read(createFeedControllerProvider.notifier);
     final state = ref.watch(createFeedControllerProvider);
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
@@ -349,14 +355,11 @@ class _CreateFeedViewState extends ConsumerState<CreateFeedView> {
                 context,
                 CupertinoPageRoute(
                   fullscreenDialog: true,
-                  builder: (context) {
-                    return CommonLocationSearchView();
-                  },
+                  builder: (context) => CommonLocationSearchView(),
                 ),
               );
 
               if (selected == null) return;
-
               controller.onSelectPlace(selected);
             },
             child: state.selectedPlace == null
@@ -444,53 +447,29 @@ class _CreateFeedViewState extends ConsumerState<CreateFeedView> {
     );
   }
 
-  @override
-  void initState() {
-    super.initState();
-
-    if (widget.mode == 'update' && widget.feed != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        ref
-            .read(createFeedControllerProvider.notifier)
-            .initForEdit(widget.feed!);
-        textEditingController.text = widget.feed!.contents ?? '';
-      });
-    }
-  }
-
   AspectRatio _buildImagePageView(CreateFeedController controller) {
     final state = ref.watch(createFeedControllerProvider);
-    final existingUrls = state.existingImageUrls ?? const <String>[];
-    final newFiles = state.newImageFiles ?? const <XFile>[];
-
-    // ✅ PageView에서 보여줄 통합 리스트 (String or XFile)
-    final allImages = <Object>[...existingUrls, ...newFiles];
+    final allImages = <Object>[
+      ...state.existingImageUrls,
+      ...state.newImageFiles,
+    ];
 
     return AspectRatio(
       aspectRatio: 1,
       child: PageView.builder(
         controller: pageController,
         itemCount: allImages.length,
-        onPageChanged: (i) {
-          controller.onChangeImageIndex(i);
-        },
+        onPageChanged: controller.onChangeImageIndex,
         itemBuilder: (context, index) {
           final item = allImages[index];
 
           return Stack(
             children: [
-              // ✅ 이미지 (기존: URL / 신규: File)
               Positioned.fill(
                 child: item is String
-                    ? CommonNetworkImage(
-                        // ✅ 너가 만든 cached 공통 위젯
-                        imageUrl: item,
-                        fit: BoxFit.cover,
-                      )
+                    ? CommonNetworkImage(imageUrl: item, fit: BoxFit.cover)
                     : Image.file(File((item as XFile).path), fit: BoxFit.cover),
               ),
-
-              // ❌ 삭제 버튼 (오른쪽 상단)
               Positioned(
                 top: 12,
                 right: 12,
@@ -513,8 +492,6 @@ class _CreateFeedViewState extends ConsumerState<CreateFeedView> {
                   ),
                 ),
               ),
-
-              // 📄 페이지 인덱스 표시 (좌하단)
               Positioned(
                 bottom: 12,
                 left: 16,
@@ -573,7 +550,6 @@ class _CreateFeedViewState extends ConsumerState<CreateFeedView> {
               }),
             ],
           ),
-
           const SizedBox(height: 18),
           Text(
             '운동 종목',

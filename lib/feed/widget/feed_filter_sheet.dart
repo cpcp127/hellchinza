@@ -2,11 +2,11 @@ import 'dart:ui';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:hellchinza/common/common_chip.dart';
-import 'package:hellchinza/constants/app_constants.dart';
 
-import '../../constants/app_colors.dart';
-import '../../constants/app_text_style.dart';
+import '../../../common/common_chip.dart';
+import '../../../constants/app_colors.dart';
+import '../../../constants/app_constants.dart';
+import '../../../constants/app_text_style.dart';
 
 class FeedFilterWheelSheet extends StatefulWidget {
   const FeedFilterWheelSheet({
@@ -123,12 +123,10 @@ class _FeedFilterWheelSheetState extends State<FeedFilterWheelSheet> {
               ),
             ),
           ),
-
           SafeArea(
             child: Column(
               children: [
                 const SizedBox(height: 14),
-
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 18),
                   child: Row(
@@ -157,7 +155,6 @@ class _FeedFilterWheelSheetState extends State<FeedFilterWheelSheet> {
                   ),
                 ),
                 const SizedBox(height: 20),
-
                 Expanded(
                   child: Row(
                     children: [
@@ -187,9 +184,7 @@ class _FeedFilterWheelSheetState extends State<FeedFilterWheelSheet> {
                     ],
                   ),
                 ),
-
                 const SizedBox(height: 8),
-
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 22),
                   child: Column(
@@ -229,9 +224,7 @@ class _FeedFilterWheelSheetState extends State<FeedFilterWheelSheet> {
                     ],
                   ),
                 ),
-
                 const SizedBox(height: 18),
-
                 SafeArea(
                   top: false,
                   child: Padding(

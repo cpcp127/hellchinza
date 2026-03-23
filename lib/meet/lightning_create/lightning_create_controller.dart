@@ -9,19 +9,22 @@ import 'package:flutter_riverpod/legacy.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../feed/create_feed/create_feed_state.dart';
+import '../../feed/domain/feed_place.dart';
 import '../../services/image_service.dart';
 import '../../services/snackbar_service.dart';
 import 'lightning_create_state.dart';
 
-
-
 final lightningCreateControllerProvider = StateNotifierProvider.autoDispose
-    .family<LightningCreateController, LightningCreateState, String>((ref, meetId) {
-  return LightningCreateController(ref, meetId);
-});
+    .family<LightningCreateController, LightningCreateState, String>((
+      ref,
+      meetId,
+    ) {
+      return LightningCreateController(ref, meetId);
+    });
 
 class LightningCreateController extends StateNotifier<LightningCreateState> {
-  LightningCreateController(this.ref, this.meetId) : super(const LightningCreateState.initial());
+  LightningCreateController(this.ref, this.meetId)
+    : super(const LightningCreateState.initial());
 
   final Ref ref;
   final String meetId;
@@ -54,19 +57,19 @@ class LightningCreateController extends StateNotifier<LightningCreateState> {
   }
 
   Future<void> pickThumbnailToAlbum(BuildContext contex) async {
-
     final file = await ImageService().showImagePicker(contex);
     if (file == null) return;
     final webpImage = await ImageService().convertToWebp(File(file.path));
     state = state.copyWith(thumbnail: webpImage, clearError: true);
   }
-  Future<void> pickThumbnailToAlbumToCamera(BuildContext context) async {
 
+  Future<void> pickThumbnailToAlbumToCamera(BuildContext context) async {
     final file = await ImageService().takePicture(context);
     if (file == null) return;
     final webpImage = await ImageService().convertToWebp(File(file.path));
     state = state.copyWith(thumbnail: webpImage, clearError: true);
   }
+
   void removeThumbnail() {
     state = state.copyWith(clearThumbnail: true, clearError: true);
   }
@@ -148,10 +151,7 @@ class LightningCreateController extends StateNotifier<LightningCreateState> {
       );
       return true;
     } catch (e) {
-      SnackbarService.show(
-        type: AppSnackType.error,
-        message: '번개 생성에 실패했어요',
-      );
+      SnackbarService.show(type: AppSnackType.error, message: '번개 생성에 실패했어요');
       state = state.copyWith(isLoading: false, errorMessage: '번개 생성에 실패했어요');
       return false;
     }
@@ -162,9 +162,9 @@ class LightningCreateController extends StateNotifier<LightningCreateState> {
     required String lightningId,
     required XFile file,
   }) async {
-    final ref = _storage
-        .ref()
-        .child('meets/$meetId/lightnings/$lightningId/thumb.webp');
+    final ref = _storage.ref().child(
+      'meets/$meetId/lightnings/$lightningId/thumb.webp',
+    );
 
     // 파일 업로드
     final task = await ref.putFile(File(file.path));
@@ -182,5 +182,4 @@ class LightningCreateController extends StateNotifier<LightningCreateState> {
     }
     prevStep();
   }
-
 }

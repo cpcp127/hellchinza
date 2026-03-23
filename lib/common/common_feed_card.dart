@@ -1,6 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_pagination/firebase_pagination.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -9,25 +8,21 @@ import 'package:hellchinza/common/common_back_appbar.dart';
 import 'package:hellchinza/common/common_place_widget.dart';
 import 'package:hellchinza/services/feed_service.dart';
 
-import '../auth/presentation/auth_controller.dart';
 import '../auth/providers/user_provider.dart';
-import '../claim/claim_view.dart';
 import '../claim/domain/claim_model.dart';
+import '../claim/presentation/claim_view.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_text_style.dart';
-import '../feed/create_feed/create_feed_state.dart';
 import '../feed/create_feed/create_feed_view.dart';
 import '../feed/domain/feed_model.dart';
 import '../feed/domain/poll_model.dart';
-import '../feed/feed_detail/feed_detail_view.dart';
-import '../feed/feed_list/feed_list_controller.dart';
+import '../feed/providers/feed_provider.dart';
 import '../meet/meet_detail/meat_detail_view.dart';
 import '../oow_step/presentation/oow_step_view.dart';
 import '../profile/widget/feed_type_pill.dart';
 import '../services/dialog_service.dart';
 import '../services/snackbar_service.dart';
 import '../utils/date_time_util.dart';
-import 'common_action_sheet.dart';
 import 'common_context_menu.dart';
 import 'common_like_user_sheet.dart';
 import 'common_network_image.dart';
@@ -179,7 +174,8 @@ class FeedAuthorRow extends ConsumerWidget {
               imageUrl: photoUrl,
               size: 40,
               uid: mini!.uid,
-              gender: mini.gender,lastWeeklyRank: mini.lastWeeklyRank,
+              gender: mini.gender,
+              lastWeeklyRank: mini.lastWeeklyRank,
             ),
             const SizedBox(width: 8),
             Text(
@@ -238,7 +234,13 @@ class _AuthorSection extends ConsumerWidget {
                           // ref
                           //     .read(workoutGoalControllerProvider.notifier)
                           //     .init(uid: feed.authorUid);
-                          ref.read(oowRefreshTickProvider(FirebaseAuth.instance.currentUser!.uid).notifier).state++;
+                          ref
+                              .read(
+                                oowRefreshTickProvider(
+                                  FirebaseAuth.instance.currentUser!.uid,
+                                ).notifier,
+                              )
+                              .state++;
                         }
                         if (feed.meetId == null) {
                           ref
@@ -265,7 +267,13 @@ class _AuthorSection extends ConsumerWidget {
                           // ref
                           //     .read(workoutGoalControllerProvider.notifier)
                           //     .init(uid: feed.authorUid);
-                          ref.read(oowRefreshTickProvider(FirebaseAuth.instance.currentUser!.uid).notifier).state++;
+                          ref
+                              .read(
+                                oowRefreshTickProvider(
+                                  FirebaseAuth.instance.currentUser!.uid,
+                                ).notifier,
+                              )
+                              .state++;
                         }
                         if (feed.meetId == null) {
                           ref
@@ -558,19 +566,18 @@ final feedLikeCountProvider = FutureProvider.autoDispose.family<int, String>((
   return result.count ?? 0;
 });
 
-final feedCommentCountProvider = FutureProvider.autoDispose.family<int, String>((
-    ref,
-    feedId,
-    ) async {
-  final result = await FirebaseFirestore.instance
-      .collection('feeds')
-      .doc(feedId)
-      .collection('comments')
-      .count()
-      .get();
+final feedCommentCountProvider = FutureProvider.autoDispose.family<int, String>(
+  (ref, feedId) async {
+    final result = await FirebaseFirestore.instance
+        .collection('feeds')
+        .doc(feedId)
+        .collection('comments')
+        .count()
+        .get();
 
-  return result.count ?? 0;
-});
+    return result.count ?? 0;
+  },
+);
 
 class _FeedActionRow extends ConsumerWidget {
   final FeedModel feed;
@@ -925,7 +932,9 @@ class _FeedCommentBottomSheetState
                           );
 
                           _triggerRefresh();
-                          ref.invalidate(feedCommentCountProvider(widget.feedId));
+                          ref.invalidate(
+                            feedCommentCountProvider(widget.feedId),
+                          );
                           SnackbarService.show(
                             type: AppSnackType.success,
                             message: '댓글이 삭제되었습니다',
@@ -981,7 +990,8 @@ class _FeedCommentBottomSheetState
                     imageUrl: mini.photoUrl,
                     size: 40,
                     uid: data['authorUid'],
-                    gender: mini.gender,lastWeeklyRank: mini.lastWeeklyRank,
+                    gender: mini.gender,
+                    lastWeeklyRank: mini.lastWeeklyRank,
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -1092,7 +1102,6 @@ class _FeedCommentBottomSheetState
       _triggerRefresh();
 
       ref.invalidate(feedCommentCountProvider(widget.feedId));
-
 
       ref.invalidate(feedDocProvider(widget.feedId));
     } catch (e) {

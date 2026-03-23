@@ -1,53 +1,15 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
-import 'package:hellchinza/feed/feed_list/feed_list_state.dart';
 
-import '../create_feed/create_feed_state.dart';
-
-final myFriendUidsProvider = StreamProvider<List<String>>((ref) {
-  final myUid = FirebaseAuth.instance.currentUser?.uid;
-  if (myUid == null) return Stream.value(const []);
-
-  return FirebaseFirestore.instance
-      .collection('users')
-      .doc(myUid)
-      .collection('friends')
-      .snapshots()
-      .map((snap) {
-    return snap.docs
-        .map((d) => (d.data()['uid'] ?? d.id).toString())
-        .where((e) => e.isNotEmpty)
-        .toList();
-  });
-});
-final myBlockedUidsProvider = StreamProvider<List<String>>((ref) {
-  final myUid = FirebaseAuth.instance.currentUser?.uid;
-  if (myUid == null) return Stream.value(const []);
-
-  return FirebaseFirestore.instance
-      .collection('users')
-      .doc(myUid)
-      .collection('blocks')
-      .snapshots()
-      .map((snap) {
-    return snap.docs
-        .map((d) => (d.data()['uid'] ?? d.id).toString())
-        .where((e) => e.isNotEmpty)
-        .toList();
-  });
-});
-
-final feedListControllerProvider =
-    StateNotifierProvider.autoDispose<FeedListController, FeedListState>((ref) {
-      return FeedListController(ref);
-    });
+import '../providers/feed_provider.dart';
+import 'feed_list_state.dart';
 
 class FeedListController extends StateNotifier<FeedListState> {
+  FeedListController(this.ref) : super(const FeedListState());
+
   final Ref ref;
 
-  FeedListController(this.ref) : super(FeedListState(onlyFriendFeeds: false));
+  static const _pageSize = 10;
 
   Future<void> onChangeMainType(String type) async {
     state = state.copyWith(selectMainType: type);
@@ -55,27 +17,6 @@ class FeedListController extends StateNotifier<FeedListState> {
 
   Future<void> onChangeSubType(String type) async {
     state = state.copyWith(selectSubType: type);
-  }
-
-  Query<Map<String, dynamic>> buildFeedQuery() {
-    Query<Map<String, dynamic>> query = FirebaseFirestore.instance.collection(
-      'feeds',
-    );
-
-    if (state.selectMainType != '전체') {
-      query = query.where('mainType', isEqualTo: state.selectMainType);
-    }
-
-    if (state.selectMainType != '식단' && state.selectSubType != '전체') {
-      query = query.where('subType', isEqualTo: state.selectSubType);
-    }
-
-    query = query.orderBy('createdAt', descending: true);
-
-    query = query.where('meetId', isNull: true);
-
-
-    return query;
   }
 
   void refresh() {
@@ -98,57 +39,87 @@ class FeedListController extends StateNotifier<FeedListState> {
       selectMainType: mainType,
       selectSubType: subType,
       onlyFriendFeeds: onlyFriends,
-      refreshTick: state.refreshTick + 1, // ✅ pagination 강제 새로고침
+      refreshTick: state.refreshTick + 1,
     );
   }
 
-  bool _isPublicVisibility(Map<String, dynamic> data) {
-    final visibility = data['visibility']?.toString();
-    return visibility == null ||
-        visibility.isEmpty ||
-        visibility == FeedVisibility.public;
-  }
-
-  bool _isFriendsVisibility(Map<String, dynamic> data) {
-    final visibility = data['visibility']?.toString();
-    return visibility == FeedVisibility.friends;
-  }
-
-  bool canViewFeed({
-    required Map<String, dynamic> data,
-    required String myUid,
-    required Set<String> blockedUidSet,
-    required Set<String> friendUidSet,
+  String makeQueryKey({
+    required List<String> blockedUids,
+    required List<String> friendUids,
   }) {
-    final authorUid = (data['authorUid'] ?? '').toString();
+    final sortedBlocked = [...blockedUids]..sort();
+    final sortedFriends = [...friendUids]..sort();
 
-    if (authorUid.isEmpty) return false;
+    return '${state.selectMainType}_${state.selectSubType}_${state.refreshTick}_${state.onlyFriendFeeds}_${sortedBlocked.join(",")}_${sortedFriends.join(",")}';
+  }
 
-    // 차단한 유저 글 제외
-    if (blockedUidSet.contains(authorUid)) return false;
+  Future<void> resetAndFetch({
+    required List<String> blockedUids,
+    required List<String> friendUids,
+  }) async {
+    if (state.isLoading) return;
 
-    final isMine = authorUid == myUid;
-    final isFriendAuthor = friendUidSet.contains(authorUid);
-    final isPublic = _isPublicVisibility(data);
-    final isFriendsOnly = _isFriendsVisibility(data);
+    state = state.copyWith(
+      isLoading: true,
+      isLoadingMore: false,
+      hasMore: true,
+      items: const [],
+      clearLastDoc: true,
+    );
 
-    // 친구 피드만 보기
-    if (state.onlyFriendFeeds) {
-      // 내 글 또는 친구 글만 허용
-      if (!isMine && !isFriendAuthor) return false;
+    try {
+      final result = await ref
+          .read(feedRepoProvider)
+          .fetchFeedPage(
+            mainType: state.selectMainType,
+            subType: state.selectSubType,
+            onlyFriendFeeds: state.onlyFriendFeeds,
+            blockedUids: blockedUids,
+            friendUids: friendUids,
+            pageSize: _pageSize,
+          );
 
-      // 내 글/친구 글 중 public, friends 둘 다 보여줌
-      if (isPublic) return true;
-      if (isFriendsOnly) return true;
-
-      return false;
+      state = state.copyWith(
+        isLoading: false,
+        items: result.items,
+        lastDoc: result.lastDoc,
+        hasMore: result.hasMore,
+      );
+    } catch (_) {
+      state = state.copyWith(isLoading: false, hasMore: false);
     }
+  }
 
-    // 전체 보기
-    if (isMine) return true;
-    if (isPublic) return true;
-    if (isFriendsOnly && isFriendAuthor) return true;
+  Future<void> fetchNextPage({
+    required List<String> blockedUids,
+    required List<String> friendUids,
+  }) async {
+    if (state.isLoading || state.isLoadingMore || !state.hasMore) return;
+    if (state.lastDoc == null) return;
 
-    return false;
+    state = state.copyWith(isLoadingMore: true);
+
+    try {
+      final result = await ref
+          .read(feedRepoProvider)
+          .fetchFeedPage(
+            mainType: state.selectMainType,
+            subType: state.selectSubType,
+            onlyFriendFeeds: state.onlyFriendFeeds,
+            blockedUids: blockedUids,
+            friendUids: friendUids,
+            pageSize: _pageSize,
+            startAfter: state.lastDoc,
+          );
+
+      state = state.copyWith(
+        isLoadingMore: false,
+        items: [...state.items, ...result.items],
+        lastDoc: result.lastDoc,
+        hasMore: result.hasMore,
+      );
+    } catch (_) {
+      state = state.copyWith(isLoadingMore: false);
+    }
   }
 }
