@@ -19,7 +19,7 @@ import 'auth/presentation/extra_info/extra_info_view.dart';
 import 'constants/app_colors.dart';
 import 'constants/app_text_style.dart';
 import 'firebase_options.dart';
-import 'home/home_view.dart';
+import 'home/presentation/home_view.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();

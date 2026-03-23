@@ -19,7 +19,8 @@ import '../common/common_bottom_button.dart';
 import '../common/common_text_field.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_text_style.dart';
-import '../home/home_controller.dart';
+import '../home/presentation/home_controller.dart';
+import '../home/providers/home_provider.dart';
 
 class ProfileEditView extends ConsumerStatefulWidget {
   const ProfileEditView({super.key});
@@ -69,7 +70,7 @@ class _ProfileEditViewState extends ConsumerState<ProfileEditView> {
         deletePhoto: deletePhoto,
       );
       UserModel? userModel = await ref
-          .read(homeControllerProvider.notifier)
+          .read(homeRepoProvider)
           .fetchUser(FirebaseAuth.instance.currentUser!.uid);
       ref.read(myUserModelProvider.notifier).updateUserModel(userModel!);
       ref.read(userRepoProvider).clear(userModel.uid);
@@ -213,7 +214,9 @@ class _ProfileEditViewState extends ConsumerState<ProfileEditView> {
                         context,
                       );
                       if (imageFile == null) return;
-                      final webpImage = await ImageService().convertToWebp(File(imageFile.path));
+                      final webpImage = await ImageService().convertToWebp(
+                        File(imageFile.path),
+                      );
 
                       setState(() {
                         selectImage = webpImage;
