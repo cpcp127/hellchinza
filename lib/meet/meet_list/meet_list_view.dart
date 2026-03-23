@@ -1,34 +1,22 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_pagination/firebase_pagination.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:hellchinza/common/common_home_app_bar.dart';
-import 'package:hellchinza/meet/domain/meet_model.dart';
-import 'package:hellchinza/meet/meet_detail/meat_detail_view.dart';
-import 'package:hellchinza/meet/widget/empty_meet_list.dart';
-import 'package:hellchinza/meet/widget/meet_card.dart';
 
-import '../../common/common_chip.dart';
-import '../../common/common_text_field.dart';
-import '../../constants/app_colors.dart';
-import '../../constants/app_constants.dart';
-import '../../constants/app_text_style.dart';
+import '../../../common/common_text_field.dart';
+import '../../../constants/app_colors.dart';
+import '../../../constants/app_constants.dart';
+import '../../../constants/app_text_style.dart';
+
+import '../domain/meet_model.dart';
 import '../meet_create/meet_create_view.dart';
+import '../meet_detail/meat_detail_view.dart';
+import '../providers/meet_provider.dart';
+import '../widget/empty_meet_list.dart';
+import '../widget/meet_card.dart';
 import '../widget/meet_subtype_filter_sheet.dart';
 import 'meet_list_controller.dart';
 import 'meet_list_state.dart';
-
-final meetMemberCountProvider = FutureProvider.family<int, String>((ref, meetId) async {
-  final snap = await FirebaseFirestore.instance
-      .collection('meets')
-      .doc(meetId)
-      .collection('members')
-      .count()
-      .get();
-
-  return snap.count ?? 0;
-});
 
 class MeetListView extends ConsumerStatefulWidget {
   const MeetListView({super.key});
@@ -40,6 +28,7 @@ class MeetListView extends ConsumerStatefulWidget {
 class _MeetListViewState extends ConsumerState<MeetListView> {
   final _scrollCtrl = ScrollController();
   final _searchCtrl = TextEditingController();
+
   final List<DocumentSnapshot<Map<String, dynamic>>> _docs = [];
   DocumentSnapshot<Map<String, dynamic>>? _lastDoc;
 
@@ -55,9 +44,9 @@ class _MeetListViewState extends ConsumerState<MeetListView> {
     _scrollCtrl.addListener(_onScroll);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // ✅ 첫 진입도 key 세팅 후 fetch
       final state = ref.read(meetListControllerProvider);
       _queryKey = _makeQueryKey(state);
+      _searchCtrl.text = state.searchText;
       _resetAndFetch();
     });
   }
@@ -81,12 +70,10 @@ class _MeetListViewState extends ConsumerState<MeetListView> {
   }
 
   String _makeQueryKey(MeetListState state) {
-    // ✅ FirestorePagination key와 동일 개념
     return '${state.selectSubType}_${state.searchText}_${state.refreshTick}';
   }
 
   Future<void> _resetAndFetch() async {
-    // ✅ 중복 호출 방지(필터 바뀔 때 프레임 겹칠 수 있음)
     if (_initialLoading) return;
 
     setState(() {
@@ -99,9 +86,9 @@ class _MeetListViewState extends ConsumerState<MeetListView> {
 
     try {
       final controller = ref.read(meetListControllerProvider.notifier);
-      Query<Map<String, dynamic>> q = controller.buildQuery();
-
-      q = q.limit(12);
+      Query<Map<String, dynamic>> q = controller.buildQuery().limit(
+        MeetListController.pageSize,
+      );
 
       final snap = await q.get();
       final newDocs = snap.docs;
@@ -109,7 +96,7 @@ class _MeetListViewState extends ConsumerState<MeetListView> {
       setState(() {
         _docs.addAll(newDocs);
         _lastDoc = newDocs.isNotEmpty ? newDocs.last : null;
-        _hasMore = newDocs.length == 12;
+        _hasMore = newDocs.length == MeetListController.pageSize;
         _initialLoading = false;
       });
     } catch (e) {
@@ -128,9 +115,10 @@ class _MeetListViewState extends ConsumerState<MeetListView> {
 
     try {
       final controller = ref.read(meetListControllerProvider.notifier);
-      Query<Map<String, dynamic>> q = controller.buildQuery();
-
-      q = q.startAfterDocument(_lastDoc!).limit(12);
+      Query<Map<String, dynamic>> q = controller
+          .buildQuery()
+          .startAfterDocument(_lastDoc!)
+          .limit(MeetListController.pageSize);
 
       final snap = await q.get();
       final newDocs = snap.docs;
@@ -138,7 +126,7 @@ class _MeetListViewState extends ConsumerState<MeetListView> {
       setState(() {
         _docs.addAll(newDocs);
         _lastDoc = newDocs.isNotEmpty ? newDocs.last : _lastDoc;
-        _hasMore = newDocs.length == 12;
+        _hasMore = newDocs.length == MeetListController.pageSize;
         _pagingLoading = false;
       });
     } catch (e) {
@@ -151,20 +139,23 @@ class _MeetListViewState extends ConsumerState<MeetListView> {
     final controller = ref.read(meetListControllerProvider.notifier);
     final state = ref.watch(meetListControllerProvider);
 
-    // ✅✅✅ 핵심: 피드와 동일 "쿼리키가 바뀌면 리셋"
+    if (_searchCtrl.text != state.searchText) {
+      _searchCtrl.value = _searchCtrl.value.copyWith(
+        text: state.searchText,
+        selection: TextSelection.collapsed(offset: state.searchText.length),
+      );
+    }
+
     final newKey = _makeQueryKey(state);
     if (_queryKey != newKey) {
       _queryKey = newKey;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        // 프레임 이후 리셋(빌드 중 setState 방지)
         _resetAndFetch();
       });
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text('전체 모임'),
-      ),
+      appBar: AppBar(title: const Text('전체 모임')),
       body: Column(
         children: [
           Padding(
@@ -188,21 +179,25 @@ class _MeetListViewState extends ConsumerState<MeetListView> {
                           },
                         );
                       },
-                      transitionBuilder: (context, animation, secondaryAnimation, child) {
-                        final curved = CurvedAnimation(
-                          parent: animation,
-                          curve: Curves.easeOutCubic,
-                        );
+                      transitionBuilder:
+                          (context, animation, secondaryAnimation, child) {
+                            final curved = CurvedAnimation(
+                              parent: animation,
+                              curve: Curves.easeOutCubic,
+                            );
 
-                        return FadeTransition(
-                          opacity: curved,
-                          child: child,
-                        );
-                      },
+                            return FadeTransition(
+                              opacity: curved,
+                              child: child,
+                            );
+                          },
                     );
                   },
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
                     decoration: BoxDecoration(
                       color: AppColors.bgWhite,
                       borderRadius: BorderRadius.circular(16),
@@ -211,7 +206,11 @@ class _MeetListViewState extends ConsumerState<MeetListView> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.tune, size: 18, color: AppColors.icDefault),
+                        const Icon(
+                          Icons.tune,
+                          size: 18,
+                          color: AppColors.icDefault,
+                        ),
                         const SizedBox(width: 8),
                         Text(
                           state.selectSubType,
@@ -221,7 +220,10 @@ class _MeetListViewState extends ConsumerState<MeetListView> {
                           ),
                         ),
                         const SizedBox(width: 6),
-                        const Icon(Icons.expand_more, color: AppColors.icSecondary),
+                        const Icon(
+                          Icons.expand_more,
+                          color: AppColors.icSecondary,
+                        ),
                       ],
                     ),
                   ),
@@ -231,24 +233,22 @@ class _MeetListViewState extends ConsumerState<MeetListView> {
                   child: CommonTextField(
                     controller: _searchCtrl,
                     hintText: '모임 검색',
-                    onChanged: (value) {
-                      controller.setSearchText(value);
-                    },
+                    onChanged: controller.setSearchText,
                     suffixIcon: state.searchText.isNotEmpty
                         ? GestureDetector(
-                      onTap: () {
-                        _searchCtrl.clear();
-                        controller.setSearchText('');
-                      },
-                      child: const Icon(
-                        Icons.close,
-                        color: AppColors.icSecondary,
-                      ),
-                    )
+                            onTap: () {
+                              _searchCtrl.clear();
+                              controller.setSearchText('');
+                            },
+                            child: const Icon(
+                              Icons.close,
+                              color: AppColors.icSecondary,
+                            ),
+                          )
                         : const Icon(
-                      Icons.search,
-                      color: AppColors.icSecondary,
-                    ),
+                            Icons.search,
+                            color: AppColors.icSecondary,
+                          ),
                   ),
                 ),
               ],
@@ -259,11 +259,10 @@ class _MeetListViewState extends ConsumerState<MeetListView> {
               color: AppColors.sky400,
               backgroundColor: AppColors.bgWhite,
               onRefresh: () async {
-                controller.refresh(); // refreshTick++
+                controller.refresh();
                 await Future.delayed(const Duration(milliseconds: 250));
-                // ✅ 리셋은 queryKey 감지로 자동
               },
-              child: _buildBody(state),
+              child: _buildBody(),
             ),
           ),
         ],
@@ -271,8 +270,7 @@ class _MeetListViewState extends ConsumerState<MeetListView> {
     );
   }
 
-  Widget _buildBody(MeetListState state) {
-    // ✅ 처음 로딩
+  Widget _buildBody() {
     if (_initialLoading) {
       return ListView(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -284,7 +282,6 @@ class _MeetListViewState extends ConsumerState<MeetListView> {
       );
     }
 
-    // ✅ empty
     if (_docs.isEmpty) {
       return EmptyList(
         icon: Icons.people_rounded,
@@ -296,26 +293,25 @@ class _MeetListViewState extends ConsumerState<MeetListView> {
             context,
             CupertinoPageRoute(
               fullscreenDialog: true,
-              builder: (_) => MeetCreateStepperView(),
+              builder: (_) => const MeetCreateStepperView(),
             ),
           );
         },
       );
     }
 
-    // ✅ list
     return ListView.separated(
       controller: _scrollCtrl,
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
-      itemCount: _docs.length + 1, // bottom loader 자리
+      itemCount: _docs.length + 1,
       separatorBuilder: (_, __) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
         if (index == _docs.length) {
-          // ✅ 더 불러올게 없으면 로더도 숨김
           if (!_hasMore) return const SizedBox(height: 12);
 
           if (!_pagingLoading) return const SizedBox(height: 12);
+
           return const Padding(
             padding: EdgeInsets.symmetric(vertical: 14),
             child: Center(child: CircularProgressIndicator()),

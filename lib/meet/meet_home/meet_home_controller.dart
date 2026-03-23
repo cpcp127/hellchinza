@@ -1,25 +1,14 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/cupertino.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/legacy.dart';
 
-import '../../meet/domain/meet_model.dart';
-import 'meet_home_repo.dart';
+import '../data/meet_repo.dart';
+import '../domain/meet_model.dart';
 import 'meet_home_state.dart';
 
-final meetHomeRepoProvider = Provider<MeetHomeRepo>((ref) {
-  return MeetHomeRepo(FirebaseFirestore.instance);
-});
-
-final meetHomeControllerProvider =
-StateNotifierProvider.autoDispose<MeetHomeController, MeetHomeState>((ref) {
-  return MeetHomeController(ref);
-});
-
 class MeetHomeController extends StateNotifier<MeetHomeState> {
-  MeetHomeController(this.ref) : super(const MeetHomeState());
+  MeetHomeController(this._repo) : super(const MeetHomeState());
 
-  final Ref ref;
+  final MeetRepo _repo;
 
   Future<void> init() async {
     if (state.isLoading) return;
@@ -27,14 +16,12 @@ class MeetHomeController extends StateNotifier<MeetHomeState> {
     state = state.copyWith(isLoading: true, clearError: true);
 
     try {
-      final repo = ref.read(meetHomeRepoProvider);
-
       final results = await Future.wait([
-        repo.fetchRecentActiveMeets(),
-        repo.fetchPopularMeets(),
-        repo.fetchNewestMeets(),
-        repo.fetchInterestMeets(),
-        repo.fetchLightningHotMeets(),
+        _repo.fetchRecentActiveMeets(),
+        _repo.fetchPopularMeets(),
+        _repo.fetchNewestMeets(),
+        _repo.fetchInterestMeets(),
+        _repo.fetchLightningHotMeets(),
       ]);
 
       final recentActive = results[0] as List<MeetModel>;
@@ -63,14 +50,12 @@ class MeetHomeController extends StateNotifier<MeetHomeState> {
     } catch (e) {
       debugPrint('MeetHome init error: $e');
 
-      state = state.copyWith(
-        isLoading: false,
-        errorMessage: '모임 홈을 불러오지 못했어요',
-      );
+      state = state.copyWith(isLoading: false, errorMessage: '모임 홈을 불러오지 못했어요');
     }
   }
 
   Future<void> refresh() async {
+    state = const MeetHomeState();
     await init();
   }
 
@@ -89,19 +74,11 @@ class MeetHomeController extends StateNotifier<MeetHomeState> {
         final score = baseScore - i;
 
         if (!map.containsKey(meet.id)) {
-          map[meet.id] = MeetHeroItem(
-            meet: meet,
-            badge: badge,
-            score: score,
-          );
+          map[meet.id] = MeetHeroItem(meet: meet, badge: badge, score: score);
         } else {
           final old = map[meet.id]!;
           if (score > old.score) {
-            map[meet.id] = MeetHeroItem(
-              meet: meet,
-              badge: badge,
-              score: score,
-            );
+            map[meet.id] = MeetHeroItem(meet: meet, badge: badge, score: score);
           }
         }
       }

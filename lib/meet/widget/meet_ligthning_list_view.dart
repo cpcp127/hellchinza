@@ -10,6 +10,7 @@ import '../../services/snackbar_service.dart';
 import '../domain/lightning_model.dart';
 import '../lightning_create/lightning_create_view.dart';
 import '../meet_detail/meat_detail_view.dart';
+import '../providers/meet_provider.dart';
 import 'lightning_card.dart';
 
 class MeetLightningListView extends ConsumerStatefulWidget {

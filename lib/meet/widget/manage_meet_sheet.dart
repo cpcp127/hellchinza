@@ -10,37 +10,9 @@ import '../../common/common_profile_avatar.dart';
 import '../../constants/app_colors.dart';
 import '../../constants/app_text_style.dart';
 import '../../services/snackbar_service.dart';
+import '../providers/meet_provider.dart';
 
-final meetRequestUidsProvider = FutureProvider.autoDispose
-    .family<List<String>, String>((ref, meetId) async {
-  final snap = await FirebaseFirestore.instance
-      .collection('meets')
-      .doc(meetId)
-      .collection('requests')
-      .where('status', isEqualTo: 'pending')
-      .get();
 
-  return snap.docs.map((d) => d.id).toList();
-});
-
-final meetMembersProvider = FutureProvider.autoDispose
-    .family<List<Map<String, dynamic>>, String>((ref, meetId) async {
-  final snap = await FirebaseFirestore.instance
-      .collection('meets')
-      .doc(meetId)
-      .collection('members')
-      .orderBy('joinedAt', descending: false)
-      .get();
-
-  return snap.docs.map((d) {
-    final data = d.data();
-    return {
-      'uid': (data['uid'] ?? d.id).toString(),
-      'role': (data['role'] ?? 'member').toString(),
-      'joinedAt': data['joinedAt'],
-    };
-  }).toList();
-});
 
 class ManageMeetSheet extends ConsumerStatefulWidget {
   const ManageMeetSheet({

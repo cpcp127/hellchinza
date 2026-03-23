@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import '../../common/common_network_image.dart';
 import '../../constants/app_colors.dart';
 import '../../constants/app_text_style.dart';
-import '../../meet/meet_detail/meat_detail_view.dart';
 import '../../meet/domain/meet_model.dart';
+import '../../meet/meet_detail/meat_detail_view.dart';
 import '../../utils/date_time_util.dart';
 import 'capacity_pill.dart';
 

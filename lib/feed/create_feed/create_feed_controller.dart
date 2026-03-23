@@ -9,6 +9,7 @@ import '../../../oow_step/presentation/oow_step_view.dart';
 import '../../../services/image_service.dart';
 import '../../../services/snackbar_service.dart';
 import '../../meet/meet_detail/meat_detail_view.dart';
+import '../../meet/providers/meet_provider.dart';
 import '../domain/feed_model.dart';
 import '../domain/feed_place.dart';
 import '../providers/feed_provider.dart';

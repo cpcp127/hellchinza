@@ -1,20 +1,17 @@
-import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
-
-import '../../feed/create_feed/create_feed_state.dart';
-import '../../feed/domain/feed_place.dart';
+import 'package:hellchinza/feed/domain/feed_place.dart';
 
 class LightningCreateState {
-  final int stepIndex; // 0~4
+  final int stepIndex;
 
   final bool isLoading;
   final String? errorMessage;
 
   final String title;
-  final String? category; // workList 선택
+  final String? category;
   final DateTime? dateTime;
 
-  final int? maxMembersText; // 텍스트필드에서 파싱된 값
+  final int? maxMembersText;
   final FeedPlace? selectedPlace;
 
   final XFile? thumbnail;
@@ -27,7 +24,7 @@ class LightningCreateState {
     required this.category,
     required this.dateTime,
     required this.maxMembersText,
-    this.selectedPlace,
+    required this.selectedPlace,
     required this.thumbnail,
   });
 
@@ -54,6 +51,7 @@ class LightningCreateState {
     XFile? thumbnail,
     bool clearError = false,
     bool clearThumbnail = false,
+    bool clearSelectedPlace = false,
   }) {
     return LightningCreateState(
       stepIndex: stepIndex ?? this.stepIndex,
@@ -63,12 +61,13 @@ class LightningCreateState {
       category: category ?? this.category,
       dateTime: dateTime ?? this.dateTime,
       maxMembersText: maxMembersText ?? this.maxMembersText,
-      selectedPlace: selectedPlace ?? this.selectedPlace,
+      selectedPlace: clearSelectedPlace
+          ? null
+          : (selectedPlace ?? this.selectedPlace),
       thumbnail: clearThumbnail ? null : (thumbnail ?? this.thumbnail),
     );
   }
 
-  // ✅ step별 검증
   bool get canGoNext {
     switch (stepIndex) {
       case 0:

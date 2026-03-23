@@ -1,4 +1,4 @@
-import '../../meet/domain/meet_model.dart';
+import '../domain/meet_model.dart';
 
 class MeetHeroItem {
   final MeetModel meet;

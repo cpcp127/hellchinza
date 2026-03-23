@@ -1,6 +1,5 @@
 import 'package:image_picker/image_picker.dart';
-import '../domain/meet_model.dart';
-import '../domain/meet_region.dart';
+import 'package:hellchinza/meet/domain/meet_region.dart';
 
 class MeetCreateState {
   final int step;
@@ -13,11 +12,10 @@ class MeetCreateState {
   final String maxMembersText;
   final bool needApproval;
 
-  // ✅ 수정 재사용 핵심
-  final String? editingMeetId;              // null이면 생성, 있으면 수정
-  final String? existingThumbnailUrl;       // 기존 썸네일 URL
-  final bool removeExistingThumbnail;       // 기존 삭제 플래그
-  final XFile? thumbnail;                   // 새로 고른 로컬 썸네일(교체용)
+  final String? editingMeetId;
+  final String? existingThumbnailUrl;
+  final bool removeExistingThumbnail;
+  final XFile? thumbnail;
 
   final bool isLoading;
   final String? errorMessage;
@@ -58,7 +56,7 @@ class MeetCreateState {
 
   bool get isEdit => editingMeetId != null;
 
-  bool get isLast => step == 5; // ✅ 총 6단계(0~5)
+  bool get isLast => step == 5;
 
   bool get canGoNext {
     switch (step) {
@@ -74,7 +72,6 @@ class MeetCreateState {
       case 4:
         return true;
       case 5:
-      // 썸네일 필수로 유지할지 선택
         return thumbnail != null ||
             (existingThumbnailUrl != null && !removeExistingThumbnail);
       default:
@@ -90,15 +87,12 @@ class MeetCreateState {
     List<MeetRegion>? regions,
     String? maxMembersText,
     bool? needApproval,
-
     String? editingMeetId,
     String? existingThumbnailUrl,
     bool? removeExistingThumbnail,
-
     XFile? thumbnail,
     bool clearThumbnail = false,
     bool clearExistingThumbnailUrl = false,
-
     bool? isLoading,
     String? errorMessage,
   }) {
@@ -115,7 +109,7 @@ class MeetCreateState {
           ? null
           : (existingThumbnailUrl ?? this.existingThumbnailUrl),
       removeExistingThumbnail:
-      removeExistingThumbnail ?? this.removeExistingThumbnail,
+          removeExistingThumbnail ?? this.removeExistingThumbnail,
       thumbnail: clearThumbnail ? null : (thumbnail ?? this.thumbnail),
       isLoading: isLoading ?? this.isLoading,
       errorMessage: errorMessage,

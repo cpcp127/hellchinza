@@ -1,28 +1,25 @@
 import 'dart:ui';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:hellchinza/chat/chat_room/chat_room_view.dart';
-import 'package:hellchinza/claim/presentation/claim_view.dart';
-import 'package:hellchinza/common/common_chip.dart';
-import 'package:hellchinza/common/common_network_image.dart';
-import 'package:hellchinza/common/common_profile_avatar.dart';
 
-import '../../auth/domain/user_mini.dart';
-import '../../claim/domain/claim_model.dart';
-import '../../common/common_action_sheet.dart';
-import '../../constants/app_colors.dart';
-import '../../constants/app_text_style.dart';
-import '../../feed/create_feed/create_feed_view.dart';
-import '../../feed/feed_detail/feed_detail_view.dart';
-import '../../services/dialog_service.dart';
-import '../../services/snackbar_service.dart';
+import '../../../claim/domain/claim_model.dart';
+import '../../../claim/presentation/claim_view.dart';
+import '../../../common/common_action_sheet.dart';
+import '../../../common/common_chip.dart';
+import '../../../common/common_network_image.dart';
+import '../../../constants/app_colors.dart';
+import '../../../constants/app_text_style.dart';
+import '../../../services/dialog_service.dart';
+import '../../../services/snackbar_service.dart';
+
 import '../domain/lightning_model.dart';
 import '../domain/meet_model.dart';
 import '../lightning_create/lightning_create_view.dart';
 import '../meet_list/meet_list_view.dart';
+
+import '../providers/meet_provider.dart';
 import '../widget/lightning_card.dart';
 import '../widget/manage_meet_sheet.dart';
 import '../widget/meet_feed_list_view.dart';
@@ -72,11 +69,7 @@ class _MeetDetailViewState extends ConsumerState<MeetDetailView> {
               context: context,
               state: state,
               onTapPrimary: () async {
-                await controller.onTapMeetPrimaryButton(
-                  state: state,
-                  controller: controller,
-                  context: context,
-                );
+                await controller.onTapMeetPrimaryButton(context);
               },
               onTapSecondary: state.isOwner
                   ? () {
@@ -90,10 +83,6 @@ class _MeetDetailViewState extends ConsumerState<MeetDetailView> {
             ),
     );
   }
-
-  // ---------------------------
-  // UI Builders (simple -> method)
-  // ---------------------------
 
   Widget _buildBody({
     required BuildContext context,
@@ -145,7 +134,7 @@ class _MeetDetailViewState extends ConsumerState<MeetDetailView> {
       } else if (state.isFull) {
         primaryText = '정원 마감';
         primaryEnabled = false;
-      } else if (meet.needApproval == true) {
+      } else if (meet.needApproval) {
         primaryText = state.isRequested ? '요청 취소' : '참가 요청';
       } else {
         primaryText = '참가하기';
@@ -234,16 +223,21 @@ class _MeetDetailViewState extends ConsumerState<MeetDetailView> {
     );
   }
 
-  // ---------------------------
-  // Actions / Sheets (simple -> method)
-  // ---------------------------
-
   Future<void> _onTapMore({
     required BuildContext context,
     required MeetDetailState state,
     required MeetDetailController controller,
   }) async {
     if (state.meet == null) return;
+
+    if (state.isOwner) {
+      await _showMeetOwnerActionSheet(
+        context: context,
+        state: state,
+        controller: controller,
+      );
+      return;
+    }
 
     await _showMeetGuestActionSheet(
       context: context,
@@ -259,6 +253,7 @@ class _MeetDetailViewState extends ConsumerState<MeetDetailView> {
 
         await controller.leaveMeet();
         SnackbarService.show(type: AppSnackType.success, message: '모임에서 나왔어요');
+        if (!context.mounted) return;
         Navigator.pop(context);
       },
       onReport: () {
@@ -285,6 +280,78 @@ class _MeetDetailViewState extends ConsumerState<MeetDetailView> {
     );
   }
 
+  Future<void> _showMeetOwnerActionSheet({
+    required BuildContext context,
+    required MeetDetailState state,
+    required MeetDetailController controller,
+  }) async {
+    final meet = state.meet!;
+    final items = <CommonActionSheetItem>[
+      CommonActionSheetItem(
+        icon: Icons.edit_outlined,
+        title: '모임 수정',
+        onTap: () async {
+          Navigator.pop(context);
+          await controller.onTapMeetPrimaryButton(context);
+        },
+      ),
+      CommonActionSheetItem(
+        icon: meet.status == 'open'
+            ? Icons.lock_outline
+            : Icons.lock_open_outlined,
+        title: meet.status == 'open' ? '모임 종료' : '모임 다시 열기',
+        onTap: () async {
+          Navigator.pop(context);
+          final ok = await _confirm(
+            context,
+            title: meet.status == 'open' ? '모임을 종료할까요?' : '모임을 다시 열까요?',
+            message: meet.status == 'open'
+                ? '더 이상 새로운 참가를 받을 수 없어요.'
+                : '다시 참가를 받을 수 있어요.',
+            destructive: meet.status == 'open',
+          );
+          if (!ok) return;
+
+          if (meet.status == 'open') {
+            await controller.closeMeet();
+          } else {
+            await controller.reopenMeet();
+          }
+        },
+      ),
+      CommonActionSheetItem(
+        icon: Icons.delete_outline,
+        title: '모임 삭제',
+        onTap: () async {
+          Navigator.pop(context);
+          final ok = await _confirm(
+            context,
+            title: '모임을 삭제할까요?',
+            message: '모임과 연결된 정보가 함께 사라질 수 있어요.',
+            destructive: true,
+          );
+          if (!ok) return;
+
+          await controller.deleteMeet();
+          SnackbarService.show(
+            type: AppSnackType.success,
+            message: '모임을 삭제했어요',
+          );
+          if (!context.mounted) return;
+          Navigator.pop(context);
+        },
+        isDestructive: true,
+      ),
+    ];
+
+    await showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => CommonActionSheet(title: '더보기', items: items),
+    );
+  }
+
   Future<void> _openManageRequestsSheet({
     required BuildContext context,
     required MeetDetailController controller,
@@ -298,9 +365,6 @@ class _MeetDetailViewState extends ConsumerState<MeetDetailView> {
         return ManageMeetSheet(
           meetId: meetId,
           onChanged: () async {
-            ref.invalidate(meetRequestUidsProvider(meetId));
-            ref.invalidate(meetMembersProvider(meetId));
-            ref.invalidate(meetMemberCountProvider(meetId));
             await controller.init();
           },
         );
@@ -315,6 +379,7 @@ class _MeetDetailViewState extends ConsumerState<MeetDetailView> {
     VoidCallback? onLeave,
   }) async {
     final state = ref.watch(meetDetailControllerProvider(widget.meetId));
+
     final items = <CommonActionSheetItem>[
       if (isMember && onLeave != null)
         CommonActionSheetItem(
@@ -357,44 +422,6 @@ class _MeetDetailViewState extends ConsumerState<MeetDetailView> {
   }
 }
 
-// =======================================================
-// Providers
-// =======================================================
-
-final meetLightningSectionProvider =
-    FutureProvider.family<List<LightningModel>, String>((ref, meetId) async {
-      final snap = await FirebaseFirestore.instance
-          .collection('meets')
-          .doc(meetId)
-          .collection('lightnings')
-          .where('status', isEqualTo: 'open')
-          .orderBy('dateTime', descending: false)
-          .limit(5)
-          .get();
-
-      return snap.docs.map((d) => LightningModel.fromDoc(d)).toList();
-    });
-
-final meetPhotoFeedSectionProvider =
-    FutureProvider.family<List<Map<String, dynamic>>, String>((
-      ref,
-      meetId,
-    ) async {
-      final snap = await FirebaseFirestore.instance
-          .collection('feeds')
-          .where('meetId', isEqualTo: meetId)
-          .orderBy('createdAt', descending: true)
-          .limit(9)
-          .get();
-
-      // doc.id가 필요해서 _docId로 같이 넣음
-      return snap.docs.map((d) => {'_docId': d.id, ...d.data()}).toList();
-    });
-
-// =======================================================
-// Body Widgets (not simple -> keep widget)
-// =======================================================
-
 class _MeetDetailBody extends ConsumerWidget {
   const _MeetDetailBody({
     required this.controller,
@@ -418,11 +445,13 @@ class _MeetDetailBody extends ConsumerWidget {
         backgroundColor: AppColors.bgWhite,
         onRefresh: () async {
           ref.invalidate(meetMemberCountProvider(meet.id));
+          ref.invalidate(meetLightningSectionProvider(meet.id));
+          ref.invalidate(meetPhotoFeedSectionProvider(meet.id));
           await controller.init();
           await Future.delayed(const Duration(milliseconds: 250));
         },
         child: SingleChildScrollView(
-          physics: const ClampingScrollPhysics(),
+          physics: const AlwaysScrollableScrollPhysics(),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -438,12 +467,10 @@ class _MeetDetailBody extends ConsumerWidget {
                 ),
                 const SizedBox(height: 12),
               ],
-
               Text(meet.title, style: AppTextStyle.headlineSmallBoldStyle),
               const SizedBox(height: 6),
               CommonChip(label: meet.category, selected: true),
               const SizedBox(height: 6),
-
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -466,9 +493,7 @@ class _MeetDetailBody extends ConsumerWidget {
                   ),
                 ],
               ),
-
               const SizedBox(height: 10),
-
               Text(
                 meet.intro,
                 style: AppTextStyle.bodyMediumStyle.copyWith(
@@ -476,24 +501,8 @@ class _MeetDetailBody extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 16),
-              _MeetChatEntryCard(
-                locked: !state.isMember && !state.isOwner,
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => ChatView(
-                        roomId: meet.chatRoomId!,
-                        roomType: 'group',
-                        meetId: meet.id,
-                      ),
-                    ),
-                  );
-                },
-              ),
-
+              _MeetChatEntryCard(locked: !state.isMember && !state.isOwner),
               const SizedBox(height: 16),
-
               Row(
                 children: [
                   memberCountAsync.when(
@@ -518,19 +527,17 @@ class _MeetDetailBody extends ConsumerWidget {
                 ],
               ),
               const SizedBox(height: 10),
-
               if (shouldLockContent)
-                _LockedMeetContentPreview()
+                const _LockedMeetContentPreview()
               else
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _MemberPreviewRow(meetId: meet.id, hostUid: meet.authorUid),
+                    _MemberPreviewRow(memberCount: state.memberCount),
                     const SizedBox(height: 16),
                     _MeetPhotoFeedSection(
                       meetId: meet.id,
                       state: state,
-                      controller: controller,
                       onTapAll: () {
                         Navigator.push(
                           context,
@@ -556,6 +563,7 @@ class _MeetDetailBody extends ConsumerWidget {
                     ),
                   ],
                 ),
+              const SizedBox(height: 20),
             ],
           ),
         ),
@@ -614,7 +622,7 @@ class _MeetLightningSection extends ConsumerWidget {
         const SizedBox(height: 10),
         async.when(
           loading: () => const SizedBox.shrink(),
-          error: (e, _) => const SizedBox.shrink(),
+          error: (_, __) => const SizedBox.shrink(),
           data: (all) {
             final now = DateTime.now();
             final items = <LightningModel>[];
@@ -696,21 +704,21 @@ class _MeetLightningSection extends ConsumerWidget {
   }
 }
 
-class _MeetPhotoFeedSection extends StatelessWidget {
+class _MeetPhotoFeedSection extends ConsumerWidget {
   const _MeetPhotoFeedSection({
     required this.state,
     required this.meetId,
     required this.onTapAll,
-    required this.controller,
   });
 
   final MeetDetailState state;
   final String meetId;
   final VoidCallback onTapAll;
-  final MeetDetailController controller;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(meetPhotoFeedSectionProvider(meetId));
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -718,25 +726,6 @@ class _MeetPhotoFeedSection extends StatelessWidget {
           children: [
             Text('모임 피드', style: AppTextStyle.titleMediumBoldStyle),
             const Spacer(),
-            if (state.isMember) ...[
-              Consumer(
-                builder: (context, ref, _) {
-                  return _buildMiniWriteChip(
-                    title: '피드 작성',
-                    onTap: () async {
-                      await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => CreateFeedView(meetId: meetId),
-                        ),
-                      );
-                      ref.invalidate(meetPhotoFeedSectionProvider(meetId));
-                    },
-                  );
-                },
-              ),
-              const SizedBox(width: 6),
-            ],
             TextButton(
               onPressed: onTapAll,
               child: Text(
@@ -749,96 +738,69 @@ class _MeetPhotoFeedSection extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 10),
-        Consumer(
-          builder: (context, ref, _) {
-            final async = ref.watch(meetPhotoFeedSectionProvider(meetId));
+        async.when(
+          loading: () => _buildPhotoGridSkeleton(),
+          error: (_, __) => Padding(
+            padding: const EdgeInsets.only(top: 20),
+            child: Center(
+              child: Text(
+                '모임 피드를 불러오지 못했어요',
+                style: AppTextStyle.bodySmallStyle.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ),
+          ),
+          data: (docs) {
+            final items = <_PhotoItem>[];
 
-            return async.when(
-              loading: () => _buildPhotoGridSkeleton(),
-              error: (e, _) => Padding(
+            for (final data in docs) {
+              final feedId = ((data['id'] ?? data['_docId']) ?? '').toString();
+              final urls = (data['imageUrls'] as List?)
+                  ?.whereType<String>()
+                  .toList();
+              final contents = (data['contents'] as String?)?.trim();
+
+              if (urls != null && urls.isNotEmpty) {
+                items.add(
+                  _PhotoItem(
+                    feedId: feedId,
+                    imageUrl: urls.first,
+                    previewText: null,
+                  ),
+                );
+              } else {
+                final preview = (contents == null || contents.isEmpty)
+                    ? '내용이 없어요'
+                    : _ellipsis(contents, 42);
+
+                items.add(
+                  _PhotoItem(
+                    feedId: feedId,
+                    imageUrl: null,
+                    previewText: preview,
+                  ),
+                );
+              }
+
+              if (items.length >= 9) break;
+            }
+
+            if (items.isEmpty) {
+              return Padding(
                 padding: const EdgeInsets.only(top: 20),
                 child: Center(
                   child: Text(
-                    '모임 피드를 불러오지 못했어요',
+                    '아직 모임 피드가 없어요. 첫 피드를 작성해보세요 ✍️',
                     style: AppTextStyle.bodySmallStyle.copyWith(
                       color: AppColors.textSecondary,
                     ),
                   ),
                 ),
-              ),
-              data: (docs) {
-                final items = <_PhotoItem>[];
+              );
+            }
 
-                for (final data in docs) {
-                  final feedId = ((data['id'] ?? data['_docId']) ?? '')
-                      .toString();
-
-                  final urls = (data['imageUrls'] as List?)
-                      ?.whereType<String>()
-                      .toList();
-
-                  final contents = (data['contents'] as String?)?.trim();
-
-                  if (urls != null && urls.isNotEmpty) {
-                    items.add(
-                      _PhotoItem(
-                        feedId: feedId,
-                        imageUrl: urls.first,
-                        previewText: null,
-                      ),
-                    );
-                  } else {
-                    final preview = (contents == null || contents.isEmpty)
-                        ? '내용이 없어요'
-                        : _ellipsis(contents, 42);
-
-                    items.add(
-                      _PhotoItem(
-                        feedId: feedId,
-                        imageUrl: null,
-                        previewText: preview,
-                      ),
-                    );
-                  }
-
-                  if (items.length >= 9) break;
-                }
-
-                if (items.isEmpty) {
-                  return Padding(
-                    padding: const EdgeInsets.only(top: 20),
-                    child: Center(
-                      child: Text(
-                        '아직 모임 피드가 없어요. 첫 피드를 작성해보세요 ✍️',
-                        style: AppTextStyle.bodySmallStyle.copyWith(
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                    ),
-                  );
-                }
-
-                return _buildPhotoGrid(
-                  context: context,
-                  items: items,
-                  onTapItem: (feedId) {
-                    if (!state.isMember) {
-                      SnackbarService.show(
-                        type: AppSnackType.error,
-                        message: '모임에 먼저 참가해야 해요',
-                      );
-                      return;
-                    }
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => FeedDetailView(feedId: feedId),
-                      ),
-                    );
-                  },
-                );
-              },
-            );
+            return _buildPhotoGrid(context: context, items: items);
           },
         ),
       ],
@@ -847,44 +809,34 @@ class _MeetPhotoFeedSection extends StatelessWidget {
 
   String _ellipsis(String s, int max) {
     if (s.length <= max) return s;
-    return '${s.substring(0, max)}…';
+    return '${s.substring(0, max)}...';
   }
 
-  Widget _buildMiniWriteChip({
-    required String title,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(999),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        decoration: BoxDecoration(
-          color: AppColors.bgSecondary,
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: AppColors.borderSecondary),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.add, size: 16, color: AppColors.icDefault),
-            const SizedBox(width: 4),
-            Text(
-              title,
-              style: AppTextStyle.labelSmallStyle.copyWith(
-                color: AppColors.textDefault,
-              ),
-            ),
-          ],
-        ),
+  Widget _buildPhotoGridSkeleton() {
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: 6,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        mainAxisSpacing: 6,
+        crossAxisSpacing: 6,
+        childAspectRatio: 1,
       ),
+      itemBuilder: (_, __) {
+        return Container(
+          decoration: BoxDecoration(
+            color: AppColors.bgSecondary,
+            borderRadius: BorderRadius.circular(12),
+          ),
+        );
+      },
     );
   }
 
   Widget _buildPhotoGrid({
     required BuildContext context,
     required List<_PhotoItem> items,
-    required void Function(String feedId) onTapItem,
   }) {
     return GridView.builder(
       shrinkWrap: true,
@@ -892,226 +844,48 @@ class _MeetPhotoFeedSection extends StatelessWidget {
       itemCount: items.length,
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 3,
-        crossAxisSpacing: 8,
-        mainAxisSpacing: 8,
+        mainAxisSpacing: 6,
+        crossAxisSpacing: 6,
         childAspectRatio: 1,
       ),
-      itemBuilder: (_, i) {
-        final item = items[i];
+      itemBuilder: (_, index) {
+        final item = items[index];
 
-        return GestureDetector(
-          onTap: () => onTapItem(item.feedId),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: item.hasImage
-                ? CommonNetworkImage(
-                    imageUrl: item.imageUrl!,
-                    height: double.infinity,
-                    fit: BoxFit.cover,
-                    enableViewer: false,
-                  )
-                : _buildTextTile(text: item.previewText ?? ''),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildTextTile({required String text}) {
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: AppColors.bgSecondary,
-        border: Border.all(color: AppColors.borderSecondary),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Icon(Icons.subject, size: 16, color: AppColors.icSecondary),
-          const SizedBox(height: 6),
-          Expanded(
-            child: Text(
-              text,
-              maxLines: 5,
-              overflow: TextOverflow.ellipsis,
-              style: AppTextStyle.bodySmallStyle.copyWith(
-                color: AppColors.textDefault,
-                height: 1.25,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPhotoGridSkeleton() {
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: 9,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        mainAxisSpacing: 8,
-        crossAxisSpacing: 8,
-        childAspectRatio: 1,
-      ),
-      itemBuilder: (_, __) {
-        return Container(
-          decoration: BoxDecoration(
-            color: AppColors.bgSecondary,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppColors.borderSecondary),
-          ),
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: item.imageUrl != null
+              ? CommonNetworkImage(
+                  imageUrl: item.imageUrl!,
+                  fit: BoxFit.cover,
+                  enableViewer: false,
+                )
+              : Container(
+                  color: AppColors.bgSecondary,
+                  padding: const EdgeInsets.all(10),
+                  child: Center(
+                    child: Text(
+                      item.previewText ?? '',
+                      maxLines: 4,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTextStyle.bodySmallStyle.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ),
+                ),
         );
       },
     );
   }
 }
 
-// =======================================================
-// Simple data model
-// =======================================================
+class _MeetChatEntryCard extends StatelessWidget {
+  const _MeetChatEntryCard({required this.locked});
 
-class _PhotoItem {
-  final String feedId;
-  final String? imageUrl;
-  final String? previewText;
-
-  const _PhotoItem({required this.feedId, this.imageUrl, this.previewText});
-
-  bool get hasImage => imageUrl != null && imageUrl!.isNotEmpty;
-}
-
-// =======================================================
-// Member preview (complex -> keep as widget)
-// =======================================================
-
-class _MemberPreviewRow extends StatefulWidget {
-  const _MemberPreviewRow({
-    required this.meetId,
-    required this.hostUid,
-    this.pageSize = 10,
-  });
-
-  final String meetId;
-  final String hostUid;
-  final int pageSize;
-
-  @override
-  State<_MemberPreviewRow> createState() => _MemberPreviewRowState();
-}
-
-class _MemberPreviewRowState extends State<_MemberPreviewRow> {
-  final List<UserMini> _users = [];
-  final Set<String> _loadedUids = {};
-
-  DocumentSnapshot<Map<String, dynamic>>? _lastDoc;
-
-  bool _isLoading = false;
-  bool _hasMore = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadNext();
-  }
-
-  @override
-  void didUpdateWidget(covariant _MemberPreviewRow oldWidget) {
-    super.didUpdateWidget(oldWidget);
-
-    if (oldWidget.meetId != widget.meetId ||
-        oldWidget.hostUid != widget.hostUid) {
-      _users.clear();
-      _loadedUids.clear();
-      _lastDoc = null;
-      _isLoading = false;
-      _hasMore = true;
-      _loadNext();
-    }
-  }
-
-  Future<void> _loadNext() async {
-    if (_isLoading || !_hasMore) return;
-
-    setState(() => _isLoading = true);
-
-    try {
-      Query<Map<String, dynamic>> query = FirebaseFirestore.instance
-          .collection('meets')
-          .doc(widget.meetId)
-          .collection('members')
-          .orderBy('joinedAt', descending: false)
-          .limit(widget.pageSize);
-
-      if (_lastDoc != null) {
-        query = query.startAfterDocument(_lastDoc!);
-      }
-
-      final memberSnap = await query.get();
-
-      if (memberSnap.docs.isEmpty) {
-        setState(() {
-          _hasMore = false;
-          _isLoading = false;
-        });
-        return;
-      }
-
-      _lastDoc = memberSnap.docs.last;
-      if (memberSnap.docs.length < widget.pageSize) {
-        _hasMore = false;
-      }
-
-      final uids = memberSnap.docs
-          .map((d) => (d.data()['uid'] ?? d.id).toString())
-          .where((uid) => uid.isNotEmpty && !_loadedUids.contains(uid))
-          .toList();
-
-      if (uids.isEmpty) {
-        setState(() => _isLoading = false);
-        return;
-      }
-
-      final userSnap = await FirebaseFirestore.instance
-          .collection('users')
-          .where('uid', whereIn: uids)
-          .get();
-
-      final fetched = <UserMini>[];
-
-      for (final d in userSnap.docs) {
-        try {
-          fetched.add(UserMini.fromMap(d.data(), d.id));
-        } catch (e) {
-          debugPrint('skip invalid user doc: ${d.id}, error: $e');
-        }
-      }
-      fetched.sort(
-        (a, b) => uids.indexOf(a.uid).compareTo(uids.indexOf(b.uid)),
-      );
-
-      for (final u in fetched) {
-        _loadedUids.add(u.uid);
-      }
-
-      setState(() {
-        _users.addAll(fetched);
-        _isLoading = false;
-      });
-    } catch (_) {
-      setState(() => _isLoading = false);
-    }
-  }
+  final bool locked;
 
   @override
   Widget build(BuildContext context) {
-    if (_users.isEmpty && !_isLoading) {
-      return _buildEmptyMemberBox();
-    }
-
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(14),
@@ -1120,130 +894,40 @@ class _MemberPreviewRowState extends State<_MemberPreviewRow> {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.borderSecondary),
       ),
-      child: SingleChildScrollView(
-        physics: const ClampingScrollPhysics(),
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            for (final u in _users) ...[
-              _buildMemberAvatar(user: u, isHost: u.uid == widget.hostUid),
-              const SizedBox(width: 10),
-            ],
-            if (_isLoading) ...[
-              for (int i = 0; i < 3; i++) ...[
-                _buildMemberAvatarSkeleton(),
-                const SizedBox(width: 10),
-              ],
-            ],
-            if (_hasMore && !_isLoading)
-              _buildLoadMoreChip(
-                text: '${widget.pageSize}명 더보기',
-                onTap: _loadNext,
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMemberAvatar({required UserMini user, required bool isHost}) {
-    return SizedBox(
-      // width: 56,
-      child: Column(
+      child: Row(
         children: [
-          CommonProfileAvatar(
-            imageUrl: user.photoUrl,
-            size: 40,
-            uid: user.uid,
-            gender: user.gender,lastWeeklyRank: user.lastWeeklyRank,
-          ),
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              if (isHost) ...[
-                Icon(Icons.star_rounded, size: 12, color: AppColors.sky400),
-              ],
-              Text(
-                user.nickname,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: AppTextStyle.labelXSmallStyle.copyWith(
-                  color: AppColors.textSecondary,
-                ),
+          const Icon(Icons.chat_bubble_outline, color: AppColors.icDefault),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              locked ? '모임 참가 후 채팅방에 입장할 수 있어요' : '참가 후 채팅방을 이용할 수 있어요',
+              style: AppTextStyle.bodyMediumStyle.copyWith(
+                color: AppColors.textDefault,
               ),
-            ],
+            ),
           ),
         ],
       ),
     );
   }
+}
 
-  Widget _buildMemberAvatarSkeleton() {
-    return Column(
+class _MemberPreviewRow extends StatelessWidget {
+  const _MemberPreviewRow({required this.memberCount});
+
+  final int memberCount;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
       children: [
-        Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: AppColors.gray100,
-            shape: BoxShape.circle,
-            border: Border.all(color: AppColors.borderSecondary),
-          ),
-        ),
-        const SizedBox(height: 6),
-        Container(
-          width: 46,
-          height: 10,
-          decoration: BoxDecoration(
-            color: AppColors.gray100,
-            borderRadius: BorderRadius.circular(6),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildLoadMoreChip({
-    required String text,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(999),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: AppColors.bgWhite,
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: AppColors.borderSecondary),
-        ),
-        child: Text(
-          text,
-          style: AppTextStyle.labelSmallStyle.copyWith(
-            color: AppColors.textPrimary,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildEmptyMemberBox() {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.bgSecondary,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.borderSecondary),
-      ),
-      child: Center(
-        child: Text(
-          '참가자가 없어요',
-          style: AppTextStyle.bodySmallStyle.copyWith(
+        Text(
+          '현재 $memberCount명 참여 중',
+          style: AppTextStyle.bodyMediumStyle.copyWith(
             color: AppColors.textSecondary,
           ),
         ),
-      ),
+      ],
     );
   }
 }
@@ -1253,293 +937,39 @@ class _LockedMeetContentPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        IgnorePointer(
-          ignoring: true,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildMemberPreviewPlaceholder(),
-              const SizedBox(height: 16),
-              _buildFeedSectionPlaceholder(),
-              const SizedBox(height: 18),
-              _buildLightningSectionPlaceholder(),
-            ],
-          ),
-        ),
-
-        Positioned.fill(
-          child: Container(
-            decoration: BoxDecoration(
-              color: AppColors.bgWhite.withValues(alpha: 0.88),
-              borderRadius: BorderRadius.circular(16),
-            ),
-          ),
-        ),
-
-        Positioned.fill(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(
-                  Icons.lock_outline_rounded,
-                  size: 28,
-                  color: AppColors.icDefault,
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  '모임에 참가해야 참가자,\n모임 피드, 번개를 볼 수 있어요',
-                  textAlign: TextAlign.center,
-                  style: AppTextStyle.titleSmallBoldStyle.copyWith(
-                    color: AppColors.textDefault,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildMemberPreviewPlaceholder() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
       decoration: BoxDecoration(
         color: AppColors.bgSecondary,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.borderSecondary),
       ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        physics: const NeverScrollableScrollPhysics(),
-        child: Row(
-          children: List.generate(6, (index) {
-            return Padding(
-              padding: EdgeInsets.only(right: index == 5 ? 0 : 10),
-              child: Column(
-                children: [
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: AppColors.gray100,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: AppColors.borderSecondary),
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Container(
-                    width: 46,
-                    height: 10,
-                    decoration: BoxDecoration(
-                      color: AppColors.gray100,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFeedSectionPlaceholder() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Text('모임 피드', style: AppTextStyle.titleMediumBoldStyle),
-            const Spacer(),
-            Text(
-              '전체보기',
-              style: AppTextStyle.labelMediumStyle.copyWith(
-                color: AppColors.textPrimary,
-              ),
+      child: Column(
+        children: [
+          const Icon(Icons.lock_outline, color: AppColors.icSecondary),
+          const SizedBox(height: 8),
+          Text(
+            '참가하면 모임 피드와 번개를 볼 수 있어요',
+            style: AppTextStyle.bodyMediumStyle.copyWith(
+              color: AppColors.textSecondary,
             ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: 6,
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 3,
-            crossAxisSpacing: 8,
-            mainAxisSpacing: 8,
-            childAspectRatio: 1,
+            textAlign: TextAlign.center,
           ),
-          itemBuilder: (_, __) {
-            return Container(
-              decoration: BoxDecoration(
-                color: AppColors.gray100,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.borderSecondary),
-              ),
-            );
-          },
-        ),
-      ],
-    );
-  }
-
-  Widget _buildLightningSectionPlaceholder() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Text('번개', style: AppTextStyle.titleMediumBoldStyle),
-            const Spacer(),
-            Text(
-              '전체보기',
-              style: AppTextStyle.labelMediumStyle.copyWith(
-                color: AppColors.textPrimary,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        Column(
-          children: List.generate(2, (index) {
-            return Padding(
-              padding: EdgeInsets.only(bottom: index == 1 ? 0 : 10),
-              child: Container(
-                height: 96,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: AppColors.bgSecondary,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.borderSecondary),
-                ),
-                padding: const EdgeInsets.all(12),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 72,
-                      height: double.infinity,
-                      decoration: BoxDecoration(
-                        color: AppColors.gray100,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            width: 72,
-                            height: 12,
-                            decoration: BoxDecoration(
-                              color: AppColors.gray100,
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          Container(
-                            width: double.infinity,
-                            height: 14,
-                            decoration: BoxDecoration(
-                              color: AppColors.gray100,
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Container(
-                            width: 120,
-                            height: 12,
-                            decoration: BoxDecoration(
-                              color: AppColors.gray100,
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
 
-class _MeetChatEntryCard extends StatelessWidget {
-  const _MeetChatEntryCard({required this.locked, required this.onTap});
+class _PhotoItem {
+  final String feedId;
+  final String? imageUrl;
+  final String? previewText;
 
-  final bool locked;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: locked ? null : onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: locked ? AppColors.bgSecondary : AppColors.sky50,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: locked ? AppColors.borderSecondary : AppColors.borderPrimary,
-          ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                color: locked ? AppColors.gray100 : AppColors.sky50,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(
-                locked ? Icons.lock_outline : Icons.chat_bubble_outline,
-                color: locked ? AppColors.icSecondary : AppColors.sky400,
-                size: 22,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    locked ? '모임 단톡방' : '모임 단톡방 바로가기',
-                    style: AppTextStyle.titleSmallBoldStyle.copyWith(
-                      color: AppColors.textDefault,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    locked ? '모임에 참가해야 단톡방에 입장할 수 있어요' : '참가 멤버와 바로 대화해보세요',
-                    style: AppTextStyle.bodySmallStyle.copyWith(
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(
-              Icons.chevron_right_rounded,
-              color: locked ? AppColors.icSecondary : AppColors.icDefault,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  const _PhotoItem({
+    required this.feedId,
+    required this.imageUrl,
+    required this.previewText,
+  });
 }

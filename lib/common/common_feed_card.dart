@@ -18,6 +18,7 @@ import '../feed/domain/feed_model.dart';
 import '../feed/domain/poll_model.dart';
 import '../feed/providers/feed_provider.dart';
 import '../meet/meet_detail/meat_detail_view.dart';
+import '../meet/providers/meet_provider.dart';
 import '../oow_step/presentation/oow_step_view.dart';
 import '../profile/widget/feed_type_pill.dart';
 import '../services/dialog_service.dart';

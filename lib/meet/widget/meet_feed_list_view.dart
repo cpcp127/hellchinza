@@ -11,6 +11,7 @@ import '../../feed/create_feed/create_feed_view.dart';
 import '../../feed/domain/feed_model.dart';
 import '../../oow_step/presentation/oow_step_view.dart';
 import '../meet_detail/meat_detail_view.dart';
+import '../providers/meet_provider.dart';
 
 class MeetFeedListView extends ConsumerStatefulWidget {
   const MeetFeedListView({super.key, required this.meetId});

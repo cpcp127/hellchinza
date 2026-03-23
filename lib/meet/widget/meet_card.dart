@@ -6,6 +6,7 @@ import '../../constants/app_colors.dart';
 import '../../constants/app_text_style.dart';
 import '../domain/meet_summary_model.dart';
 import '../meet_list/meet_list_view.dart';
+import '../providers/meet_provider.dart';
 import 'meet_thumb.dart';
 
 class MeetCard extends ConsumerWidget {

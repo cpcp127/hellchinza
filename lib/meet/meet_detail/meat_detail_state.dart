@@ -34,35 +34,26 @@ class MeetDetailState {
     bool? isLoading,
     String? errorMessage,
     bool clearError = false,
-
     MeetModel? meet,
     bool clearMeet = false,
-
     String? myUid,
-
     String? myRequestStatus,
     bool clearMyRequestStatus = false,
-
     bool? isMember,
     int? memberCount,
   }) {
     return MeetDetailState(
       isLoading: isLoading ?? this.isLoading,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
-
       meet: clearMeet ? null : (meet ?? this.meet),
       myUid: myUid ?? this.myUid,
-
       myRequestStatus: clearMyRequestStatus
           ? null
           : (myRequestStatus ?? this.myRequestStatus),
-
       isMember: isMember ?? this.isMember,
       memberCount: memberCount ?? this.memberCount,
     );
   }
-
-  // ---------------- getters ----------------
 
   bool get hasMeet => meet != null;
 

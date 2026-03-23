@@ -9,6 +9,7 @@ import '../../constants/app_text_style.dart';
 import '../../services/snackbar_service.dart';
 import '../domain/lightning_model.dart';
 import '../meet_detail/meat_detail_view.dart';
+import '../providers/meet_provider.dart';
 import 'lightning_member_mini_row.dart';
 
 class LightningCard extends ConsumerWidget {

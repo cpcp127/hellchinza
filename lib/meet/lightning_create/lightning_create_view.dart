@@ -1,17 +1,20 @@
+import 'dart:io';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hellchinza/common/common_action_sheet.dart';
 import 'package:hellchinza/common/common_chip.dart';
+import 'package:hellchinza/common/common_location_serach_view.dart';
+import 'package:hellchinza/common/common_text_field.dart';
+import 'package:hellchinza/constants/app_colors.dart';
+import 'package:hellchinza/constants/app_constants.dart';
+import 'package:hellchinza/constants/app_text_style.dart';
+import 'package:hellchinza/feed/domain/feed_place.dart';
 
-import '../../common/common_action_sheet.dart';
-import '../../common/common_location_serach_view.dart';
-import '../../common/common_text_field.dart';
-import '../../constants/app_colors.dart';
-import '../../constants/app_constants.dart';
-import '../../constants/app_text_style.dart';
-import '../../feed/create_feed/create_feed_state.dart';
-import '../../feed/domain/feed_place.dart';
+import 'package:hellchinza/meet/providers/meet_provider.dart';
+
 import 'lightning_create_controller.dart';
 import 'lightning_create_state.dart';
 
@@ -50,13 +53,13 @@ class _LightningCreateViewState extends ConsumerState<LightningCreateView> {
       lightningCreateControllerProvider(widget.meetId).notifier,
     );
 
-    // 컨트롤러 값 동기화(간단 버전)
     if (_titleCtrl.text != state.title) {
       _titleCtrl.value = _titleCtrl.value.copyWith(
         text: state.title,
         selection: TextSelection.collapsed(offset: state.title.length),
       );
     }
+
     final maxText = state.maxMembersText?.toString() ?? '';
     if (_maxCtrl.text != maxText) {
       _maxCtrl.value = _maxCtrl.value.copyWith(
@@ -80,12 +83,10 @@ class _LightningCreateViewState extends ConsumerState<LightningCreateView> {
         child: Column(
           children: [
             _StepHeaderLikeMeet(
-              // ✅ 모임 만들기 헤더랑 동일한 스타일로
               stepIndex: state.stepIndex,
               total: 5,
               title: _stepTitle(state.stepIndex),
             ),
-
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
@@ -98,7 +99,6 @@ class _LightningCreateViewState extends ConsumerState<LightningCreateView> {
                 ),
               ),
             ),
-
             SafeArea(
               top: false,
               child: Padding(
@@ -110,16 +110,16 @@ class _LightningCreateViewState extends ConsumerState<LightningCreateView> {
                     onPressed: state.isLoading
                         ? null
                         : (state.canGoNext
-                              ? () async {
-                                  if (!state.isLast) {
-                                    controller.nextStep();
-                                    return;
-                                  }
-                                  final ok = await controller.submit();
-                                  if (!context.mounted) return;
-                                  if (ok) Navigator.pop(context, true);
-                                }
-                              : null),
+                        ? () async {
+                      if (!state.isLast) {
+                        controller.nextStep();
+                        return;
+                      }
+                      final ok = await controller.submit();
+                      if (!context.mounted) return;
+                      if (ok) Navigator.pop(context, true);
+                    }
+                        : null),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.btnPrimary,
                       disabledBackgroundColor: AppColors.btnDisabled,
@@ -129,20 +129,20 @@ class _LightningCreateViewState extends ConsumerState<LightningCreateView> {
                     ),
                     child: state.isLoading
                         ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
                         : Text(
-                            state.isLast ? '번개 만들기' : '다음',
-                            style: AppTextStyle.labelLargeStyle.copyWith(
-                              color: AppColors.white,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
+                      state.isLast ? '번개 만들기' : '다음',
+                      style: AppTextStyle.labelLargeStyle.copyWith(
+                        color: AppColors.white,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -237,39 +237,38 @@ class _StepBody extends StatelessWidget {
           ctrl: titleCtrl,
           onChanged: controller.onChangeTitle,
         );
-
       case 1:
         return _StepCategoryPick(
           selected: state.category,
           onSelect: controller.onSelectCategory,
         );
-
       case 2:
         return _StepDateTimePick(
           value: state.dateTime,
-          onPick: (dt) => controller.onSelectDateTime(dt),
+          onPick: controller.onSelectDateTime,
         );
-
       case 3:
         return _StepMaxMembers(
           ctrl: maxCtrl,
           onChanged: controller.onChangeMaxMembersText,
         );
-
       case 4:
         return _StepPlaceAndThumb(
           state: state,
           controller: controller,
           onPickPlace: () async {
-            // ✅ 너의 “장소 검색 바텀시트”를 여기서 호출해서 place를 받아와야 함
-            // 예:
-            // final place = await showPlacePickerBottomSheet(context);
-            // if (place != null) controller.onSelectPlace(place);
+            final place = await Navigator.push<FeedPlace>(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const CommonLocationSearchView(),
+              ),
+            );
 
-            // 지금은 TODO로 남겨둠
+            if (place != null) {
+              controller.onSelectPlace(place);
+            }
           },
         );
-
       default:
         return const SizedBox.shrink();
     }
@@ -277,7 +276,10 @@ class _StepBody extends StatelessWidget {
 }
 
 class _StepTitleInput extends StatelessWidget {
-  const _StepTitleInput({required this.ctrl, required this.onChanged});
+  const _StepTitleInput({
+    required this.ctrl,
+    required this.onChanged,
+  });
 
   final TextEditingController ctrl;
   final ValueChanged<String> onChanged;
@@ -300,7 +302,10 @@ class _StepTitleInput extends StatelessWidget {
 }
 
 class _StepCategoryPick extends StatelessWidget {
-  const _StepCategoryPick({required this.selected, required this.onSelect});
+  const _StepCategoryPick({
+    required this.selected,
+    required this.onSelect,
+  });
 
   final String? selected;
   final ValueChanged<String> onSelect;
@@ -315,7 +320,7 @@ class _StepCategoryPick extends StatelessWidget {
         CommonChipWrap(
           items: workList,
           selectedItems: selected == null ? [] : [selected!],
-          onTap: (str) => onSelect(str),
+          onTap: onSelect,
         ),
       ],
     );
@@ -323,7 +328,10 @@ class _StepCategoryPick extends StatelessWidget {
 }
 
 class _StepDateTimePick extends StatelessWidget {
-  const _StepDateTimePick({required this.value, required this.onPick});
+  const _StepDateTimePick({
+    required this.value,
+    required this.onPick,
+  });
 
   final DateTime? value;
   final ValueChanged<DateTime> onPick;
@@ -369,104 +377,15 @@ class _StepDateTimePick extends StatelessWidget {
   }
 
   String _format(DateTime dt) {
-    // ✅ 네 DateTimeUtil._formatMeetDateTime 넣을 자리
     return '${dt.month}월 ${dt.day}일 ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
-  }
-
-  Future<DateTime?> _showCupertinoDateTimePicker(
-    BuildContext context, {
-    DateTime? initial,
-  }) async {
-    DateTime now = DateTime.now();
-    final minimum = now;
-
-    DateTime temp = initial ?? now.add(const Duration(minutes: 10));
-    // ✅ minimum 보다 과거면 끌어올리기
-    if (temp.isBefore(minimum)) temp = minimum.add(const Duration(minutes: 5));
-    // ✅ minuteInterval(5) 맞추기
-    temp = DateTime(
-      temp.year,
-      temp.month,
-      temp.day,
-      temp.hour,
-      (temp.minute ~/ 5) * 5,
-    );
-
-    DateTime? result = temp;
-
-    return showModalBottomSheet<DateTime>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (_) {
-        return Container(
-          height: 360,
-          decoration: const BoxDecoration(
-            color: AppColors.bgWhite,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
-          ),
-          child: Column(
-            children: [
-              const SizedBox(height: 12),
-              Container(
-                width: 44,
-                height: 5,
-                decoration: BoxDecoration(
-                  color: AppColors.gray200,
-                  borderRadius: BorderRadius.circular(99),
-                ),
-              ),
-              Row(
-                children: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: Text('취소', style: AppTextStyle.labelMediumStyle),
-                  ),
-                  const Spacer(),
-                  TextButton(
-                    onPressed: () => Navigator.pop(context, result),
-                    child: Text(
-                      '확인',
-                      style: AppTextStyle.labelMediumStyle.copyWith(
-                        color: AppColors.textPrimary,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              Expanded(
-                child: CupertinoDatePicker(
-                  mode: CupertinoDatePickerMode.dateAndTime,
-                  minuteInterval: 5,
-                  minimumDate: minimum,
-                  maximumDate: DateTime(now.year + 1),
-                  initialDateTime: temp,
-                  onDateTimeChanged: (v) {
-                    // minimum 보장 + 5분 단위 보정
-                    DateTime vv = v;
-                    if (vv.isBefore(minimum)) vv = minimum;
-                    vv = DateTime(
-                      vv.year,
-                      vv.month,
-                      vv.day,
-                      vv.hour,
-                      (vv.minute ~/ 5) * 5,
-                    );
-                    result = vv;
-                  },
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
   }
 }
 
 class _StepMaxMembers extends StatelessWidget {
-  const _StepMaxMembers({required this.ctrl, required this.onChanged});
+  const _StepMaxMembers({
+    required this.ctrl,
+    required this.onChanged,
+  });
 
   final TextEditingController ctrl;
   final ValueChanged<String> onChanged;
@@ -480,16 +399,15 @@ class _StepMaxMembers extends StatelessWidget {
         const SizedBox(height: 10),
         CommonTextField(
           controller: ctrl,
-          hintText: '예) 8',
+          hintText: '2~200',
           keyboardType: TextInputType.number,
-
           onChanged: onChanged,
-        ),
-        const SizedBox(height: 8),
-        Text(
-          '2~200 사이 숫자를 입력해주세요',
-          style: AppTextStyle.bodySmallStyle.copyWith(
-            color: AppColors.textTeritary,
+          suffixIcon: const Padding(
+            padding: EdgeInsets.only(right: 12),
+            child: Center(
+              widthFactor: 1,
+              child: Text('명'),
+            ),
           ),
         ),
       ],
@@ -510,108 +428,175 @@ class _StepPlaceAndThumb extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('장소를 선택해주세요', style: AppTextStyle.titleMediumBoldStyle),
-        const SizedBox(height: 10),
-        GestureDetector(
-          onTap: () async {
-            final FeedPlace? selected = await Navigator.push(
-              context,
-              CupertinoPageRoute(
-                fullscreenDialog: true,
-                builder: (context) {
-                  return CommonLocationSearchView();
-                },
+    final placeText = state.selectedPlace == null
+        ? '장소를 선택해주세요'
+        : state.selectedPlace!.title;
+
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('어디서 진행하나요?', style: AppTextStyle.titleMediumBoldStyle),
+          const SizedBox(height: 10),
+          InkWell(
+            borderRadius: BorderRadius.circular(14),
+            onTap: onPickPlace,
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+              decoration: BoxDecoration(
+                color: AppColors.white,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppColors.borderSecondary),
               ),
-            );
-
-            if (selected == null) return;
-
-            controller.onSelectPlace(selected);
-          },
-          child: state.selectedPlace == null
-              ? Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 14,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.bgSecondary,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.borderSecondary),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.place_outlined,
-                        size: 20,
-                        color: AppColors.icSecondary,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          '어디서 만날까요?',
-                          style: AppTextStyle.bodyMediumStyle.copyWith(
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                      ),
-                      const Icon(
-                        Icons.chevron_right,
-                        size: 20,
-                        color: AppColors.icSecondary,
-                      ),
-                    ],
-                  ),
-                )
-              : Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: AppColors.bgWhite,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.borderSecondary),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.place_outlined,
-                        color: AppColors.icSecondary,
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              state.selectedPlace!.title,
-                              style: AppTextStyle.titleSmallBoldStyle,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              state.selectedPlace!.address,
-                              style: AppTextStyle.bodySmallStyle.copyWith(
-                                color: AppColors.textSecondary,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ),
-                      ),
-                      const Icon(
-                        Icons.chevron_right,
-                        color: AppColors.icSecondary,
-                      ),
-                    ],
+              child: Text(
+                placeText,
+                style: AppTextStyle.bodyMediumStyle.copyWith(
+                  color: state.selectedPlace == null
+                      ? AppColors.textTeritary
+                      : AppColors.textDefault,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 22),
+          Row(
+            children: [
+              Text('썸네일', style: AppTextStyle.titleMediumBoldStyle),
+              const Spacer(),
+              if (state.thumbnail != null)
+                TextButton(
+                  onPressed: controller.removeThumbnail,
+                  child: Text(
+                    '삭제',
+                    style: AppTextStyle.labelMediumStyle.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
                   ),
                 ),
-        ),
-      ],
+            ],
+          ),
+          const SizedBox(height: 10),
+          InkWell(
+            borderRadius: BorderRadius.circular(18),
+            onTap: () => _showImagePickActionSheet(context),
+            child: Container(
+              width: double.infinity,
+              height: 220,
+              decoration: BoxDecoration(
+                color: AppColors.bgSecondary,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: AppColors.borderSecondary),
+              ),
+              child: state.thumbnail == null
+                  ? Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(
+                    Icons.add_a_photo_outlined,
+                    size: 30,
+                    color: AppColors.icSecondary,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '썸네일 추가',
+                    style: AppTextStyle.bodyMediumStyle.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              )
+                  : ClipRRect(
+                borderRadius: BorderRadius.circular(18),
+                child: Image.file(
+                  File(state.thumbnail!.path),
+                  fit: BoxFit.cover,
+                  width: double.infinity,
+                  height: double.infinity,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
+
+  Future<void> _showImagePickActionSheet(BuildContext context) async {
+    await showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => CommonActionSheet(
+        title: '썸네일 선택',
+        items: [
+          CommonActionSheetItem(
+            icon: Icons.photo_library_outlined,
+            title: '앨범에서 선택',
+            onTap: () async {
+              Navigator.pop(context);
+              await controller.pickThumbnailToAlbum(context);
+            },
+          ),
+          CommonActionSheetItem(
+            icon: Icons.photo_camera_outlined,
+            title: '카메라로 촬영',
+            onTap: () async {
+              Navigator.pop(context);
+              await controller.pickThumbnailToAlbumToCamera(context);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+Future<DateTime?> _showCupertinoDateTimePicker(
+    BuildContext context, {
+      DateTime? initial,
+    }) async {
+  DateTime temp = initial ?? DateTime.now().add(const Duration(hours: 1));
+
+  final result = await showCupertinoModalPopup<DateTime>(
+    context: context,
+    builder: (_) {
+      return Container(
+        height: 300,
+        color: Colors.white,
+        child: Column(
+          children: [
+            Container(
+              height: 52,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('취소'),
+                  ),
+                  const Spacer(),
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, temp),
+                    child: const Text('확인'),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: CupertinoDatePicker(
+                mode: CupertinoDatePickerMode.dateAndTime,
+                initialDateTime: temp,
+                minimumDate: DateTime.now(),
+                use24hFormat: true,
+                onDateTimeChanged: (v) => temp = v,
+              ),
+            ),
+          ],
+        ),
+      );
+    },
+  );
+
+  return result;
 }

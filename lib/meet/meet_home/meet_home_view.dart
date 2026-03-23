@@ -1,33 +1,18 @@
 import 'dart:math' as math;
 import 'dart:ui';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../common/common_network_image.dart';
-import '../../constants/app_colors.dart';
-import '../../constants/app_text_style.dart';
-import '../../meet/domain/meet_model.dart';
+import '../../../common/common_network_image.dart';
+import '../../../constants/app_colors.dart';
+import '../../../constants/app_text_style.dart';
+import '../domain/meet_model.dart';
 import '../meet_detail/meat_detail_view.dart';
 import '../meet_list/meet_list_view.dart';
-import 'meet_home_controller.dart';
+import '../providers/meet_provider.dart';
 import 'meet_home_state.dart';
-
-final meetMemberCountProvider = FutureProvider.family<int, String>((
-  ref,
-  meetId,
-) async {
-  final snap = await FirebaseFirestore.instance
-      .collection('meets')
-      .doc(meetId)
-      .collection('members')
-      .count()
-      .get();
-
-  return snap.count ?? 0;
-});
 
 class MeetHomeView extends ConsumerStatefulWidget {
   const MeetHomeView({super.key});
@@ -60,92 +45,76 @@ class _MeetHomeViewState extends ConsumerState<MeetHomeView> {
           child: state.isLoading && state.heroItems.isEmpty
               ? const Center(child: CircularProgressIndicator.adaptive())
               : CustomScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  slivers: [
-                    // SliverToBoxAdapter(
-                    //   child: Padding(
-                    //     padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                    //     child: _HomeHeader(
-                    //       onTapAll: () {
-                    //         // 전체보기 페이지로 push
-                    //       },
-                    //     ),
-                    //   ),
-                    // ),
-                    const SliverToBoxAdapter(child: SizedBox(height: 18)),
-
-                    if (state.heroItems.isNotEmpty)
-                      SliverToBoxAdapter(
-                        child: _MeetHeroSection(items: state.heroItems),
-                      ),
-
-                    const SliverToBoxAdapter(child: SizedBox(height: 28)),
-
-                    _SectionBlock(
-                      title: '방금 활동한 모임',
-                      subTitle: '최근 채팅이 오간 살아있는 모임',
-                      items: state.recentActiveMeets,
-                    ),
-                    _SectionBlock(
-                      title: '인원이 많은 모임',
-                      subTitle: '사람들이 많이 모이는 인기 모임',
-                      items: state.popularMeets,
-                    ),
-                    _SectionBlock(
-                      title: '최근 생성된 모임',
-                      subTitle: '새로 올라온 모임을 빠르게 확인',
-                      items: state.newestMeets,
-                    ),
-                    _SectionBlock(
-                      title: '내 관심사 모임',
-                      subTitle: '내 운동 카테고리에 맞춘 추천',
-                      items: state.interestMeets,
-                    ),
-                    _SectionBlock(
-                      title: '번개 활발한 모임',
-                      subTitle: '최근 번개가 자주 열리는 모임',
-                      items: state.lightningHotMeets,
-                    ),
-
-                    const SliverToBoxAdapter(child: SizedBox(height: 24)),
-
-                    if (state.errorMessage != null)
-                      SliverToBoxAdapter(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: Text(
-                            state.errorMessage!,
-                            style: AppTextStyle.bodyMediumStyle.copyWith(
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                        ),
-                      ),
-                    SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
-                        child: _BrowseAllMeetButton(
-                          onTap: (){
-                            Navigator.push(
-                              context,
-                              CupertinoPageRoute(
-                                fullscreenDialog: true,
-                                builder: (_) => const MeetListView(),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                    ),
-                    const SliverToBoxAdapter(child: SizedBox(height: 24)),
-                  ],
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              const SliverToBoxAdapter(child: SizedBox(height: 18)),
+              if (state.heroItems.isNotEmpty)
+                SliverToBoxAdapter(
+                  child: _MeetHeroSection(items: state.heroItems),
                 ),
+              const SliverToBoxAdapter(child: SizedBox(height: 28)),
+              _SectionBlock(
+                title: '방금 활동한 모임',
+                subTitle: '최근 채팅이 오간 살아있는 모임',
+                items: state.recentActiveMeets,
+              ),
+              _SectionBlock(
+                title: '인원이 많은 모임',
+                subTitle: '사람들이 많이 모이는 인기 모임',
+                items: state.popularMeets,
+              ),
+              _SectionBlock(
+                title: '최근 생성된 모임',
+                subTitle: '새로 올라온 모임을 빠르게 확인',
+                items: state.newestMeets,
+              ),
+              _SectionBlock(
+                title: '내 관심사 모임',
+                subTitle: '내 운동 카테고리에 맞춘 추천',
+                items: state.interestMeets,
+              ),
+              _SectionBlock(
+                title: '번개 활발한 모임',
+                subTitle: '최근 번개가 자주 열리는 모임',
+                items: state.lightningHotMeets,
+              ),
+              const SliverToBoxAdapter(child: SizedBox(height: 24)),
+              if (state.errorMessage != null)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Text(
+                      state.errorMessage!,
+                      style: AppTextStyle.bodyMediumStyle.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ),
+                ),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
+                  child: _BrowseAllMeetButton(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        CupertinoPageRoute(
+                          fullscreenDialog: true,
+                          builder: (_) => const MeetListView(),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+              const SliverToBoxAdapter(child: SizedBox(height: 24)),
+            ],
+          ),
         ),
       ),
     );
   }
 }
-
 
 class _MeetHeroSection extends StatefulWidget {
   const _MeetHeroSection({required this.items});
@@ -201,14 +170,12 @@ class _MeetHeroSectionState extends State<_MeetHeroSection> {
                       onTapDetail: () {
                         final meet = item.meet;
 
-
                         Navigator.push(
                           context,
                           CupertinoPageRoute(
                             fullscreenDialog: true,
                             builder: (_) => MeetDetailView(
                               meetId: meet.id,
-
                             ),
                           ),
                         );
@@ -270,7 +237,6 @@ class _MeetHeroCard extends ConsumerWidget {
                 )
               else
                 Container(color: AppColors.bgSecondary),
-
               const DecoratedBox(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
@@ -284,13 +250,11 @@ class _MeetHeroCard extends ConsumerWidget {
                   ),
                 ),
               ),
-
               Positioned(
                 top: 20,
                 left: 20,
                 child: _HeroBadge(text: item.badge),
               ),
-
               Positioned(
                 top: 20,
                 right: 20,
@@ -327,7 +291,6 @@ class _MeetHeroCard extends ConsumerWidget {
                   ),
                 ),
               ),
-
               Positioned(
                 left: 24 + contentTranslate,
                 right: 24,
@@ -427,17 +390,6 @@ class _HeroContent extends ConsumerWidget {
                 ),
               ),
             ),
-            // const SizedBox(width: 10),
-            // Container(
-            //   width: 48,
-            //   height: 48,
-            //   decoration: BoxDecoration(
-            //     color: Colors.white.withOpacity(0.16),
-            //     borderRadius: BorderRadius.circular(16),
-            //     border: Border.all(color: Colors.white.withOpacity(0.18)),
-            //   ),
-            //   child: const Icon(CupertinoIcons.heart, color: AppColors.white),
-            // ),
           ],
         ),
       ],
@@ -541,8 +493,9 @@ class _SectionBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (items.isEmpty)
+    if (items.isEmpty) {
       return const SliverToBoxAdapter(child: SizedBox.shrink());
+    }
 
     return SliverToBoxAdapter(
       child: Padding(
@@ -599,16 +552,13 @@ class _MeetMiniCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final countAsync = ref.watch(meetMemberCountProvider(meet.id));
-
     final imageUrl = meet.imageUrls.isNotEmpty ? meet.imageUrls.first : '';
-
     final regionText = meet.regions.isNotEmpty
         ? meet.regions.first.fullName
         : '지역 미정';
 
     return GestureDetector(
       onTap: () {
-        // 상세 이동
         Navigator.push(
           context,
           CupertinoPageRoute(
@@ -639,7 +589,11 @@ class _MeetMiniCard extends ConsumerWidget {
               height: 132,
               width: double.infinity,
               child: imageUrl.isNotEmpty
-                  ? CommonNetworkImage(imageUrl: imageUrl, fit: BoxFit.cover,enableViewer: false,)
+                  ? CommonNetworkImage(
+                imageUrl: imageUrl,
+                fit: BoxFit.cover,
+                enableViewer: false,
+              )
                   : Container(color: AppColors.bgSecondary),
             ),
             Expanded(
@@ -725,6 +679,7 @@ class _MeetMiniCard extends ConsumerWidget {
     );
   }
 }
+
 class _BrowseAllMeetButton extends StatelessWidget {
   const _BrowseAllMeetButton({
     required this.onTap,

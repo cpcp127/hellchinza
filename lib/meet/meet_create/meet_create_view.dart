@@ -1,17 +1,14 @@
-import 'dart:io';
-
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hellchinza/common/common_chip.dart';
-import 'package:hellchinza/meet/domain/meet_model.dart';
+import 'package:hellchinza/common/common_network_image.dart';
+import 'package:hellchinza/common/common_text_field.dart';
+import 'package:hellchinza/constants/app_colors.dart';
+import 'package:hellchinza/constants/app_constants.dart';
+import 'package:hellchinza/constants/app_text_style.dart';
 
-import '../../common/common_network_image.dart';
-import '../../common/common_text_field.dart';
-import '../../constants/app_colors.dart';
-import '../../constants/app_constants.dart';
-import '../../constants/app_text_style.dart';
+import 'package:hellchinza/meet/providers/meet_provider.dart';
 
 import '../widget/region_picker_sheet.dart';
 import 'meet_create_controller.dart';
@@ -20,7 +17,7 @@ import 'meet_create_state.dart';
 class MeetCreateStepperView extends ConsumerStatefulWidget {
   const MeetCreateStepperView({super.key, this.meetId});
 
-  final String? meetId; // ✅ null이면 생성, 있으면 수정
+  final String? meetId;
 
   @override
   ConsumerState<MeetCreateStepperView> createState() =>
@@ -64,7 +61,6 @@ class _MeetCreateStepperViewState extends ConsumerState<MeetCreateStepperView> {
     final state = ref.watch(meetCreateControllerProvider);
     final controller = ref.read(meetCreateControllerProvider.notifier);
 
-    // ✅ 수정모드 최초 1회 initForEdit
     if (!_initedEdit && widget.meetId != null) {
       _initedEdit = true;
       WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -73,8 +69,6 @@ class _MeetCreateStepperViewState extends ConsumerState<MeetCreateStepperView> {
       });
     }
 
-    // 수정 state 로딩 완료 후에도 동기화(필요 시)
-    // (가끔 initForEdit 이후에도 build 타이밍 때문에 한 번 더 보정)
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _syncTextControllersFromState();
     });
@@ -133,14 +127,14 @@ class _MeetCreateStepperViewState extends ConsumerState<MeetCreateStepperView> {
                 child: ElevatedButton(
                   onPressed: (state.canGoNext && !state.isLoading)
                       ? () async {
-                          if (!state.isLast) {
-                            controller.next();
-                            return;
-                          }
-                          await controller.submit();
-                          if (!mounted) return;
-                          Navigator.pop(context, true); // ✅ 목록 리프레시용
-                        }
+                    if (!state.isLast) {
+                      controller.next();
+                      return;
+                    }
+                    await controller.submit();
+                    if (!mounted) return;
+                    Navigator.pop(context, true);
+                  }
                       : null,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.btnPrimary,
@@ -151,21 +145,21 @@ class _MeetCreateStepperViewState extends ConsumerState<MeetCreateStepperView> {
                   ),
                   child: state.isLoading
                       ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: AppColors.white,
-                          ),
-                        )
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppColors.white,
+                    ),
+                  )
                       : Text(
-                          state.isLast
-                              ? (state.isEdit ? '수정 완료' : '생성 완료')
-                              : '다음',
-                          style: AppTextStyle.labelLargeStyle.copyWith(
-                            color: AppColors.white,
-                          ),
-                        ),
+                    state.isLast
+                        ? (state.isEdit ? '수정 완료' : '생성 완료')
+                        : '다음',
+                    style: AppTextStyle.labelLargeStyle.copyWith(
+                      color: AppColors.white,
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -176,10 +170,10 @@ class _MeetCreateStepperViewState extends ConsumerState<MeetCreateStepperView> {
   }
 
   Widget _buildStep(
-    BuildContext context,
-    MeetCreateState state,
-    MeetCreateController controller,
-  ) {
+      BuildContext context,
+      MeetCreateState state,
+      MeetCreateController controller,
+      ) {
     switch (state.step) {
       case 0:
         return Column(
@@ -217,11 +211,11 @@ class _MeetCreateStepperViewState extends ConsumerState<MeetCreateStepperView> {
               children: workList
                   .map(
                     (w) => CommonChip(
-                      label: w,
-                      selected: state.category == w,
-                      onTap: () => controller.selectCategory(w),
-                    ),
-                  )
+                  label: w,
+                  selected: state.category == w,
+                  onTap: () => controller.selectCategory(w),
+                ),
+              )
                   .toList(),
             ),
           ],
@@ -240,10 +234,8 @@ class _MeetCreateStepperViewState extends ConsumerState<MeetCreateStepperView> {
               },
               borderRadius: BorderRadius.circular(16),
               child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 12,
-                ),
+                padding:
+                const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 decoration: BoxDecoration(
                   color: AppColors.bgSecondary,
                   borderRadius: BorderRadius.circular(16),
@@ -288,10 +280,10 @@ class _MeetCreateStepperViewState extends ConsumerState<MeetCreateStepperView> {
                 children: state.regions
                     .map(
                       (r) => _SelectedRegionChip(
-                        label: r.fullName,
-                        onDelete: () => controller.removeRegion(r.code),
-                      ),
-                    )
+                    label: r.fullName,
+                    onDelete: () => controller.removeRegion(r.code),
+                  ),
+                )
                     .toList(),
               ),
           ],
@@ -319,7 +311,10 @@ class _MeetCreateStepperViewState extends ConsumerState<MeetCreateStepperView> {
             Text('참여 승인받기', style: AppTextStyle.titleSmallBoldStyle),
             const SizedBox(height: 10),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 12,
+              ),
               decoration: BoxDecoration(
                 color: AppColors.bgSecondary,
                 borderRadius: BorderRadius.circular(16),
@@ -338,7 +333,6 @@ class _MeetCreateStepperViewState extends ConsumerState<MeetCreateStepperView> {
                   CupertinoSwitch(
                     value: state.needApproval,
                     onChanged: controller.toggleNeedApproval,
-                    activeColor: AppColors.sky400,
                   ),
                 ],
               ),
@@ -350,17 +344,41 @@ class _MeetCreateStepperViewState extends ConsumerState<MeetCreateStepperView> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('썸네일 등록', style: AppTextStyle.titleSmallBoldStyle),
+            Text('모임 썸네일', style: AppTextStyle.titleSmallBoldStyle),
             const SizedBox(height: 10),
-            _ThumbPicker(
-              thumbnail: state.thumbnail,
-              existingUrl: state.existingThumbnailUrl,
-              removeExisting: state.removeExistingThumbnail,
-              onPick: (){
-                controller.pickThumbnail(context);
-              },
-              onRemove: controller.removeThumbnail,
+            InkWell(
+              onTap: state.isLoading
+                  ? null
+                  : () => controller.pickThumbnail(context),
+              borderRadius: BorderRadius.circular(20),
+              child: Container(
+                width: double.infinity,
+                height: 220,
+                decoration: BoxDecoration(
+                  color: AppColors.bgSecondary,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: AppColors.borderSecondary),
+                ),
+                child: _buildThumbnail(state),
+              ),
             ),
+            const SizedBox(height: 10),
+            if (state.thumbnail != null ||
+                (state.existingThumbnailUrl != null &&
+                    !state.removeExistingThumbnail))
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed:
+                  state.isLoading ? null : controller.removeThumbnail,
+                  child: Text(
+                    '썸네일 제거',
+                    style: AppTextStyle.labelMediumStyle.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ),
+              ),
           ],
         );
 
@@ -368,151 +386,84 @@ class _MeetCreateStepperViewState extends ConsumerState<MeetCreateStepperView> {
         return const SizedBox.shrink();
     }
   }
-}
 
-class _ThumbPicker extends StatelessWidget {
-  const _ThumbPicker({
-    required this.thumbnail,
-    required this.existingUrl,
-    required this.removeExisting,
-    required this.onPick,
-    required this.onRemove,
-  });
-
-  final XFile? thumbnail;
-  final String? existingUrl;
-  final bool removeExisting;
-
-  final VoidCallback onPick;
-  final VoidCallback onRemove;
-
-  bool get hasExisting => existingUrl != null && !removeExisting;
-
-  bool get hasLocal => thumbnail != null;
-
-  bool get hasAny => hasLocal || hasExisting;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onPick,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        height: 180,
-        decoration: BoxDecoration(
-          color: AppColors.bgSecondary,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.borderSecondary),
+  Widget _buildThumbnail(MeetCreateState state) {
+    if (state.thumbnail != null) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: Image.file(
+          state.thumbnail!.path as dynamic,
+          fit: BoxFit.cover,
+          width: double.infinity,
+          height: double.infinity,
         ),
-        child: Stack(
-          children: [
-            if (!hasAny)
-              Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Icons.image_outlined,
-                      color: AppColors.icSecondary,
-                      size: 28,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '썸네일 선택하기',
-                      style: AppTextStyle.labelMediumStyle.copyWith(
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              )
-            else
-              ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: _buildImage(),
-              ),
-            if (hasAny)
-              Positioned(
-                top: 10,
-                right: 10,
-                child: InkWell(
-                  onTap: onRemove,
-                  borderRadius: BorderRadius.circular(999),
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.35),
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: const Icon(
-                      Icons.close,
-                      color: Colors.white,
-                      size: 18,
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildImage() {
-    if (thumbnail != null) {
-      return Image.file(
-        File(thumbnail!.path),
-        width: double.infinity,
-        height: double.infinity,
-        fit: BoxFit.cover,
       );
     }
 
-    // ✅ 공통 위젯 사용(너가 원한 방식)
-    return CommonNetworkImage(
-      imageUrl: existingUrl!,
-      width: double.infinity,
-      height: 180,
-      fit: BoxFit.cover,
+    if (state.existingThumbnailUrl != null && !state.removeExistingThumbnail) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: CommonNetworkImage(
+          imageUrl: state.existingThumbnailUrl!,
+          fit: BoxFit.cover,
+          width: double.infinity,
+          height: double.infinity,
+          enableViewer: false,
+        ),
+      );
+    }
+
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const Icon(
+          Icons.add_photo_alternate_outlined,
+          size: 36,
+          color: AppColors.icSecondary,
+        ),
+        const SizedBox(height: 8),
+        Text(
+          '썸네일 업로드',
+          style: AppTextStyle.bodyMediumStyle.copyWith(
+            color: AppColors.textSecondary,
+          ),
+        ),
+      ],
     );
   }
 }
 
-// --- 공통 스타일 위젯들(간단) ---
 class _StepIndicator extends StatelessWidget {
-  const _StepIndicator({required this.step, required this.total});
+  const _StepIndicator({
+    required this.step,
+    required this.total,
+  });
 
   final int step;
   final int total;
 
   @override
   Widget build(BuildContext context) {
-    final progress = (step + 1) / total;
+    final current = step + 1;
+    final progress = current / total;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
       child: Column(
         children: [
           Row(
             children: [
               Text(
-                'STEP ${step + 1}/$total',
+                '$current / $total',
                 style: AppTextStyle.labelSmallStyle.copyWith(
                   color: AppColors.textSecondary,
                 ),
               ),
-              const Spacer(),
-              Text(
-                '${(progress * 100).round()}%',
-                style: AppTextStyle.labelSmallStyle.copyWith(
-                  color: AppColors.textTeritary,
-                ),
-              ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           ClipRRect(
-            borderRadius: BorderRadius.circular(999),
+            borderRadius: BorderRadius.circular(99),
             child: LinearProgressIndicator(
               value: progress,
               minHeight: 6,
@@ -527,7 +478,10 @@ class _StepIndicator extends StatelessWidget {
 }
 
 class _SelectedRegionChip extends StatelessWidget {
-  const _SelectedRegionChip({required this.label, required this.onDelete});
+  const _SelectedRegionChip({
+    required this.label,
+    required this.onDelete,
+  });
 
   final String label;
   final VoidCallback onDelete;
@@ -535,35 +489,28 @@ class _SelectedRegionChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      padding: const EdgeInsets.only(left: 12, right: 8, top: 8, bottom: 8),
       decoration: BoxDecoration(
-        color: AppColors.sky50,
+        color: AppColors.bgSecondary,
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: AppColors.borderPrimary),
+        border: Border.all(color: AppColors.borderSecondary),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.place, size: 14, color: AppColors.icPrimary),
-          const SizedBox(width: 6),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 220),
-            child: Text(
-              label,
-              overflow: TextOverflow.ellipsis,
-              style: AppTextStyle.labelSmallStyle.copyWith(
-                color: AppColors.textPrimary,
-                fontWeight: FontWeight.w700,
-              ),
+          Text(
+            label,
+            style: AppTextStyle.labelMediumStyle.copyWith(
+              color: AppColors.textDefault,
             ),
           ),
           const SizedBox(width: 6),
-          InkWell(
+          GestureDetector(
             onTap: onDelete,
-            borderRadius: BorderRadius.circular(999),
-            child: const Padding(
-              padding: EdgeInsets.all(2),
-              child: Icon(Icons.close, size: 16, color: AppColors.icPrimary),
+            child: const Icon(
+              Icons.close,
+              size: 16,
+              color: AppColors.icSecondary,
             ),
           ),
         ],

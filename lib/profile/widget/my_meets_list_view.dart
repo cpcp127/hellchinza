@@ -1,19 +1,16 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hellchinza/meet/domain/meet_summary_model.dart';
 
 import '../../constants/app_colors.dart';
 import '../../constants/app_text_style.dart';
-import '../../meet/meet_detail/meat_detail_view.dart';
 import '../../meet/domain/meet_model.dart';
+import '../../meet/meet_detail/meat_detail_view.dart';
 import '../../meet/widget/meet_card.dart';
 
 class MyMeetsListView extends ConsumerStatefulWidget {
-  const MyMeetsListView({
-    super.key,
-    required this.title,
-    required this.items,
-  });
+  const MyMeetsListView({super.key, required this.title, required this.items});
 
   final String title;
   final List<MeetModel> items;
@@ -154,9 +151,7 @@ class _MyMeetsListViewState extends ConsumerState<MyMeetsListView> {
       return ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
-        children: const [
-          Center(child: CircularProgressIndicator()),
-        ],
+        children: const [Center(child: CircularProgressIndicator())],
       );
     }
 
@@ -215,20 +210,13 @@ class _MyMeetsListViewState extends ConsumerState<MyMeetsListView> {
 
         return Padding(
           padding: const EdgeInsets.only(left: 16, right: 16, bottom: 12),
-          child: MeetCard(
-            item: item,
-            onTap: () {
-              Navigator.push(
-                context,
-                CupertinoPageRoute(
-                  fullscreenDialog: true,
-                  builder: (context) {
-                    return MeetDetailView(meetId: item.id);
-                  },
-                ),
-              );
-            },
-          ),
+          child: MeetCard(item: item, onTap: () {  Navigator.push(
+            context,
+            CupertinoPageRoute(
+              fullscreenDialog: true,
+              builder: (_) => MeetDetailView(meetId: item.id),
+            ),
+          ); },),
         );
       },
     );
