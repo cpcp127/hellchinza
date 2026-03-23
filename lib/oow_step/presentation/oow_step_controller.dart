@@ -4,16 +4,7 @@ import 'package:flutter_riverpod/legacy.dart';
 import '../data/oow_step_repo.dart';
 import 'oow_step_state.dart';
 
-final oowStepControllerProvider =
-StateNotifierProvider.family.autoDispose<OowStepController, OowStepState, String>(
-      (ref, uid) {
-    final repo = ref.read(oowStepRepoProvider);
-    return OowStepController(
-      repo: repo,
-      uid: uid,
-    );
-  },
-);
+
 class OowStepController extends StateNotifier<OowStepState> {
   OowStepController({
     required OowStepRepo repo,

@@ -9,11 +9,9 @@ import 'package:hellchinza/oow_step/presentation/widget/oow_top_workout_step_car
 
 import '../../../../constants/app_colors.dart';
 import '../../../../constants/app_text_style.dart';
+import '../providers/oow_provider.dart';
 import 'oow_step_controller.dart';
 
-final oowRefreshTickProvider = StateProvider.family<int, String>(
-  (ref, uid) => 0,
-);
 
 class OowStepView extends ConsumerStatefulWidget {
   const OowStepView({super.key, required this.uid});

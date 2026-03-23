@@ -8,6 +8,7 @@ import 'package:hellchinza/feed/feed_detail/feed_detail_view.dart';
 import '../../../../../constants/app_colors.dart';
 import '../../../../../constants/app_text_style.dart';
 
+import '../../providers/oow_provider.dart';
 import '../oow_step_controller.dart';
 import '../oow_step_state.dart';
 import 'oow_step_shell.dart';

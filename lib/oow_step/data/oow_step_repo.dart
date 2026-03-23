@@ -4,12 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../presentation/oow_step_state.dart';
 
-final oowStepRepoProvider = Provider<OowStepRepo>((ref) {
-  return OowStepRepo(
-    db: FirebaseFirestore.instance,
-    auth: FirebaseAuth.instance,
-  );
-});
+
 
 class OowStepRepo {
   OowStepRepo({required FirebaseFirestore db, required FirebaseAuth auth})
