@@ -1,6 +1,10 @@
+import 'dart:async';
+import 'dart:ui';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -25,41 +29,73 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
 
 Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await dotenv.load();
-  await SharedPrefService().init();
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  await MobileAds.instance.initialize();
-  await GoogleSignIn.instance.initialize();
-  SystemChrome.setSystemUIOverlayStyle(
-    const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent, // iOS에서는 무시되지만 유지
-      statusBarIconBrightness: Brightness.dark, // Android
-      statusBarBrightness: Brightness.light, // iOS (light → 검정 텍스트)
-    ),
+  runZonedGuarded<Future<void>>(
+        () async {
+      WidgetsFlutterBinding.ensureInitialized();
+
+      await dotenv.load();
+      await SharedPrefService().init();
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+      await MobileAds.instance.initialize();
+      await GoogleSignIn.instance.initialize();
+
+      SystemChrome.setSystemUIOverlayStyle(
+        const SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.dark,
+          statusBarBrightness: Brightness.light,
+        ),
+      );
+
+      KakaoSdk.init(
+        nativeAppKey: dotenv.env['KAKAO_NATIVE_APP_KEY'] ?? '',
+      );
+
+      await FirebaseCrashlytics.instance
+          .setCrashlyticsCollectionEnabled(true);
+
+      FlutterError.onError = (FlutterErrorDetails details) {
+        FirebaseCrashlytics.instance.recordFlutterFatalError(details);
+      };
+
+      PlatformDispatcher.instance.onError = (error, stack) {
+        FirebaseCrashlytics.instance.recordError(
+          error,
+          stack,
+          fatal: true,
+        );
+        return true;
+      };
+
+      runApp(
+        const ProviderScope(
+          child: MyApp(),
+        ),
+      );
+    },
+        (error, stack) async {
+      await FirebaseCrashlytics.instance.recordError(
+        error,
+        stack,
+        fatal: true,
+      );
+    },
   );
-  KakaoSdk.init(
-    nativeAppKey: dotenv.env['KAKAO_NATIVE_APP_KEY'] ?? '',
-  );
-  // try {
-  //   String keyHash = await KakaoSdk.origin;
-  //   print('현재 앱의 Kakao Key Hash: $keyHash'); // Logger를 사용하여 출력
-  // } catch (e) {
-  //   print('Kakao Key Hash를 가져오는 중 오류 발생: $e'); // 오류 발생 시 로그 출력
-  // }
-  runApp(ProviderScope(child: MyApp()));
 }
 
 final authUserProvider = StreamProvider<User?>((ref) {
   return FirebaseAuth.instance.authStateChanges();
 });
 
-final userDocProvider =
-StreamProvider.autoDispose.family<DocumentSnapshot<Map<String, dynamic>>, String>(
-      (ref, uid) {
-    return FirebaseFirestore.instance.collection('users').doc(uid).snapshots();
-  },
-);
+final userDocProvider = StreamProvider.autoDispose
+    .family<DocumentSnapshot<Map<String, dynamic>>, String>((ref, uid) {
+      return FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .snapshots();
+    });
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -78,11 +114,9 @@ class MyApp extends StatelessWidget {
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
         navigatorKey: rootNavigatorKey,
-        supportedLocales: const [
-          Locale('ko', 'KR'),
-          Locale('en', 'US'),
-        ],
-        locale: const Locale('ko', 'KR'), // ✅ 강제로 한국어
+        supportedLocales: const [Locale('ko', 'KR'), Locale('en', 'US')],
+        locale: const Locale('ko', 'KR'),
+        // ✅ 강제로 한국어
         localizationsDelegates: const [
           GlobalMaterialLocalizations.delegate,
           GlobalCupertinoLocalizations.delegate,
@@ -127,9 +161,7 @@ class AuthGate extends ConsumerWidget {
     // 1) 업데이트 체크 먼저
     if (updateState.isLoading ||
         updateState.status == AppUpdateStatus.checking) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     // 2) 강제 업데이트면 여기서 막기
@@ -142,7 +174,7 @@ class AuthGate extends ConsumerWidget {
 
     return authAsync.when(
       loading: () =>
-      const Scaffold(body: Center(child: CircularProgressIndicator())),
+          const Scaffold(body: Center(child: CircularProgressIndicator())),
       error: (e, _) => Scaffold(body: Center(child: Text('Auth error: $e'))),
       data: (user) {
         if (user == null) return const AuthView();
@@ -151,7 +183,7 @@ class AuthGate extends ConsumerWidget {
 
         return docAsync.when(
           loading: () =>
-          const Scaffold(body: Center(child: CircularProgressIndicator())),
+              const Scaffold(body: Center(child: CircularProgressIndicator())),
           error: (e, _) =>
               Scaffold(body: Center(child: Text('User doc error: $e'))),
           data: (doc) {
