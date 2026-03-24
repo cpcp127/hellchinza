@@ -1,18 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../presentation/oow_step_state.dart';
 
-
-
 class OowStepRepo {
-  OowStepRepo({required FirebaseFirestore db, required FirebaseAuth auth})
-    : _db = db,
-      _auth = auth;
+  OowStepRepo({required FirebaseFirestore db}) : _db = db;
 
   final FirebaseFirestore _db;
-  final FirebaseAuth _auth;
 
   Future<
     ({
@@ -25,18 +19,22 @@ class OowStepRepo {
       List<OowFeedItem> selectedDayFeeds,
       List<OowWeekStat> last5Weeks,
       List<OowWorkoutStat> topWorkouts,
+      Map<String, Map<String, List<OowFeedItem>>> last5WeekMapByWeekKey,
     })
   >
   fetchAll(String uid) async {
     final now = DateTime.now();
     final today = _startOfDay(now);
-    final weekStart = _startOfWeekMonday(today);
-    final weekEnd = weekStart.add(const Duration(days: 7));
+    final currentWeekStart = _startOfWeekMonday(today);
 
     final weeklyTarget = await _fetchWeeklyTarget(uid);
-    final weekFeeds = await _fetchWeekFeeds(uid, weekStart, weekEnd);
+    final last5WeekFeeds = await _fetchRecent5WeekFeeds(uid, currentWeekStart);
 
-    final weekMap = _groupByDay(weekFeeds);
+    final last5WeekMapByWeekKey = _groupFeedsByWeekAndDay(last5WeekFeeds);
+
+    final currentWeekKey = _dateKey(currentWeekStart);
+    final weekMap = last5WeekMapByWeekKey[currentWeekKey] ?? const {};
+
     final doneDays = weekMap.keys.length;
     final goalProgress = weeklyTarget <= 0
         ? 0.0
@@ -44,22 +42,27 @@ class OowStepRepo {
 
     final selectedDay = weekMap.containsKey(_dateKey(today))
         ? today
-        : weekStart;
+        : currentWeekStart;
     final selectedDayFeeds = weekMap[_dateKey(selectedDay)] ?? const [];
 
-    final last5Weeks = await _fetchLast5Weeks(uid, weeklyTarget, weekStart);
-    final topWorkouts = _buildTopWorkoutStats(weekFeeds);
+    final last5Weeks = _buildLast5WeeksFromFeeds(
+      last5WeekFeeds,
+      weeklyTarget,
+      currentWeekStart,
+    );
+    final topWorkouts = _buildTopWorkoutStats(last5WeekFeeds);
 
     return (
       weeklyTarget: weeklyTarget,
       doneDays: doneDays,
       goalProgress: goalProgress,
-      weekStart: weekStart,
+      weekStart: currentWeekStart,
       selectedDay: selectedDay,
       weekMap: weekMap,
       selectedDayFeeds: selectedDayFeeds,
       last5Weeks: last5Weeks,
       topWorkouts: topWorkouts,
+      last5WeekMapByWeekKey: last5WeekMapByWeekKey,
     );
   }
 
@@ -77,26 +80,8 @@ class OowStepRepo {
     return 3;
   }
 
-  Future<List<OowFeedItem>> _fetchWeekFeeds(
+  Future<List<OowFeedItem>> _fetchRecent5WeekFeeds(
     String uid,
-    DateTime start,
-    DateTime end,
-  ) async {
-    final snap = await _db
-        .collection('feeds')
-        .where('authorUid', isEqualTo: uid)
-        .where('mainType', isEqualTo: '오운완')
-        .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(start))
-        .where('createdAt', isLessThan: Timestamp.fromDate(end))
-        .orderBy('createdAt', descending: true)
-        .get();
-
-    return snap.docs.map((doc) => _toFeedItem(doc)).toList();
-  }
-
-  Future<List<OowWeekStat>> _fetchLast5Weeks(
-    String uid,
-    int weeklyTarget,
     DateTime currentWeekStart,
   ) async {
     final oldestWeekStart = currentWeekStart.subtract(
@@ -113,16 +98,40 @@ class OowStepRepo {
           isGreaterThanOrEqualTo: Timestamp.fromDate(oldestWeekStart),
         )
         .where('createdAt', isLessThan: Timestamp.fromDate(rangeEnd))
-        .orderBy('createdAt', descending: false)
+        .orderBy('createdAt', descending: true)
         .get();
 
-    final map = <String, Set<String>>{};
-    for (final doc in snap.docs) {
-      final data = doc.data();
-      final createdAt = _toDateTime(data['createdAt']);
-      if (createdAt == null) continue;
+    return snap.docs.map(_toFeedItem).toList();
+  }
 
-      final day = _startOfDay(createdAt);
+  Map<String, Map<String, List<OowFeedItem>>> _groupFeedsByWeekAndDay(
+    List<OowFeedItem> feeds,
+  ) {
+    final result = <String, Map<String, List<OowFeedItem>>>{};
+
+    for (final feed in feeds) {
+      final day = _startOfDay(feed.createdAt);
+      final weekStart = _startOfWeekMonday(day);
+      final weekKey = _dateKey(weekStart);
+      final dayKey = _dateKey(day);
+
+      result.putIfAbsent(weekKey, () => <String, List<OowFeedItem>>{});
+      result[weekKey]!.putIfAbsent(dayKey, () => <OowFeedItem>[]);
+      result[weekKey]![dayKey]!.add(feed);
+    }
+
+    return result;
+  }
+
+  List<OowWeekStat> _buildLast5WeeksFromFeeds(
+    List<OowFeedItem> feeds,
+    int weeklyTarget,
+    DateTime currentWeekStart,
+  ) {
+    final map = <String, Set<String>>{};
+
+    for (final feed in feeds) {
+      final day = _startOfDay(feed.createdAt);
       final weekStart = _startOfWeekMonday(day);
       final weekKey = _dateKey(weekStart);
 
@@ -148,16 +157,6 @@ class OowStepRepo {
     return result;
   }
 
-  Map<String, List<OowFeedItem>> _groupByDay(List<OowFeedItem> feeds) {
-    final map = <String, List<OowFeedItem>>{};
-    for (final feed in feeds) {
-      final key = _dateKey(feed.createdAt);
-      map.putIfAbsent(key, () => []);
-      map[key]!.add(feed);
-    }
-    return map;
-  }
-
   List<OowWorkoutStat> _buildTopWorkoutStats(List<OowFeedItem> feeds) {
     final countMap = <String, int>{};
 
@@ -171,7 +170,11 @@ class OowStepRepo {
         countMap.entries
             .map((e) => OowWorkoutStat(name: e.key, count: e.value))
             .toList()
-          ..sort((a, b) => b.count.compareTo(a.count));
+          ..sort((a, b) {
+            final countCompare = b.count.compareTo(a.count);
+            if (countCompare != 0) return countCompare;
+            return a.name.compareTo(b.name);
+          });
 
     return list.take(5).toList();
   }
@@ -212,3 +215,7 @@ class OowStepRepo {
         '${d.day.toString().padLeft(2, '0')}';
   }
 }
+
+final oowStepRepoProvider = Provider<OowStepRepo>((ref) {
+  return OowStepRepo(db: FirebaseFirestore.instance);
+});

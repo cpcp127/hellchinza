@@ -7,6 +7,7 @@ import 'package:hellchinza/feed/feed_detail/feed_detail_view.dart';
 
 import '../../../../../constants/app_colors.dart';
 import '../../../../../constants/app_text_style.dart';
+import '../../../feed/create_feed/create_feed_view.dart';
 import '../../providers/oow_provider.dart';
 import '../oow_step_state.dart';
 import 'oow_step_shell.dart';
@@ -98,42 +99,7 @@ class _CompletedTodayCertification extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(height: 16),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-          decoration: BoxDecoration(
-            color: AppColors.sky50,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: AppColors.borderSecondary),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 28,
-                height: 28,
-                decoration: const BoxDecoration(
-                  color: AppColors.white,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  CupertinoIcons.check_mark,
-                  size: 16,
-                  color: AppColors.btnPrimary,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  '오늘 운동 인증을 완료했어요',
-                  style: AppTextStyle.bodyMediumStyle.copyWith(
-                    color: AppColors.textDefault,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
+
       ],
     );
   }
@@ -185,7 +151,15 @@ class _EmptyTodayCertification extends StatelessWidget {
               height: 54,
               child: ElevatedButton(
                 onPressed: () {
-                  // TODO: 오운완 인증하기 액션 연결
+                  Navigator.push(
+                    context,
+                    CupertinoPageRoute(
+                      fullscreenDialog: true,
+                      builder: (_) => const CreateFeedView(
+                        isOowEntry: true,
+                      ),
+                    ),
+                  );
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.btnPrimary,

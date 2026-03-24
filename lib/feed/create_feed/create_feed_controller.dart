@@ -5,12 +5,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:flutter_riverpod/misc.dart';
 
-import '../../../oow_step/presentation/oow_step_view.dart';
-import '../../../services/image_service.dart';
-import '../../../services/snackbar_service.dart';
-import '../../meet/meet_detail/meat_detail_view.dart';
 import '../../meet/providers/meet_provider.dart';
 import '../../oow_step/providers/oow_provider.dart';
+import '../../services/image_service.dart';
+import '../../services/snackbar_service.dart';
 import '../domain/feed_model.dart';
 import '../domain/feed_place.dart';
 import '../providers/feed_provider.dart';
@@ -67,11 +65,20 @@ class CreateFeedController extends StateNotifier<CreateFeedState> {
   }
 
   void onTapNext() {
-    state = state.copyWith(pageIndex: 1);
+    if (state.pageIndex >= 2) return;
+    state = state.copyWith(pageIndex: state.pageIndex + 1);
   }
 
-  void onTapBack() {
-    state = state.resetForTypeSelect();
+  void onTapBack(BuildContext context, {bool isOowEntry = false}) {
+    // ✅ 오운완 첫 화면에서 뒤로 → 그냥 종료
+    if (isOowEntry && state.pageIndex == 1) {
+      Navigator.pop(context);
+      return;
+    }
+
+    if (state.pageIndex <= 0) return;
+
+    state = state.copyWith(pageIndex: state.pageIndex - 1);
   }
 
   void ensurePollDefaults() {
@@ -121,7 +128,7 @@ class CreateFeedController extends StateNotifier<CreateFeedState> {
 
   void initForEdit(FeedModel feed) {
     state = state.copyWith(
-      pageIndex: 0,
+      pageIndex: 2,
       selectMainType: feed.mainType,
       selectSubType: feed.subType,
       contents: feed.contents ?? '',
@@ -277,5 +284,40 @@ class CreateFeedController extends StateNotifier<CreateFeedState> {
       _keepAlive?.close();
       _keepAlive = null;
     }
+  }
+
+  Future<void> selectMainTypeAndGoNext(String type) async {
+    if (state.isStepTransitioning) return;
+
+    onChangeMainType(type);
+    state = state.copyWith(isStepTransitioning: true);
+
+    await Future.delayed(const Duration(milliseconds: 240));
+
+    state = state.copyWith(
+      pageIndex: 1,
+      isStepTransitioning: false,
+    );
+  }
+
+  Future<void> selectSubTypeAndGoNext(String type) async {
+    if (state.isStepTransitioning) return;
+
+    onChangeSubType(type);
+    state = state.copyWith(isStepTransitioning: true);
+
+    await Future.delayed(const Duration(milliseconds: 240));
+
+    state = state.copyWith(
+      pageIndex: 2,
+      isStepTransitioning: false,
+    );
+  }
+
+  void initForOowEntry() {
+    state = state.copyWith(
+      pageIndex: 1, // 👉 메인타입 스킵하고 서브타입으로
+      selectMainType: '오운완',
+    );
   }
 }

@@ -42,7 +42,7 @@ class ImageService {
 
     final picks = await imagePicker.pickMultiImage(
       imageQuality: 100,
-      limit: limit ?? 10,
+      limit: 10,
     );
 
     if (picks.isEmpty) return null;

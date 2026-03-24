@@ -17,7 +17,7 @@ class CreateFeedState {
   final bool isUploading;
   final FeedPlace? selectedPlace;
   final String visibility;
-
+  final bool isStepTransitioning;
   const CreateFeedState({
     this.pageIndex = 0,
     this.isLoading = false,
@@ -31,7 +31,7 @@ class CreateFeedState {
     this.pollOptions = const [],
     this.isUploading = false,
     this.selectedPlace,
-    this.visibility = FeedVisibility.public,
+    this.visibility = FeedVisibility.public,this.isStepTransitioning=false
   });
 
   CreateFeedState copyWith({
@@ -48,7 +48,7 @@ class CreateFeedState {
     bool? isUploading,
     FeedPlace? selectedPlace,
     String? visibility,
-    bool clearPlace = false,
+    bool clearPlace = false,bool? isStepTransitioning
   }) {
     return CreateFeedState(
       pageIndex: pageIndex ?? this.pageIndex,
@@ -63,7 +63,7 @@ class CreateFeedState {
       pollOptions: pollOptions ?? this.pollOptions,
       isUploading: isUploading ?? this.isUploading,
       selectedPlace: clearPlace ? null : (selectedPlace ?? this.selectedPlace),
-      visibility: visibility ?? this.visibility,
+      visibility: visibility ?? this.visibility,isStepTransitioning: isStepTransitioning ?? this.isStepTransitioning
     );
   }
 

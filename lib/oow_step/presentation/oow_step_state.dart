@@ -1,77 +1,32 @@
-import 'package:flutter/foundation.dart';
-
-@immutable
-class OowFeedItem {
-  final String id;
-  final String text;
-  final String subType;
-  final DateTime createdAt;
-  final List<String> imageUrls;
-
-  const OowFeedItem({
-    required this.id,
-    required this.text,
-    required this.subType,
-    required this.createdAt,
-    this.imageUrls = const [],
-  });
-}
-
-@immutable
-class OowWeekStat {
-  final DateTime weekStart;
-  final int doneDays;
-  final bool achieved;
-
-  const OowWeekStat({
-    required this.weekStart,
-    required this.doneDays,
-    required this.achieved,
-  });
-}
-
-@immutable
-class OowWorkoutStat {
-  final String name;
-  final int count;
-
-  const OowWorkoutStat({
-    required this.name,
-    required this.count,
-  });
-}
-
-@immutable
 class OowStepState {
   final bool isLoading;
   final String? errorMessage;
   final int currentPage;
-
   final int weeklyTarget;
   final int doneDays;
   final double goalProgress;
-
   final DateTime weekStart;
   final DateTime selectedDay;
   final Map<String, List<OowFeedItem>> weekMap;
   final List<OowFeedItem> selectedDayFeeds;
-
   final List<OowWeekStat> last5Weeks;
   final List<OowWorkoutStat> topWorkouts;
+  final Map<String, Map<String, List<OowFeedItem>>> last5WeekMapByWeekKey;
 
   const OowStepState({
-    this.isLoading = false,
+    this.isLoading = true,
     this.errorMessage,
     this.currentPage = 0,
-    required this.weekStart,
-    required this.selectedDay,
     this.weeklyTarget = 0,
     this.doneDays = 0,
     this.goalProgress = 0,
+    required this.weekStart,
+    required this.selectedDay,
     this.weekMap = const {},
     this.selectedDayFeeds = const [],
     this.last5Weeks = const [],
     this.topWorkouts = const [],
+    this.last5WeekMapByWeekKey = const {},
   });
 
   factory OowStepState.initial() {
@@ -98,6 +53,7 @@ class OowStepState {
     List<OowFeedItem>? selectedDayFeeds,
     List<OowWeekStat>? last5Weeks,
     List<OowWorkoutStat>? topWorkouts,
+    Map<String, Map<String, List<OowFeedItem>>>? last5WeekMapByWeekKey,
   }) {
     return OowStepState(
       isLoading: isLoading ?? this.isLoading,
@@ -112,6 +68,46 @@ class OowStepState {
       selectedDayFeeds: selectedDayFeeds ?? this.selectedDayFeeds,
       last5Weeks: last5Weeks ?? this.last5Weeks,
       topWorkouts: topWorkouts ?? this.topWorkouts,
+      last5WeekMapByWeekKey:
+      last5WeekMapByWeekKey ?? this.last5WeekMapByWeekKey,
     );
   }
+}
+
+class OowFeedItem {
+  final String id;
+  final String text;
+  final String subType;
+  final DateTime createdAt;
+  final List<String> imageUrls;
+
+  const OowFeedItem({
+    required this.id,
+    required this.text,
+    required this.subType,
+    required this.createdAt,
+    required this.imageUrls,
+  });
+}
+
+class OowWeekStat {
+  final DateTime weekStart;
+  final int doneDays;
+  final bool achieved;
+
+  const OowWeekStat({
+    required this.weekStart,
+    required this.doneDays,
+    required this.achieved,
+  });
+}
+
+class OowWorkoutStat {
+  final String name;
+  final int count;
+
+  const OowWorkoutStat({
+    required this.name,
+    required this.count,
+  });
 }

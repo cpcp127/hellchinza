@@ -10,7 +10,6 @@ import '../presentation/oow_step_state.dart';
 final oowStepRepoProvider = Provider<OowStepRepo>((ref) {
   return OowStepRepo(
     db: FirebaseFirestore.instance,
-    auth: FirebaseAuth.instance,
   );
 });
 

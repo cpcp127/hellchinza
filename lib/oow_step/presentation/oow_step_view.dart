@@ -46,6 +46,7 @@ class _OowStepViewState extends ConsumerState<OowStepView> {
     final state = ref.watch(oowStepControllerProvider(widget.uid));
     final controller = ref.read(oowStepControllerProvider(widget.uid).notifier);
     ref.listen<int>(oowRefreshTickProvider(widget.uid), (previous, next) {
+      if (previous == null) return;
       if (previous != next) {
         ref.read(oowStepControllerProvider(widget.uid).notifier).refresh();
       }

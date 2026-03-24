@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/legacy.dart';
 import '../data/oow_step_repo.dart';
 import 'oow_step_state.dart';
 
-
 class OowStepController extends StateNotifier<OowStepState> {
   OowStepController({
     required OowStepRepo repo,
@@ -15,7 +14,6 @@ class OowStepController extends StateNotifier<OowStepState> {
 
   final OowStepRepo _repo;
   final String _uid;
-
 
   Future<void> init() async {
     state = state.copyWith(
@@ -37,6 +35,7 @@ class OowStepController extends StateNotifier<OowStepState> {
         selectedDayFeeds: result.selectedDayFeeds,
         last5Weeks: result.last5Weeks,
         topWorkouts: result.topWorkouts,
+        last5WeekMapByWeekKey: result.last5WeekMapByWeekKey,
       );
     } catch (e) {
       state = state.copyWith(
@@ -62,6 +61,37 @@ class OowStepController extends StateNotifier<OowStepState> {
       selectedDay: normalized,
       selectedDayFeeds: state.weekMap[key] ?? const [],
     );
+  }
+
+  void selectWeek(DateTime weekStart) {
+    final normalizedWeekStart = DateTime(
+      weekStart.year,
+      weekStart.month,
+      weekStart.day,
+    );
+
+    final weekKey = _dateKey(normalizedWeekStart);
+    final weekMap = state.last5WeekMapByWeekKey[weekKey] ?? const {};
+
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final currentWeekKey = _dateKey(_startOfWeekMonday(today));
+
+    final selectedDay = currentWeekKey == weekKey
+        ? (weekMap.containsKey(_dateKey(today)) ? today : normalizedWeekStart)
+        : normalizedWeekStart;
+
+    state = state.copyWith(
+      weekStart: normalizedWeekStart,
+      selectedDay: selectedDay,
+      weekMap: weekMap,
+      selectedDayFeeds: weekMap[_dateKey(selectedDay)] ?? const [],
+    );
+  }
+
+  DateTime _startOfWeekMonday(DateTime date) {
+    final d = DateTime(date.year, date.month, date.day);
+    return d.subtract(Duration(days: d.weekday - 1));
   }
 
   String _dateKey(DateTime date) {

@@ -25,7 +25,7 @@ class OowDayFeedStepPage extends ConsumerWidget {
 
     final weekDays = List.generate(
       7,
-      (index) => state.weekStart.add(Duration(days: index)),
+          (index) => state.weekStart.add(Duration(days: index)),
     );
 
     return OowStepShell(
@@ -35,11 +35,53 @@ class OowDayFeedStepPage extends ConsumerWidget {
       child: Column(
         children: [
           SizedBox(
-            height: 100,
+            height: 42,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: state.last5Weeks.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              itemBuilder: (context, index) {
+                final item = state.last5Weeks[index];
+                final isSelected = _isSameDate(item.weekStart, state.weekStart);
+
+                return GestureDetector(
+                  onTap: () => controller.selectWeek(item.weekStart),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 220),
+                    curve: Curves.easeOut,
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? AppColors.btnPrimary
+                          : AppColors.bgSecondary,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: isSelected
+                            ? AppColors.borderPrimary
+                            : AppColors.borderSecondary,
+                      ),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      _weekRangeText(item.weekStart),
+                      style: AppTextStyle.labelSmallStyle.copyWith(
+                        color: isSelected
+                            ? AppColors.white
+                            : AppColors.textSecondary,
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            height: 80,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               itemCount: weekDays.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 10),
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
               itemBuilder: (context, index) {
                 final day = weekDays[index];
                 final isSelected = _isSameDate(day, state.selectedDay);
@@ -50,13 +92,13 @@ class OowDayFeedStepPage extends ConsumerWidget {
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 220),
                     curve: Curves.easeOut,
-                    width: 58,
-                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    width: 50,
+                    padding: const EdgeInsets.symmetric(vertical: 8),
                     decoration: BoxDecoration(
                       color: isSelected
                           ? AppColors.btnPrimary
                           : AppColors.bgSecondary,
-                      borderRadius: BorderRadius.circular(18),
+                      borderRadius: BorderRadius.circular(16),
                       border: Border.all(
                         color: isSelected
                             ? AppColors.borderPrimary
@@ -68,16 +110,16 @@ class OowDayFeedStepPage extends ConsumerWidget {
                       children: [
                         Text(
                           _weekdayText(day.weekday),
-                          style: AppTextStyle.labelSmallStyle.copyWith(
+                          style: AppTextStyle.labelXSmallStyle.copyWith(
                             color: isSelected
                                 ? AppColors.white
                                 : AppColors.textSecondary,
                           ),
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 2),
                         Text(
                           '${day.day}',
-                          style: AppTextStyle.titleSmallBoldStyle.copyWith(
+                          style: AppTextStyle.labelMediumStyle.copyWith(
                             color: isSelected
                                 ? AppColors.white
                                 : AppColors.textDefault,
@@ -106,43 +148,43 @@ class OowDayFeedStepPage extends ConsumerWidget {
               child: state.selectedDayFeeds.isEmpty
                   ? const _EmptyDayFeeds(key: ValueKey('empty'))
                   : ListView.separated(
-                      key: ValueKey(_dateKey(state.selectedDay)),
-                      scrollDirection: Axis.horizontal,
-                      itemCount: state.selectedDayFeeds.length,
-                      separatorBuilder: (_, __) => const SizedBox(width: 12),
-                      itemBuilder: (context, index) {
-                        final item = state.selectedDayFeeds[index];
+                key: ValueKey(_dateKey(state.selectedDay)),
+                scrollDirection: Axis.horizontal,
+                itemCount: state.selectedDayFeeds.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 12),
+                itemBuilder: (context, index) {
+                  final item = state.selectedDayFeeds[index];
 
-                        return TweenAnimationBuilder<double>(
-                          tween: Tween(begin: 0, end: 1),
-                          duration: Duration(milliseconds: 220 + (index * 90)),
-                          curve: Curves.easeOutCubic,
-                          builder: (context, value, child) {
-                            return Opacity(
-                              opacity: value,
-                              child: Transform.translate(
-                                offset: Offset(18 * (1 - value), 0),
-                                child: child,
-                              ),
-                            );
-                          },
-                          child: OowFeedSwipeCard(
-                            item: item,
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                CupertinoPageRoute(
-                                  fullscreenDialog: true,
-                                  builder: (context) {
-                                    return FeedDetailView(feedId: item.id);
-                                  },
-                                ),
-                              );
+                  return TweenAnimationBuilder<double>(
+                    tween: Tween(begin: 0, end: 1),
+                    duration: Duration(milliseconds: 220 + (index * 90)),
+                    curve: Curves.easeOutCubic,
+                    builder: (context, value, child) {
+                      return Opacity(
+                        opacity: value,
+                        child: Transform.translate(
+                          offset: Offset(18 * (1 - value), 0),
+                          child: child,
+                        ),
+                      );
+                    },
+                    child: OowFeedSwipeCard(
+                      item: item,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          CupertinoPageRoute(
+                            fullscreenDialog: true,
+                            builder: (context) {
+                              return FeedDetailView(feedId: item.id);
                             },
                           ),
                         );
                       },
                     ),
+                  );
+                },
+              ),
             ),
           ),
         ],
@@ -157,6 +199,11 @@ class OowDayFeedStepPage extends ConsumerWidget {
   String _weekdayText(int weekday) {
     const map = ['월', '화', '수', '목', '금', '토', '일'];
     return map[weekday - 1];
+  }
+
+  String _weekRangeText(DateTime weekStart) {
+    final weekEnd = weekStart.add(const Duration(days: 6));
+    return '${weekStart.month}/${weekStart.day} - ${weekEnd.month}/${weekEnd.day}';
   }
 
   String _dateKey(DateTime date) {
@@ -217,155 +264,141 @@ class OowFeedSwipeCard extends StatelessWidget {
         clipBehavior: Clip.antiAlias,
         child: hasImage
             ? Stack(
+          children: [
+            Positioned.fill(
+              child: CommonNetworkImage(
+                imageUrl: imageUrl,
+                fit: BoxFit.cover,
+                enableViewer: false,
+              ),
+            ),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: Container(
+                height: 118,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.transparent,
+                      Colors.black.withOpacity(0.45),
+                      Colors.black.withOpacity(0.78),
+                    ],
+                    stops: const [0.0, 0.55, 1.0],
+                  ),
+                ),
+              ),
+            ),
+            if (item.imageUrls.length > 1)
+              Positioned(
+                top: 12,
+                right: 12,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.45),
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(
+                      color: Colors.white.withOpacity(0.12),
+                    ),
+                  ),
+                  child: Text(
+                    '${item.imageUrls.length}장',
+                    style: AppTextStyle.labelXSmallStyle.copyWith(
+                      color: AppColors.white,
+                    ),
+                  ),
+                ),
+              ),
+            Positioned(
+              left: 14,
+              right: 14,
+              bottom: 14,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Positioned.fill(
-                    // child: Image.network(
-                    //   imageUrl,
-                    //   fit: BoxFit.cover,
-                    //   errorBuilder: (_, __, ___) {
-                    //     return _FeedFallbackBackground(subType: item.subType);
-                    //   },
-                    // ),
-                    child: CommonNetworkImage(
-                      imageUrl: imageUrl,
-                      fit: BoxFit.cover,
-                      enableViewer: false,
-                    ),
-                  ),
-
-                  // 하단 오버레이
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    child: Container(
-                      height: 118,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.transparent,
-                            Colors.black.withOpacity(0.45),
-                            Colors.black.withOpacity(0.78),
-                          ],
-                          stops: const [0.0, 0.55, 1.0],
-                        ),
-                      ),
-                    ),
-                  ),
-
-                  // 상단 사진 수 pill
-                  if (item.imageUrls.length > 1)
-                    Positioned(
-                      top: 12,
-                      right: 12,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.45),
-                          borderRadius: BorderRadius.circular(999),
-                          border: Border.all(
-                            color: Colors.white.withOpacity(0.12),
-                          ),
-                        ),
-                        child: Text(
-                          '${item.imageUrls.length}장',
-                          style: AppTextStyle.labelXSmallStyle.copyWith(
-                            color: AppColors.white,
-                          ),
-                        ),
-                      ),
-                    ),
-
-                  Positioned(
-                    left: 14,
-                    right: 14,
-                    bottom: 14,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          title,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: AppTextStyle.titleSmallBoldStyle.copyWith(
-                            color: AppColors.white,
-                            shadows: [
-                              Shadow(
-                                color: Colors.black.withOpacity(0.6),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            const Icon(
-                              CupertinoIcons.time_solid,
-                              size: 14,
-                              color: AppColors.white,
-                            ),
-                            const SizedBox(width: 4),
-                            Expanded(
-                              child: Text(
-                                _formatCreatedAt(item.createdAt),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: AppTextStyle.labelSmallStyle.copyWith(
-                                  color: AppColors.white,
-                                  shadows: [
-                                    Shadow(
-                                      color: Colors.black.withOpacity(0.55),
-                                      blurRadius: 6,
-                                      offset: const Offset(0, 1),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            const Icon(
-                              CupertinoIcons.flame_fill,
-                              size: 14,
-                              color: AppColors.white,
-                            ),
-                            const SizedBox(width: 4),
-                            Flexible(
-                              child: Text(
-                                typeText,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: AppTextStyle.labelSmallStyle.copyWith(
-                                  color: AppColors.white,
-                                  shadows: [
-                                    Shadow(
-                                      color: Colors.black.withOpacity(0.55),
-                                      blurRadius: 6,
-                                      offset: const Offset(0, 1),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
+                  Text(
+                    title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTextStyle.titleSmallBoldStyle.copyWith(
+                      color: AppColors.white,
+                      shadows: [
+                        Shadow(
+                          color: Colors.black.withOpacity(0.6),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
                         ),
                       ],
                     ),
                   ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      const Icon(
+                        CupertinoIcons.time_solid,
+                        size: 14,
+                        color: AppColors.white,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        _formatCreatedAt(item.createdAt),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTextStyle.labelSmallStyle.copyWith(
+                          color: AppColors.white,
+                          shadows: [
+                            Shadow(
+                              color: Colors.black.withOpacity(0.55),
+                              blurRadius: 6,
+                              offset: const Offset(0, 1),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 20),
+                      const Icon(
+                        CupertinoIcons.flame_fill,
+                        size: 14,
+                        color: AppColors.white,
+                      ),
+                      const SizedBox(width: 4),
+                      Flexible(
+                        child: Text(
+                          typeText,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTextStyle.labelSmallStyle.copyWith(
+                            color: AppColors.white,
+                            shadows: [
+                              Shadow(
+                                color: Colors.black.withOpacity(0.55),
+                                blurRadius: 6,
+                                offset: const Offset(0, 1),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
-              )
-            : _NoImageCardBody(
-                title: title,
-                typeText: typeText,
-                createdAt: item.createdAt,
-                subType: item.subType,
               ),
+            ),
+          ],
+        )
+            : _NoImageCardBody(
+          title: title,
+          typeText: typeText,
+          createdAt: item.createdAt,
+          subType: item.subType,
+        ),
       ),
     );
   }
@@ -394,79 +427,76 @@ class _NoImageCardBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      // color: AppColors.bgWhite,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _FeedFallbackBackground(subType: subType),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTextStyle.titleSmallBoldStyle.copyWith(
-                      color: AppColors.textDefault,
-                    ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _FeedFallbackBackground(subType: subType),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTextStyle.titleSmallBoldStyle.copyWith(
+                    color: AppColors.textDefault,
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    typeText,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTextStyle.bodySmallStyle.copyWith(
-                      color: AppColors.textSecondary,
-                    ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  typeText,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTextStyle.bodySmallStyle.copyWith(
+                    color: AppColors.textSecondary,
                   ),
-                  const Spacer(),
-                  Row(
-                    children: [
-                      const Icon(
-                        CupertinoIcons.time_solid,
-                        size: 14,
-                        color: AppColors.icSecondary,
-                      ),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          _formatCreatedAt(createdAt),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: AppTextStyle.labelSmallStyle.copyWith(
-                            color: AppColors.textSecondary,
-                          ),
+                ),
+                const Spacer(),
+                Row(
+                  children: [
+                    const Icon(
+                      CupertinoIcons.time_solid,
+                      size: 14,
+                      color: AppColors.icSecondary,
+                    ),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        _formatCreatedAt(createdAt),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTextStyle.labelSmallStyle.copyWith(
+                          color: AppColors.textSecondary,
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      const Icon(
-                        CupertinoIcons.flame_fill,
-                        size: 14,
-                        color: AppColors.icSecondary,
-                      ),
-                      const SizedBox(width: 4),
-                      Flexible(
-                        child: Text(
-                          typeText,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: AppTextStyle.labelSmallStyle.copyWith(
-                            color: AppColors.textSecondary,
-                          ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Icon(
+                      CupertinoIcons.flame_fill,
+                      size: 14,
+                      color: AppColors.icSecondary,
+                    ),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        typeText,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTextStyle.labelSmallStyle.copyWith(
+                          color: AppColors.textSecondary,
                         ),
                       ),
-                    ],
-                  ),
-                ],
-              ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -487,7 +517,7 @@ class _FeedFallbackBackground extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
-      borderRadius: BorderRadius.only(
+      borderRadius: const BorderRadius.only(
         topLeft: Radius.circular(24),
         topRight: Radius.circular(24),
       ),
@@ -499,7 +529,7 @@ class _FeedFallbackBackground extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             SvgPicture.asset('assets/svg/empty_image.svg'),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             Text('사진이 없어요', style: AppTextStyle.labelSmallStyle),
           ],
         ),
