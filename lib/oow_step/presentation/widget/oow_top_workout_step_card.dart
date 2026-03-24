@@ -20,7 +20,7 @@ class OowTopWorkoutStepPage extends ConsumerWidget {
         : items.map((e) => e.count).reduce((a, b) => a > b ? a : b);
 
     return OowStepShell(
-      step: 4,
+      step: 5,
       title: '가장 많이 한 운동',
       subTitle: '이번 주에 어떤 운동을 가장 자주 했는지 보여줘요',
       child: items.isEmpty

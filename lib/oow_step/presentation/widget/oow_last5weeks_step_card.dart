@@ -25,7 +25,7 @@ class OowLast5WeeksStepPage extends ConsumerWidget {
     final targetRatio = targetDays / scaleMax;
 
     return OowStepShell(
-      step: 3,
+      step: 4,
       title: '최근 5주 기록',
       subTitle: '최근 5주 동안 얼마나 꾸준히 운동했는지 확인해보세요',
       child: Column(

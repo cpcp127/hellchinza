@@ -22,7 +22,7 @@ class OowGoalStepPage extends ConsumerWidget {
     final state = ref.watch(oowStepControllerProvider(uid));
 
     return OowStepShell(
-      step: 1,
+      step: 2,
       title: '이번 주 목표',
       subTitle: '이번 주 운동 목표와 달성률을 확인해보세요',
       child: Center(

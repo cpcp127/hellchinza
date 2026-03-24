@@ -29,7 +29,7 @@ class OowDayFeedStepPage extends ConsumerWidget {
     );
 
     return OowStepShell(
-      step: 2,
+      step: 3,
       title: '날짜별 피드',
       subTitle: '날짜를 눌러 그날 작성한 오운완 피드를 확인해보세요',
       child: Column(
