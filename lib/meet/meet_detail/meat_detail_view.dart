@@ -14,6 +14,7 @@ import '../../../constants/app_text_style.dart';
 import '../../../services/dialog_service.dart';
 import '../../../services/snackbar_service.dart';
 
+import '../../feed/feed_detail/feed_detail_view.dart';
 import '../domain/lightning_model.dart';
 import '../domain/meet_model.dart';
 import '../lightning_create/lightning_create_view.dart';
@@ -851,28 +852,41 @@ class _MeetPhotoFeedSection extends ConsumerWidget {
       itemBuilder: (_, index) {
         final item = items[index];
 
-        return ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: item.imageUrl != null
-              ? CommonNetworkImage(
-                  imageUrl: item.imageUrl!,
-                  fit: BoxFit.cover,
-                  enableViewer: false,
-                )
-              : Container(
-                  color: AppColors.bgSecondary,
-                  padding: const EdgeInsets.all(10),
-                  child: Center(
-                    child: Text(
-                      item.previewText ?? '',
-                      maxLines: 4,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppTextStyle.bodySmallStyle.copyWith(
-                        color: AppColors.textSecondary,
+        return GestureDetector(
+          onTap: (){
+            Navigator.push(
+              context,
+              CupertinoPageRoute(
+                fullscreenDialog: true,
+                builder: (context) {
+                  return FeedDetailView(feedId: item.feedId);
+                },
+              ),
+            );
+          },
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: item.imageUrl != null
+                ? CommonNetworkImage(
+                    imageUrl: item.imageUrl!,
+                    fit: BoxFit.cover,
+                    enableViewer: false,
+                  )
+                : Container(
+                    color: AppColors.bgSecondary,
+                    padding: const EdgeInsets.all(10),
+                    child: Center(
+                      child: Text(
+                        item.previewText ?? '',
+                        maxLines: 4,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTextStyle.bodySmallStyle.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
                       ),
                     ),
                   ),
-                ),
+          ),
         );
       },
     );

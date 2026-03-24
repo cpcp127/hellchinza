@@ -349,7 +349,7 @@ class _FeedImagePagerState extends State<_FeedImagePager> {
   @override
   Widget build(BuildContext context) {
     return AspectRatio(
-      aspectRatio: 1,
+      aspectRatio: 4/5,
       child: Stack(
         children: [
           // 🔹 이미지 PageView

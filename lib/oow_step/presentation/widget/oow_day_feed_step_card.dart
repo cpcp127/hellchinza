@@ -30,52 +30,10 @@ class OowDayFeedStepPage extends ConsumerWidget {
 
     return OowStepShell(
       step: 3,
-      title: '날짜별 피드',
-      subTitle: '날짜를 눌러 그날 작성한 오운완 피드를 확인해보세요',
+      title: '이번주 오운완 피드',
+      subTitle: '날짜를 눌러 이번주 작성한 오운완 피드를 확인해보세요',
       child: Column(
         children: [
-          SizedBox(
-            height: 42,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: state.last5Weeks.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 8),
-              itemBuilder: (context, index) {
-                final item = state.last5Weeks[index];
-                final isSelected = _isSameDate(item.weekStart, state.weekStart);
-
-                return GestureDetector(
-                  onTap: () => controller.selectWeek(item.weekStart),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 220),
-                    curve: Curves.easeOut,
-                    padding: const EdgeInsets.symmetric(horizontal: 14),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? AppColors.btnPrimary
-                          : AppColors.bgSecondary,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                        color: isSelected
-                            ? AppColors.borderPrimary
-                            : AppColors.borderSecondary,
-                      ),
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      _weekRangeText(item.weekStart),
-                      style: AppTextStyle.labelSmallStyle.copyWith(
-                        color: isSelected
-                            ? AppColors.white
-                            : AppColors.textSecondary,
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-          const SizedBox(height: 14),
           SizedBox(
             height: 80,
             child: ListView.separated(
