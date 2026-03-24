@@ -74,74 +74,76 @@ class _FeedCardBody extends StatelessWidget {
         color: AppColors.bgWhite,
         borderRadius: BorderRadius.circular(16),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _AuthorSection(authorUid: feed.authorUid, feed: feed),
-          const SizedBox(height: 8),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                FeedTypePill(mainType: feed.mainType),
-                if (feed.subType != null) ...[
-                  const SizedBox(width: 6),
-                  Text(
-                    feed.subType!,
-                    style: AppTextStyle.labelSmallStyle.copyWith(
-                      color: AppColors.textSecondary,
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _AuthorSection(authorUid: feed.authorUid, feed: feed),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  FeedTypePill(mainType: feed.mainType),
+                  if (feed.subType != null) ...[
+                    const SizedBox(width: 6),
+                    Text(
+                      feed.subType!,
+                      style: AppTextStyle.labelSmallStyle.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
                     ),
-                  ),
+                  ],
                 ],
-              ],
+              ),
             ),
-          ),
-          if (feed.imageUrls?.isNotEmpty == true) ...[
+            if (feed.imageUrls?.isNotEmpty == true) ...[
+              const SizedBox(height: 12),
+              _FeedImagePager(imageUrls: feed.imageUrls!),
+            ],
+            if (feed.contents?.isNotEmpty == true) ...[
+              const SizedBox(height: 12),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                child: Text(feed.contents!, style: AppTextStyle.bodyMediumStyle),
+              ),
+            ],
+            if (feed.poll != null) ...[
+              const SizedBox(height: 12),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                child: PollSection(poll: feed.poll!, feedId: feed.id),
+              ),
+            ],
+            if (feed.place != null) ...[
+              const SizedBox(height: 12),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: CommonPlaceWidget(
+                  title: feed.place!.title,
+                  address: feed.place!.address,
+                  lat: feed.place!.lat,
+                  lng: feed.place!.lng,
+                ),
+              ),
+            ],
             const SizedBox(height: 12),
-            _FeedImagePager(imageUrls: feed.imageUrls!),
-          ],
-          if (feed.contents?.isNotEmpty == true) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Text(
+                '${DateTimeUtil.formatRelative(feed.createdAt)}',
+                style: AppTextStyle.labelSmallStyle.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ),
             const SizedBox(height: 12),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 14),
-              child: Text(feed.contents!, style: AppTextStyle.bodyMediumStyle),
+              child: _FeedActionRow(feed: feed),
             ),
           ],
-          if (feed.poll != null) ...[
-            const SizedBox(height: 12),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              child: PollSection(poll: feed.poll!, feedId: feed.id),
-            ),
-          ],
-          if (feed.place != null) ...[
-            const SizedBox(height: 12),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: CommonPlaceWidget(
-                title: feed.place!.title,
-                address: feed.place!.address,
-                lat: feed.place!.lat,
-                lng: feed.place!.lng,
-              ),
-            ),
-          ],
-          const SizedBox(height: 12),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Text(
-              '${DateTimeUtil.formatRelative(feed.createdAt)}',
-              style: AppTextStyle.labelSmallStyle.copyWith(
-                color: AppColors.textSecondary,
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            child: _FeedActionRow(feed: feed),
-          ),
-        ],
+        ),
       ),
     );
   }
