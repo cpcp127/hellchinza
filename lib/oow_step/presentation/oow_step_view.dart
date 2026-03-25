@@ -14,9 +14,10 @@ import '../providers/oow_provider.dart';
 import 'oow_step_controller.dart';
 
 class OowStepView extends ConsumerStatefulWidget {
-  const OowStepView({super.key, required this.uid});
+  const OowStepView({super.key, required this.uid, required this.isHome});
 
   final String uid;
+  final bool isHome;
 
   @override
   ConsumerState<OowStepView> createState() => _OowStepViewState();
@@ -53,9 +54,7 @@ class _OowStepViewState extends ConsumerState<OowStepView> {
     });
     return Scaffold(
       backgroundColor: AppColors.bgSecondary,
-      appBar: widget.uid == FirebaseAuth.instance.currentUser!.uid
-          ? null
-          : AppBar(title: Text('오운완')),
+      appBar: widget.isHome == true ? null : AppBar(title: Text('오운완')),
       body: RefreshIndicator(
         onRefresh: controller.refresh,
         child: Column(

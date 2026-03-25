@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -29,7 +30,8 @@ class OowTodayCertStepPage extends ConsumerWidget {
     final todayFeeds = state.weekMap[_dateKey(today)] ?? const [];
     final hasTodayFeed = todayFeeds.isNotEmpty;
     final latestFeed = hasTodayFeed ? todayFeeds.first : null;
-
+    final myUid = FirebaseAuth.instance.currentUser?.uid;
+    final isMine = myUid == uid;
     return OowStepShell(
       step: 1,
       title: '오늘 오운완 인증',
@@ -43,8 +45,8 @@ class OowTodayCertStepPage extends ConsumerWidget {
           key: const ValueKey('completed'),
           item: latestFeed!,
         )
-            : const _EmptyTodayCertification(
-          key: ValueKey('empty'),
+            :  _EmptyTodayCertification(
+          key: ValueKey('empty'),isMine: isMine,
         ),
       ),
     );
@@ -106,7 +108,12 @@ class _CompletedTodayCertification extends StatelessWidget {
 }
 
 class _EmptyTodayCertification extends StatelessWidget {
-  const _EmptyTodayCertification({super.key});
+  const _EmptyTodayCertification({
+    super.key,
+    required this.isMine,
+  });
+
+  final bool isMine;
 
   @override
   Widget build(BuildContext context) {
@@ -133,50 +140,54 @@ class _EmptyTodayCertification extends StatelessWidget {
             ),
             const SizedBox(height: 20),
             Text(
-              '아직 오늘의 운동 인증이 없어요',
+              isMine ? '아직 오늘의 운동 인증이 없어요' : '오늘은 아직 운동 인증이 없어요',
               style: AppTextStyle.titleMediumBoldStyle,
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
             Text(
-              '운동을 마쳤다면 오운완을 인증해보세요',
+              isMine
+                  ? '운동을 마쳤다면 오운완을 인증해보세요'
+                  : '조금 뒤 다시 확인해보세요',
               style: AppTextStyle.bodyMediumStyle.copyWith(
                 color: AppColors.textSecondary,
               ),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              height: 54,
-              child: ElevatedButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    CupertinoPageRoute(
-                      fullscreenDialog: true,
-                      builder: (_) => const CreateFeedView(
-                        isOowEntry: true,
+            if (isMine) ...[
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                height: 54,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      CupertinoPageRoute(
+                        fullscreenDialog: true,
+                        builder: (_) => const CreateFeedView(
+                          isOowEntry: true,
+                        ),
                       ),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.btnPrimary,
+                    foregroundColor: AppColors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(18),
                     ),
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.btnPrimary,
-                  foregroundColor: AppColors.white,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(18),
                   ),
-                ),
-                child: Text(
-                  '오운완 인증하기',
-                  style: AppTextStyle.titleSmallBoldStyle.copyWith(
-                    color: AppColors.white,
+                  child: Text(
+                    '오운완 인증하기',
+                    style: AppTextStyle.titleSmallBoldStyle.copyWith(
+                      color: AppColors.white,
+                    ),
                   ),
                 ),
               ),
-            ),
+            ],
           ],
         ),
       ),

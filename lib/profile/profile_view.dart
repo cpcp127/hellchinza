@@ -719,7 +719,7 @@ class _WorkoutGoalButton extends StatelessWidget {
       onTap: () {
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => OowStepView(uid: uid)),
+          MaterialPageRoute(builder: (_) => OowStepView(uid: uid,isHome: false,)),
         );
       },
       child: Container(

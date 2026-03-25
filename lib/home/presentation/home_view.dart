@@ -258,7 +258,7 @@ class HomeView extends ConsumerWidget {
               children: [
                 currentUid == null
                     ? const SizedBox()
-                    : OowStepView(uid: currentUid),
+                    : OowStepView(uid: currentUid,isHome: true,),
                 const FeedListView(),
                 const MeetHomeView(),
                 currentUid == null
