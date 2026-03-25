@@ -2,7 +2,6 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../common/common_banner_ad.dart';
 import '../../../common/common_feed_card.dart';
 import '../../../constants/app_colors.dart';
 import '../../../constants/app_text_style.dart';

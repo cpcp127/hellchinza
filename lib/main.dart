@@ -9,7 +9,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:hellchinza/auth/presentation/auth_view.dart';
 import 'package:hellchinza/services/shared_prefs_service.dart';
@@ -38,7 +37,6 @@ Future<void> main() async {
       await Firebase.initializeApp(
         options: DefaultFirebaseOptions.currentPlatform,
       );
-      await MobileAds.instance.initialize();
       await GoogleSignIn.instance.initialize();
 
       SystemChrome.setSystemUIOverlayStyle(
