@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -392,7 +394,7 @@ class _MeetCreateStepperViewState extends ConsumerState<MeetCreateStepperView> {
       return ClipRRect(
         borderRadius: BorderRadius.circular(20),
         child: Image.file(
-          state.thumbnail!.path as dynamic,
+          File(state.thumbnail!.path) ,
           fit: BoxFit.cover,
           width: double.infinity,
           height: double.infinity,
