@@ -249,7 +249,7 @@ class _AuthorSection extends ConsumerWidget {
                         if (feed.meetId == null) {
                           ref
                               .read(feedListControllerProvider.notifier)
-                              .refresh();
+                              .resetAndFetch();
                         } else {
                           ref.invalidate(
                             meetPhotoFeedSectionProvider(feed.meetId!),
@@ -282,7 +282,7 @@ class _AuthorSection extends ConsumerWidget {
                         if (feed.meetId == null) {
                           ref
                               .read(feedListControllerProvider.notifier)
-                              .refresh();
+                              .resetAndFetch();
                         } else {
                           ref.invalidate(
                             meetPhotoFeedSectionProvider(feed.meetId!),

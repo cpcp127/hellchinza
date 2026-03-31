@@ -19,23 +19,21 @@ class FeedListView extends ConsumerStatefulWidget {
 
 class _FeedListViewState extends ConsumerState<FeedListView> {
   final ScrollController _feedScrollCtrl = ScrollController();
-  String? _feedQueryKey;
 
   @override
   void initState() {
     super.initState();
 
+    // 화면이 처음 생성될 때 딱 1번만 초기 데이터를 불러옵니다.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(feedListControllerProvider.notifier).resetAndFetch();
+    });
+
     _feedScrollCtrl.addListener(() {
       if (_feedScrollCtrl.position.pixels >=
           _feedScrollCtrl.position.maxScrollExtent - 300) {
-        final blockedUids =
-            ref.read(myBlockedUidsProvider).value ?? const <String>[];
-        final friendUids =
-            ref.read(myFriendUidsProvider).value ?? const <String>[];
-
-        ref
-            .read(feedListControllerProvider.notifier)
-            .fetchNextPage(blockedUids: blockedUids, friendUids: friendUids);
+        // 파라미터 전달 없이 컨트롤러에게 다음 페이지 요청만 던집니다.
+        ref.read(feedListControllerProvider.notifier).fetchNextPage();
       }
     });
   }
@@ -50,6 +48,8 @@ class _FeedListViewState extends ConsumerState<FeedListView> {
   Widget build(BuildContext context) {
     final state = ref.watch(feedListControllerProvider);
     final controller = ref.read(feedListControllerProvider.notifier);
+
+    // 🔥 [추가된 부분 1] Provider를 watch하여 메모리에서 날아가지 않게(AutoDispose) 생명줄을 잡아둡니다.
     final blockedUidsAsync = ref.watch(myBlockedUidsProvider);
     final friendUidsAsync = ref.watch(myFriendUidsProvider);
 
@@ -63,94 +63,60 @@ class _FeedListViewState extends ConsumerState<FeedListView> {
           ),
           const SizedBox(height: 8),
           Expanded(
-            child: blockedUidsAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (_, __) => const Center(child: Text('차단 목록을 불러오지 못했어요')),
-              data: (blockedUids) {
-                return friendUidsAsync.when(
-                  loading: () =>
-                      const Center(child: CircularProgressIndicator()),
-                  error: (_, __) =>
-                      const Center(child: Text('친구 목록을 불러오지 못했어요')),
-                  data: (friendUids) {
-                    final newKey = controller.makeQueryKey(
-                      blockedUids: blockedUids,
-                      friendUids: friendUids,
-                    );
-
-                    if (_feedQueryKey != newKey) {
-                      _feedQueryKey = newKey;
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        ref
-                            .read(feedListControllerProvider.notifier)
-                            .resetAndFetch(
-                              blockedUids: blockedUids,
-                              friendUids: friendUids,
-                            );
-                      });
-                    }
-
-                    return RefreshIndicator(
-                      color: AppColors.sky400,
-                      backgroundColor: AppColors.bgWhite,
-                      onRefresh: () async {
-                        controller.refresh();
-                        await controller.resetAndFetch(
-                          blockedUids: blockedUids,
-                          friendUids: friendUids,
-                        );
-                        await Future.delayed(const Duration(milliseconds: 250));
-                      },
-                      child: state.isLoading
-                          ? const Center(child: CircularProgressIndicator())
-                          : state.items.isEmpty
-                          ? EmptyList(
-                              icon: Icons.feed_outlined,
-                              btnTitle: '피드 작성하기',
-                              title: '아직 피드가 없어요',
-                              subTitle: '피드로 첫 운동기록을 작성해볼까요?',
-                              onTapCreate: () {
-                                Navigator.push(
-                                  context,
-                                  CupertinoPageRoute(
-                                    fullscreenDialog: true,
-                                    builder: (_) => const CreateFeedView(),
-                                  ),
-                                );
-                              },
-                            )
-                          : ListView.separated(
-                              controller: _feedScrollCtrl,
-                              physics: const AlwaysScrollableScrollPhysics(),
-                              itemCount: state.items.length + 1,
-                              separatorBuilder: (_, __) =>
-                                  const SizedBox(height: 12),
-                              itemBuilder: (context, index) {
-                                if (index < state.items.length) {
-                                  final feed = state.items[index];
-                                  return FeedCard(feedId: feed.id);
-                                }
-
-                                if (state.isLoadingMore) {
-                                  return const Padding(
-                                    padding: EdgeInsets.all(16),
-                                    child: Center(
-                                      child: CircularProgressIndicator(),
-                                    ),
-                                  );
-                                }
-
-                                return const SizedBox(height: 6);
-                              },
-                            ),
-                    );
-                  },
-                );
+            // 🔥 [추가된 부분 2] 차단/친구 목록이 로딩 중일 때는 컨트롤러가 터지지 않게 뷰에서 미리 로딩을 돌려줍니다.
+            child: (blockedUidsAsync.isLoading || friendUidsAsync.isLoading)
+                ? const Center(child: CircularProgressIndicator())
+                : RefreshIndicator(
+              color: AppColors.sky400,
+              backgroundColor: AppColors.bgWhite,
+              onRefresh: () async {
+                await controller.resetAndFetch();
+                await Future.delayed(const Duration(milliseconds: 250));
               },
+              child: state.isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : state.items.isEmpty
+                  ? EmptyList(
+                icon: Icons.feed_outlined,
+                btnTitle: '피드 작성하기',
+                title: '아직 피드가 없어요',
+                subTitle: '피드로 첫 운동기록을 작성해볼까요?',
+                onTapCreate: () {
+                  Navigator.push(
+                    context,
+                    CupertinoPageRoute(
+                      fullscreenDialog: true,
+                      builder: (_) => const CreateFeedView(),
+                    ),
+                  );
+                },
+              )
+                  : ListView.separated(
+                controller: _feedScrollCtrl,
+                physics: const AlwaysScrollableScrollPhysics(),
+                itemCount: state.items.length + 1,
+                separatorBuilder: (_, __) =>
+                const SizedBox(height: 12),
+                itemBuilder: (context, index) {
+                  if (index < state.items.length) {
+                    final feed = state.items[index];
+                    return FeedCard(feedId: feed.id);
+                  }
+
+                  if (state.isLoadingMore) {
+                    return const Padding(
+                      padding: EdgeInsets.all(16),
+                      child: Center(
+                        child: CircularProgressIndicator(),
+                      ),
+                    );
+                  }
+
+                  return const SizedBox(height: 6);
+                },
+              ),
             ),
           ),
-          // google admob 나중에
-          // const CommonBannerAd(),
         ],
       ),
     );
@@ -167,6 +133,7 @@ class _FeedListViewState extends ConsumerState<FeedListView> {
     ].join(' · ');
 
     return InkWell(
+      // (기존 필터 버튼 UI 코드와 완전히 동일합니다)
       borderRadius: BorderRadius.circular(16),
       onTap: () async {
         await showGeneralDialog(
@@ -181,6 +148,7 @@ class _FeedListViewState extends ConsumerState<FeedListView> {
               initialSubType: state.selectSubType,
               initialOnlyFriends: state.onlyFriendFeeds,
               onApply: (main, sub, onlyFriends) {
+                // 필터 적용 로직만 호출합니다. (초기화는 컨트롤러 내부에서 처리)
                 controller.applyFilters(
                   mainType: main,
                   subType: sub,
@@ -194,7 +162,6 @@ class _FeedListViewState extends ConsumerState<FeedListView> {
               parent: animation,
               curve: Curves.easeOutCubic,
             );
-
             return FadeTransition(opacity: curved, child: child);
           },
         );
