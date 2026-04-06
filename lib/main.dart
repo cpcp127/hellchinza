@@ -24,19 +24,32 @@ import 'constants/app_text_style.dart';
 import 'firebase_options.dart';
 import 'home/presentation/home_view.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-
+import 'firebase_options.dart' as prod;
+import 'firebase_options_dev.dart' as dev;
 final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
 
 Future<void> main() async {
   runZonedGuarded<Future<void>>(
         () async {
       WidgetsFlutterBinding.ensureInitialized();
+      WidgetsFlutterBinding.ensureInitialized();
+
+      // 1. 현재 Flavor 확인
+      final String? flavor = appFlavor;
+      print('🚀 Running with Flavor: $flavor');
 
       await dotenv.load();
       await SharedPrefService().init();
+
+      // 2. Flavor에 따른 Firebase 초기화 분기
       await Firebase.initializeApp(
-        options: DefaultFirebaseOptions.currentPlatform,
+        options: flavor == 'dev'
+            ? dev.DefaultFirebaseOptions.currentPlatform
+            : prod.DefaultFirebaseOptions.currentPlatform,
       );
+      await dotenv.load();
+      await SharedPrefService().init();
+
       await GoogleSignIn.instance.initialize();
 
       SystemChrome.setSystemUIOverlayStyle(
@@ -46,10 +59,12 @@ Future<void> main() async {
           statusBarBrightness: Brightness.light,
         ),
       );
+      if(flavor=='prod'){
+        KakaoSdk.init(
+          nativeAppKey: dotenv.env['KAKAO_NATIVE_APP_KEY'] ?? '',
+        );
+      }
 
-      KakaoSdk.init(
-        nativeAppKey: dotenv.env['KAKAO_NATIVE_APP_KEY'] ?? '',
-      );
 
       await FirebaseCrashlytics.instance
           .setCrashlyticsCollectionEnabled(true);

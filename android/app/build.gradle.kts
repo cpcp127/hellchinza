@@ -5,6 +5,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 plugins {
     id("com.android.application")
     id("com.google.gms.google-services")
+    id("com.google.firebase.crashlytics")
     id("kotlin-android")
     id("dev.flutter.flutter-gradle-plugin")
 }
@@ -49,6 +50,22 @@ android {
             storePassword = keystoreProperties.getProperty("storePassword")
         }
     }
+
+    // --- 여기부터 추가하세요 ---
+    flavorDimensions += "app"
+
+    productFlavors {
+        create("dev") {
+            dimension = "app"
+            applicationIdSuffix = ".dev"
+            resValue("string", "app_name", "가보자운동DEV")
+        }
+        create("prod") {
+            dimension = "app"
+            resValue("string", "app_name", "가보자운동")
+        }
+    }
+    // --- 여기까지 추가하세요 ---
 
     buildTypes {
         release {

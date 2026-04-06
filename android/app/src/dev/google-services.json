@@ -1,0 +1,79 @@
+{
+  "project_info": {
+    "project_number": "493586243299",
+    "firebase_url": "https://variouslogin-ef5b6.firebaseio.com",
+    "project_id": "variouslogin-ef5b6",
+    "storage_bucket": "variouslogin-ef5b6.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:493586243299:android:0d074e398fcac162ff6fd6",
+        "android_client_info": {
+          "package_name": "com.cjy.hellchinza.dev"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "493586243299-ffloae23gvchocgej30mgp4q5dgcehsj.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.cjy.hellchinza.dev",
+            "certificate_hash": "27eb0c5767f215c8e26b38db6c1aededd66ebce7"
+          }
+        },
+        {
+          "client_id": "493586243299-p62nsvmh1blfdnn95ksvfkq5lsl0b96s.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.cjy.hellchinza.dev",
+            "certificate_hash": "a329fdaab60719e5b8fa1d3ef321e4eccb308ca7"
+          }
+        },
+        {
+          "client_id": "493586243299-r8ko7mjjr75svr7tsg9aco412a8niu1e.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.cjy.hellchinza.dev",
+            "certificate_hash": "9423ee2a50e068e283bfbcafbce4ec801d47f812"
+          }
+        },
+        {
+          "client_id": "493586243299-rt03mn4e8os9kljbm8tqcl9e1kss2gfg.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.cjy.hellchinza.dev",
+            "certificate_hash": "0f400630040d84d867009c922c7e169a8fcd6e9a"
+          }
+        },
+        {
+          "client_id": "493586243299-jg7af930cgr6sl9uq2k73i6s3b0va3kb.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCinhfbxeJDFZ7QscJrxR0TeHv0JAWzdXM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "493586243299-jg7af930cgr6sl9uq2k73i6s3b0va3kb.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "493586243299-gomaahvhmmu4j68a34srvvqen16iisav.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.cjy.hellchinza.dev"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
