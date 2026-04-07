@@ -23,9 +23,7 @@ class CreateFeedController extends StateNotifier<CreateFeedState> {
 
   void onChangeMainType(String type) {
     state = state.copyWith(selectMainType: type);
-    if (type != '후기') {
-      state = state.copyWith(clearPlace: true);
-    }
+
   }
 
   void onChangeSubType(String type) {
