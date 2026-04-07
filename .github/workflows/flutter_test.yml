@@ -36,6 +36,10 @@ jobs:
       - name: 📦 패키지 설치 (pub get)
         run: flutter pub get
 
+      # 🔥 [핵심 추가] 금고에 숨겨둔 값으로 가상 컴퓨터 안에 .env 파일을 즉석 생성합니다!
+      - name: 🔐 .env 파일 동적 생성
+        run: echo "${{ secrets.ENV_FILE_CONTENT }}" > .env
+
       # 7. 🔥 하이라이트: 우리가 지금까지 열심히 짠 테스트를 실행합니다!
       - name: 🧪 테스트 코드 실행
         run: flutter test
