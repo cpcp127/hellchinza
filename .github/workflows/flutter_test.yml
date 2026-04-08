@@ -52,7 +52,25 @@ jobs:
 
       - name: 🧪 테스트 코드 실행 (CI)
         run: flutter test
-
+      # 🔥 [핵심 추가] 빌드 직전에 Keystore와 key.properties를 동적으로 복원합니다.
+      - name: 🔐 안드로이드 서명 키 복원
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+        run: |
+          # 1. Base64 텍스트를 다시 .jks 파일로 복원해서 android/app/ 폴더 안에 넣습니다.
+          # (파일 이름이 다르면 본인의 설정에 맞게 변경하세요)
+          echo $KEYSTORE_BASE64 | base64 --decode > android/app/release-key.jks
+          
+          # 2. android/ 폴더 안에 key.properties 파일을 즉석에서 생성합니다.
+          cat <<EOF > android/key.properties
+          storePassword=$STORE_PASSWORD
+          keyPassword=$KEY_PASSWORD
+          keyAlias=$KEY_ALIAS
+          storeFile=release-key.jks
+          EOF
       # 빌드 시 --target 없이 --flavor만 지정합니다. (main.dart 단일 사용)
       - name: 📱 AOS APK 빌드
         run: flutter build apk --release --flavor ${{ env.FLAVOR }}
