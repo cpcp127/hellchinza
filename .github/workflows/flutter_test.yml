@@ -81,7 +81,7 @@ jobs:
         with:
           appId: ${{ env.APP_ID }}
           serviceCredentialsFile: firebase_credentials.json
-          groups: testers
+          groups: tester
           file: build/app/outputs/flutter-apk/app-${{ env.FLAVOR }}-release.apk
 
   # ==========================================
