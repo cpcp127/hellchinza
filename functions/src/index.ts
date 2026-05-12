@@ -1240,6 +1240,8 @@ export const sendChatMessageNotification = functions.firestore
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     };
 
+   const unreadIncrementedUids: string[] = [];
+
    for (const targetUid of receiverUids) {
      const activeAt = activeAtMap[targetUid];
 
@@ -1253,10 +1255,22 @@ export const sendChatMessageNotification = functions.firestore
      if (!isActiveRecently) {
        roomUpdates[`unreadCountMap.${targetUid}`] =
          admin.firestore.FieldValue.increment(1);
+       unreadIncrementedUids.push(targetUid);
      }
    }
 
     await roomRef.update(roomUpdates);
+
+    // users/{uid}.totalUnreadCount 동기화 (한 번의 배치 write)
+    if (unreadIncrementedUids.length > 0) {
+      const userBatch = db.batch();
+      for (const targetUid of unreadIncrementedUids) {
+        userBatch.update(db.collection("users").doc(targetUid), {
+          totalUnreadCount: admin.firestore.FieldValue.increment(1),
+        });
+      }
+      await userBatch.commit();
+    }
 
     // 2) 수신자 users 문서를 한 번에(10개씩) 읽어서 맵으로 만듦
     const targetUserMap: Record<string, FirebaseFirestore.DocumentData> = {};
@@ -1675,6 +1689,22 @@ export const sendMeetRequestRejectedNotification = functions
         "거절 알림 전송에 실패했어요.",
       );
     }
+  });
+
+export const onFeedDeleted = functions
+  .region("asia-northeast3")
+  .firestore
+  .document("feeds/{feedId}")
+  .onDelete(async (snap, context) => {
+    const feedId = context.params.feedId;
+    const data = snap.data() ?? {};
+    const imageUrls = asStringArray(data.imageUrls);
+
+    await Promise.all([
+      safeDeleteStorageFiles(imageUrls),
+      deleteSubcollectionByPath(`feeds/${feedId}/comments`),
+      deleteSubcollectionByPath(`feeds/${feedId}/likes`),
+    ]);
   });
 
 export const onFeedCreatedGiveScore = functions

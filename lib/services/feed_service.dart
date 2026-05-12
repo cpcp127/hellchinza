@@ -1,6 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -71,31 +70,9 @@ class FeedService {
   }
 
   Future<void> deleteFeed({required String feedId}) async {
-    final firestore = FirebaseFirestore.instance
-        .collection('feeds')
-        .doc(feedId);
-    final storage = FirebaseStorage.instance;
-
-    // 1️⃣ Storage: feeds/{feedId}/ 아래 모든 파일 삭제
-    final feedFolderRef = storage.ref('feeds/$feedId/images');
-
-    try {
-      final ListResult result = await feedFolderRef.listAll();
-
-      for (final Reference ref in result.items) {
-        try {
-          await ref.delete();
-        } catch (e) {
-          debugPrint('Failed to delete file: ${ref.fullPath}');
-        }
-      }
-    } catch (e) {
-      // 폴더 자체가 없는 경우도 정상
-      debugPrint('No storage files for feed: $feedId');
-    }
-
-    // 2️⃣ Firestore 문서 삭제
-    await firestore.delete();
+    // Storage 파일, comments, likes 서브컬렉션 정리는
+    // onFeedDeleted Cloud Function이 onDelete 트리거로 처리
+    await FirebaseFirestore.instance.collection('feeds').doc(feedId).delete();
   }
 
   Future<void> openNaverMapPlace({
@@ -142,14 +119,11 @@ class FeedService {
   Future<void> addComment({
     required String feedId,
     required String content,
+    required String authorNickname,
+    String? authorPhotoUrl,
   }) async {
     final user = FirebaseAuth.instance.currentUser!;
     final firestore = FirebaseFirestore.instance;
-
-    // 사용자 정보 (이미 provider로 들고 있다면 그걸 써도 됨)
-    final userSnap =
-    await firestore.collection('users').doc(user.uid).get();
-    final userData = userSnap.data() ?? {};
 
     final commentRef = firestore
         .collection('feeds')
@@ -160,14 +134,12 @@ class FeedService {
     await commentRef.set({
       'id': commentRef.id,
       'feedId': feedId,
-
       'authorUid': user.uid,
-      'authorNickname': userData['nickname'] ?? '',
-      'authorPhotoUrl': userData['photoUrl'],
-
+      'authorNickname': authorNickname,
+      'authorPhotoUrl': authorPhotoUrl,
       'content': content,
       'createdAt': FieldValue.serverTimestamp(),
-      'refreshToken': DateTime.now().millisecondsSinceEpoch, // 🔥
+      'refreshToken': DateTime.now().millisecondsSinceEpoch,
     });
   }
 

@@ -1,6 +1,5 @@
-import 'dart:io';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
@@ -150,6 +149,22 @@ class FeedRepo {
     final blockedSet = blockedUids.toSet();
     final friendSet = friendUids.toSet();
 
+    // 친구 피드 최적화: whereIn으로 서버에서 직접 필터링
+    // (Firestore whereIn 한계 30개 → 친구 수 < 30일 때만 적용)
+    if (onlyFriendFeeds && friendUids.length < 30) {
+      final queryUids = [...friendUids];
+      if (!queryUids.contains(myUid)) queryUids.add(myUid);
+      return _fetchFeedsByUids(
+        uids: queryUids,
+        mainType: mainType,
+        subType: subType,
+        blockedSet: blockedSet,
+        pageSize: pageSize,
+        startAfter: startAfter,
+      );
+    }
+
+    // 공개 피드 또는 친구 수 ≥ 30명: 기존 방식
     final visibleItems = <FeedModel>[];
     DocumentSnapshot<Map<String, dynamic>>? cursor = startAfter;
     bool hasMore = true;
@@ -189,7 +204,9 @@ class FeedRepo {
 
         try {
           visibleItems.add(FeedModel.fromJson(data));
-        } catch (_) {}
+        } catch (e) {
+          debugPrint('FeedModel.fromJson error: $e');
+        }
         if (visibleItems.length >= pageSize) break;
       }
 
@@ -202,6 +219,57 @@ class FeedRepo {
       items: visibleItems,
       lastDoc: cursor,
       hasMore: hasMore,
+    );
+  }
+
+  Future<FeedPageResult> _fetchFeedsByUids({
+    required List<String> uids,
+    required String mainType,
+    required String subType,
+    required Set<String> blockedSet,
+    required int pageSize,
+    DocumentSnapshot<Map<String, dynamic>>? startAfter,
+  }) async {
+    if (uids.isEmpty) {
+      return const FeedPageResult(items: [], lastDoc: null, hasMore: false);
+    }
+
+    Query<Map<String, dynamic>> query = _db
+        .collection('feeds')
+        .where('authorUid', whereIn: uids)
+        .where('meetId', isNull: true);
+
+    if (mainType != '전체') {
+      query = query.where('mainType', isEqualTo: mainType);
+    }
+    if (mainType != '식단' && subType != '전체') {
+      query = query.where('subType', isEqualTo: subType);
+    }
+
+    query = query.orderBy('createdAt', descending: true).limit(pageSize);
+
+    if (startAfter != null) {
+      query = query.startAfterDocument(startAfter);
+    }
+
+    final snap = await query.get();
+    final docs = snap.docs;
+
+    final items = <FeedModel>[];
+    for (final d in docs) {
+      final data = d.data();
+      if (blockedSet.contains((data['authorUid'] ?? '').toString())) continue;
+      try {
+        items.add(FeedModel.fromJson(data));
+      } catch (e) {
+        debugPrint('FeedModel.fromJson error: $e');
+      }
+    }
+
+    return FeedPageResult(
+      items: items,
+      lastDoc: docs.isNotEmpty ? docs.last : null,
+      hasMore: docs.length == pageSize,
     );
   }
 

@@ -44,17 +44,11 @@ class ChatRepo {
     final uid = currentUid;
     if (uid == null) return Stream.value(0);
 
-    final q = _db.collection('chatRooms').where('userUids', arrayContains: uid);
-
-    return q.snapshots().map((snap) {
-      var total = 0;
-      for (final doc in snap.docs) {
-        final data = doc.data();
-        final map = Map<String, dynamic>.from(data['unreadCountMap'] ?? {});
-        final value = map[uid];
-        total += value is num ? value.toInt() : 0;
-      }
-      return total;
+    return _db.collection('users').doc(uid).snapshots().map((snap) {
+      final data = snap.data() ?? {};
+      final value = data['totalUnreadCount'];
+      final count = value is num ? value.toInt() : 0;
+      return count < 0 ? 0 : count;
     });
   }
 
@@ -102,12 +96,28 @@ class ChatRepo {
 
   Future<void> enterRoom(String roomId) async {
     final uid = currentUidOrThrow;
+    final roomRef = _db.collection('chatRooms').doc(roomId);
+    final userRef = _db.collection('users').doc(uid);
 
-    await _db.collection('chatRooms').doc(roomId).set({
-      'unreadCountMap': {uid: 0},
-      'activeAtMap': {uid: FieldValue.serverTimestamp()},
-      'updatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    await _db.runTransaction((tx) async {
+      final roomSnap = await tx.get(roomRef);
+      final data = roomSnap.data() ?? {};
+      final unreadMap = Map<String, dynamic>.from(data['unreadCountMap'] ?? {});
+      final rawCount = unreadMap[uid];
+      final count = rawCount is num ? rawCount.toInt() : 0;
+
+      tx.set(roomRef, {
+        'unreadCountMap': {uid: 0},
+        'activeAtMap': {uid: FieldValue.serverTimestamp()},
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      if (count > 0) {
+        tx.update(userRef, {
+          'totalUnreadCount': FieldValue.increment(-count),
+        });
+      }
+    });
   }
 
   Future<void> heartbeat(String roomId) async {
@@ -400,6 +410,9 @@ class ChatRepo {
         'createdAt': FieldValue.serverTimestamp(),
       });
 
+      final rawUnreads = unreadCountMap[myUid];
+      final unreads = rawUnreads is num ? rawUnreads.toInt() : 0;
+
       if (type == 'dm') {
         final newVisibleUids = [...visibleUids]..remove(myUid);
 
@@ -443,6 +456,12 @@ class ChatRepo {
       }
 
       tx.update(roomRef, updates);
+
+      if (unreads > 0) {
+        tx.update(_db.collection('users').doc(myUid), {
+          'totalUnreadCount': FieldValue.increment(-unreads),
+        });
+      }
     });
   }
 
@@ -491,6 +510,9 @@ class ChatRepo {
 
       tx.delete(memberRef);
 
+      final rawUnreads = unreadCountMap[uid];
+      final unreads = rawUnreads is num ? rawUnreads.toInt() : 0;
+
       final newUserUids = [...userUids]..remove(uid);
       final newVisibleUids = [...visibleUids]..remove(uid);
 
@@ -520,6 +542,12 @@ class ChatRepo {
         'lastMessageAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       });
+
+      if (unreads > 0) {
+        tx.update(userRef, {
+          'totalUnreadCount': FieldValue.increment(-unreads),
+        });
+      }
 
       if (isHost) {
         // host 변경은 아래 후처리에서도 보강하므로 여기서는 생략 가능

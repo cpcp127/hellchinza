@@ -1089,10 +1089,14 @@ class _FeedCommentBottomSheetState
     final text = _controller.text.trim();
     if (text.isEmpty) return;
 
+    final me = ref.read(myUserModelProvider);
+
     try {
       await const FeedService().addComment(
         feedId: widget.feedId,
         content: text,
+        authorNickname: me.nickname,
+        authorPhotoUrl: me.photoUrl,
       );
 
       FocusManager.instance.primaryFocus?.unfocus();
